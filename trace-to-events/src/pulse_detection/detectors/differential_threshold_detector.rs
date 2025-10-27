@@ -17,17 +17,25 @@ impl Display for Data {
 
 impl EventData for Data {}
 
+#[derive(Clone)]
+struct PartialEvent {
+    time_begun: Real,
+    time_of_max: Real,
+    max_derivative: TraceArray<2, Real>,
+}
+
 #[derive(Default, Clone)]
 pub(crate) struct DifferentialThresholdDetector {
     trigger: ThresholdDuration,
-
-    time_of_last_return: Option<Real>,
     /// If provided, the pulse height is the height of the rising edge, scaled by this value,
     /// otherwise, the pulse height is the maximum value of the trace, during the event detection.
     constant_multiple: Option<Real>,
-    time_crossed: Option<Real>,
-    temp_time: Option<Real>,
-    max_derivative: TraceArray<2, Real>,
+
+    time_of_last_return: Option<Real>,
+    partial_event: Option<PartialEvent>,
+    //time_crossed: Option<Real>,
+    //temp_time: Option<Real>,
+    //max_derivative: TraceArray<2, Real>,
 }
 
 impl DifferentialThresholdDetector {
@@ -47,46 +55,39 @@ impl Detector for DifferentialThresholdDetector {
     type EventPointType = (Real, Data);
 
     fn signal(&mut self, time: Real, value: TraceArray<2, Real>) -> Option<ThresholdEvent> {
-        match self.time_crossed {
-            Some(time_crossed) => {
+        match self.partial_event.as_mut() {
+            Some(partial_event) => {
                 // If we are already over the threshold
                 if self.constant_multiple.is_some() {
-                    if self.max_derivative[1] < value[1] {
+                    if partial_event.max_derivative[1] < value[1] {
                         // Set update the max derivative if the current derivative is higher.
-                        self.max_derivative = value;
-                        if self.temp_time.is_some() {
-                            self.temp_time = Some(time);
-                        }
+                        partial_event.max_derivative = value;
+                        partial_event.time_of_max = time;
                     }
                 } else {
-                    self.max_derivative[0] = self.max_derivative[0].max(value[0]);
+                    if partial_event.max_derivative[0] < value[0] {
+                        partial_event.max_derivative = value;
+                        partial_event.time_of_max = time;
+                    }
                 }
 
-                if time - time_crossed == self.trigger.duration as Real {
+                /*if time - partial_event.time_begun == self.trigger.duration as Real {
                     // If the current value is below the threshold
-                    self.temp_time = Some(time_crossed);
-                }
+                    //self.temp_time = Some(time_crossed);
+                }*/
 
                 if value[1] <= 0.0 {
                     // If the current differential is non-positive
-                    self.time_crossed = None;
-                    if time - time_crossed >= self.trigger.duration as Real {
+                    let event = (time - partial_event.time_begun >= self.trigger.duration as Real).then(|| {
                         self.time_of_last_return = Some(time);
-
-                        if let Some(time) = &self.temp_time {
-                            let pulse_height = self
-                                .constant_multiple
-                                .map(|mul| self.max_derivative[0] * mul)
-                                .unwrap_or(self.max_derivative[0]);
-                            let result = (*time, Data { pulse_height });
-                            self.temp_time = None;
-                            Some(result)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
+                        let pulse_height = self
+                            .constant_multiple
+                            .map(|mul| partial_event.max_derivative[0] * mul)
+                            .unwrap_or(partial_event.max_derivative[0]);
+                        (partial_event.time_of_max, Data { pulse_height })
+                    });
+                    self.partial_event = None;
+                    event
                 } else {
                     None
                 }
@@ -99,13 +100,11 @@ impl Detector for DifferentialThresholdDetector {
                     match self.time_of_last_return {
                         Some(time_of_last_return) => {
                             if time - time_of_last_return >= self.trigger.cool_off as Real {
-                                self.max_derivative = value;
-                                self.time_crossed = Some(time);
+                                self.partial_event = Some(PartialEvent { time_begun: time, time_of_max: time, max_derivative: value });
                             }
                         }
                         None => {
-                            self.max_derivative = value;
-                            self.time_crossed = Some(time);
+                            self.partial_event = Some(PartialEvent { time_begun: time, time_of_max: time, max_derivative: value });
                         }
                     }
                 }
@@ -115,14 +114,12 @@ impl Detector for DifferentialThresholdDetector {
     }
 
     fn finish(&mut self) -> Option<Self::EventPointType> {
-        let result = self.temp_time;
-        self.temp_time = None;
-        result.map(|time| {
+        self.partial_event.take().map(|partial_event| {
             let pulse_height = self
                 .constant_multiple
-                .map(|mul| self.max_derivative[0] * mul)
-                .unwrap_or(self.max_derivative[0]);
-            (time, Data { pulse_height })
+                .map(|mul| partial_event.max_derivative[0] * mul)
+                .unwrap_or(partial_event.max_derivative[0]);
+            (partial_event.time_of_max, Data { pulse_height })
         })
     }
 }
