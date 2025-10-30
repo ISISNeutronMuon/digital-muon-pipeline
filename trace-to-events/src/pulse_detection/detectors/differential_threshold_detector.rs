@@ -19,6 +19,7 @@ impl EventData for Data {}
 
 #[derive(Clone)]
 struct PartialEvent {
+    baseline_value: Real,
     time_begun: Real,
     time_of_max: Real,
     max_derivative: TraceArray<2, Real>,
@@ -42,7 +43,7 @@ impl PartialEvent {
 
     fn into_event(self, constant_multiple: Option<Real>) -> (Real, Data) {
         let pulse_height = constant_multiple
-            .map(|mul| self.max_derivative[0] * mul)
+            .map(|mul| (self.max_derivative[0] - self.baseline_value) * mul + self.baseline_value)
             .unwrap_or(self.max_derivative[0]);
         (self.time_of_max, Data { pulse_height })
     }
@@ -57,9 +58,6 @@ pub(crate) struct DifferentialThresholdDetector {
 
     time_of_last_return: Option<Real>,
     partial_event: Option<PartialEvent>,
-    //time_crossed: Option<Real>,
-    //temp_time: Option<Real>,
-    //max_derivative: TraceArray<2, Real>,
 }
 
 impl DifferentialThresholdDetector {
@@ -69,6 +67,15 @@ impl DifferentialThresholdDetector {
             constant_multiple,
             ..Default::default()
         }
+    }
+
+    fn init_new_partial_event(&mut self, time: Real, value: TraceArray<2, Real>) {
+        self.partial_event = Some(PartialEvent {
+            time_begun: time,
+            time_of_max: time,
+            max_derivative: value,
+            baseline_value: value[0] - value[1]
+        });
     }
 }
 
@@ -113,10 +120,10 @@ impl Detector for DifferentialThresholdDetector {
                     // If we have a "time_of_last_return", then test if we have passed the cool-down time.
                     if let Some(time_of_last_return) = self.time_of_last_return {
                         if time - time_of_last_return >= self.trigger.cool_off as Real {
-                            self.partial_event = Some(PartialEvent { time_begun: time, time_of_max: time, max_derivative: value });
+                            self.init_new_partial_event(time,value);
                         }
                     } else {
-                        self.partial_event = Some(PartialEvent { time_begun: time, time_of_max: time, max_derivative: value });
+                        self.init_new_partial_event(time,value);
                     }
                 }
                 None
