@@ -46,6 +46,7 @@ pub(crate) struct DifferentialThresholdDiscriminatorParameters {
 
     /// If set, the pulse height is the value of the rising edge, scaled by this factor,
     /// otherwise the maximum trace value is used for the pulse height.
+    #[clap(long)]
     pub(crate) constant_multiple: Option<Real>,
 }
 
