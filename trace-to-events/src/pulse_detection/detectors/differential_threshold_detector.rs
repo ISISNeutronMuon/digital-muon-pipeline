@@ -25,6 +25,30 @@ struct PartialEvent {
     max_derivative: TraceArray<2, Real>,
 }
 
+impl PartialEvent {
+    fn update_max_derivative(&mut self, time: Real, value: TraceArray<2, Real>) {
+        if self.max_derivative[1] < value[1] {
+            // Set update the max derivative if the current derivative is higher.
+            self.max_derivative = value;
+            self.time_of_max = time;
+        }
+    }
+
+    fn update_max_value(&mut self, time: Real, value: TraceArray<2, Real>) {
+        if self.max_derivative[0] < value[0] {
+            self.max_derivative = value;
+            self.time_of_max = time;
+        }
+    }
+
+    fn into_event(self, constant_multiple: Option<Real>) -> (Real, Data) {
+        let pulse_height = constant_multiple
+            .map(|mul| self.max_derivative[0] * mul)
+            .unwrap_or(self.max_derivative[0]);
+        (self.time_of_max, Data { pulse_height })
+    }
+}
+
 #[derive(Default, Clone)]
 pub(crate) struct DifferentialThresholdDetector {
     trigger: ThresholdDuration,
@@ -58,55 +82,42 @@ impl Detector for DifferentialThresholdDetector {
     fn signal(&mut self, time: Real, value: TraceArray<2, Real>) -> Option<ThresholdEvent> {
         match self.partial_event.as_mut() {
             Some(partial_event) => {
-                // If we are already over the threshold
+                // If we are already over the threshold.
+
+                // Update the max derivative depending on the method used (i.e. `constant multiple` or `max value`).
                 if self.constant_multiple.is_some() {
-                    if partial_event.max_derivative[1] < value[1] {
-                        // Set update the max derivative if the current derivative is higher.
-                        partial_event.max_derivative = value;
-                        partial_event.time_of_max = time;
-                    }
+                    partial_event.update_max_derivative(time, value);
                 } else {
-                    if partial_event.max_derivative[0] < value[0] {
-                        partial_event.max_derivative = value;
-                        partial_event.time_of_max = time;
-                    }
+                    partial_event.update_max_value(time, value);
                 }
 
-                /*if time - partial_event.time_begun == self.trigger.duration as Real {
-                    // If the current value is below the threshold
-                    //self.temp_time = Some(time_crossed);
-                }*/
-
+                // If the current differential is non-positive:
                 if value[1] <= 0.0 {
-                    // If the current differential is non-positive
-                    let event = (time - partial_event.time_begun >= self.trigger.duration as Real).then(|| {
-                        self.time_of_last_return = Some(time);
-                        let pulse_height = self
-                            .constant_multiple
-                            .map(|mul| partial_event.max_derivative[0] * mul)
-                            .unwrap_or(partial_event.max_derivative[0]);
-                        (partial_event.time_of_max, Data { pulse_height })
-                    });
-                    self.partial_event = None;
-                    event
+                    let partial_event = self.partial_event.take();
+                    partial_event.and_then(|partial_event| {
+                        if time - partial_event.time_begun >= self.trigger.duration as Real {
+                            self.time_of_last_return = Some(time);
+                            Some(partial_event.into_event(self.constant_multiple))
+                        } else {
+                            None
+                        }
+                    })
                 } else {
                     None
                 }
             }
             None => {
-                //  If we are under the threshold
+                //  If we are under the threshold.
+
+                // If the current value as over the threshold:
                 if value[1] > self.trigger.threshold {
-                    // If the current value as over the threshold
-                    // If we have a "time_of_last_return", then test if we have passed the cool-down time
-                    match self.time_of_last_return {
-                        Some(time_of_last_return) => {
-                            if time - time_of_last_return >= self.trigger.cool_off as Real {
-                                self.partial_event = Some(PartialEvent { time_begun: time, time_of_max: time, max_derivative: value });
-                            }
-                        }
-                        None => {
+                    // If we have a "time_of_last_return", then test if we have passed the cool-down time.
+                    if let Some(time_of_last_return) = self.time_of_last_return {
+                        if time - time_of_last_return >= self.trigger.cool_off as Real {
                             self.partial_event = Some(PartialEvent { time_begun: time, time_of_max: time, max_derivative: value });
                         }
+                    } else {
+                        self.partial_event = Some(PartialEvent { time_begun: time, time_of_max: time, max_derivative: value });
                     }
                 }
                 None
@@ -116,12 +127,9 @@ impl Detector for DifferentialThresholdDetector {
 
     fn finish(&mut self) -> Option<Self::EventPointType> {
         self.partial_event.take().map(|partial_event| {
-            let pulse_height = self
-                .constant_multiple
-                .map(|mul| partial_event.max_derivative[0] * mul)
-                .unwrap_or(partial_event.max_derivative[0]);
-            (partial_event.time_of_max, Data { pulse_height })
-        })
+            partial_event.into_event(self.constant_multiple)
+        });
+        None
     }
 }
 
