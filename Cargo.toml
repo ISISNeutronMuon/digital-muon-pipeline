@@ -39,6 +39,7 @@ leptos_actix = "0.8.5"
 leptos_reactive = "0.6.15"
 leptos_router = { version = "0.8.4", default-features = false }
 leptos-use = { version = "0.16.3", features = ["use_interval"] }
+libm = "0.2.15"
 metrics = "0.24.2"
 metrics-exporter-prometheus = "0.17.2"
 miette = "7.6.0"

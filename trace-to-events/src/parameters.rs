@@ -31,6 +31,25 @@ pub(crate) struct FixedThresholdDiscriminatorParameters {
 }
 
 #[derive(Default, Debug, Clone, Parser)]
+pub(crate) struct DifferentialThresholdDiscriminatorParameters {
+    /// If the detector is armed, an event is registered when the trace passes this value for the given duration.
+    #[clap(long)]
+    pub(crate) threshold: Real,
+
+    /// The duration, in samples, that the trace must exceed the threshold for.
+    #[clap(long, default_value = "1")]
+    pub(crate) duration: i32,
+
+    /// After an event is registered, the detector disarms for this many samples.
+    #[clap(long, default_value = "0")]
+    pub(crate) cool_off: i32,
+
+    /// If set, the pulse height is the value of the rising edge, scaled by this factor,
+    /// otherwise the maximum trace value is used for the pulse height.
+    pub(crate) constant_multiple: Option<Real>,
+}
+
+#[derive(Default, Debug, Clone, Parser)]
 pub(crate) struct AdvancedMuonDetectorParameters {
     /// Differential threshold for detecting muon onset. See README.md.
     #[clap(long)]
@@ -70,7 +89,7 @@ pub(crate) enum Mode {
     /// Detects events using a fixed threshold discriminator. Event lists consist of time and voltage values.
     FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters),
     /// Detects events using a differential threshold discriminator. Event lists consist of time and voltage values.
-    DifferentialThresholdDiscriminator(FixedThresholdDiscriminatorParameters),
+    DifferentialThresholdDiscriminator(DifferentialThresholdDiscriminatorParameters),
     /// Detects events using differential discriminators. Event lists consist of time and voltage values.
     AdvancedMuonDetector(AdvancedMuonDetectorParameters),
 }

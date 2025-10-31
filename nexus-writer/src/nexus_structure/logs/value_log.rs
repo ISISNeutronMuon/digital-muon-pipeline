@@ -3,15 +3,20 @@
 use super::{AlarmLog, Log, LogSettings};
 use crate::{
     hdf5_handlers::NexusHDF5Result,
-    nexus::{LogMessage, NexusClass, NexusMessageHandler, NexusSchematic},
+    nexus::{LogMessage, NexusClass, NexusGroup, NexusMessageHandler, NexusSchematic},
     run_engine::run_messages::{PushAlarm, PushSampleEnvironmentLog},
 };
 use hdf5::Group;
 
+/// Field names for [ValueLog].
+mod labels {
+    pub(super) const VALUE_LOG: &str = "value_log";
+}
+
 pub(crate) struct ValueLog {
     group: Group,
     alarm: Option<AlarmLog>,
-    log: Option<Log>,
+    log: Option<NexusGroup<Log>>,
 }
 
 impl NexusSchematic for ValueLog {
@@ -33,7 +38,7 @@ impl NexusSchematic for ValueLog {
         Ok(Self {
             group: group.clone(),
             alarm: AlarmLog::populate_group_structure(group).ok(),
-            log: Log::populate_group_structure(group).ok(),
+            log: Log::open_group(group, labels::VALUE_LOG).ok(),
         })
     }
 }
@@ -45,8 +50,9 @@ impl NexusMessageHandler<PushSampleEnvironmentLog<'_>> for ValueLog {
     /// - Propagates errors from [Log::handle_message()].
     fn handle_message(&mut self, message: &PushSampleEnvironmentLog<'_>) -> NexusHDF5Result<()> {
         if self.log.is_none() {
-            self.log = Some(Log::build_group_structure(
+            self.log = Some(Log::build_new_group(
                 &self.group,
+                labels::VALUE_LOG,
                 &LogSettings {
                     type_descriptor: message.get_type_descriptor()?,
                     chunk_size: message.settings.selog,

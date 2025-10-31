@@ -13,6 +13,10 @@ use hdf5::{
 };
 use supermusr_streaming_types::ecs_f144_logdata_generated::{Value, f144_LogData};
 
+fn var_len_array_type_descr(type_descriptor: TypeDescriptor) -> TypeDescriptor {
+    TypeDescriptor::VarLenArray(Box::new(type_descriptor))
+}
+
 impl<'a> LogMessage<'a> for f144_LogData<'a> {
     fn get_name(&self) -> String {
         remove_prefixes(self.source_name())
@@ -39,6 +43,16 @@ impl<'a> LogMessage<'a> for f144_LogData<'a> {
             Value::ULong => TypeDescriptor::Unsigned(IntSize::U8),
             Value::Float => TypeDescriptor::Float(FloatSize::U4),
             Value::Double => TypeDescriptor::Float(FloatSize::U8),
+            Value::ArrayByte => var_len_array_type_descr(TypeDescriptor::Integer(IntSize::U1)),
+            Value::ArrayUByte => var_len_array_type_descr(TypeDescriptor::Unsigned(IntSize::U1)),
+            Value::ArrayShort => var_len_array_type_descr(TypeDescriptor::Integer(IntSize::U2)),
+            Value::ArrayUShort => var_len_array_type_descr(TypeDescriptor::Unsigned(IntSize::U2)),
+            Value::ArrayInt => var_len_array_type_descr(TypeDescriptor::Integer(IntSize::U4)),
+            Value::ArrayUInt => var_len_array_type_descr(TypeDescriptor::Unsigned(IntSize::U4)),
+            Value::ArrayLong => var_len_array_type_descr(TypeDescriptor::Integer(IntSize::U8)),
+            Value::ArrayULong => var_len_array_type_descr(TypeDescriptor::Unsigned(IntSize::U8)),
+            Value::ArrayFloat => var_len_array_type_descr(TypeDescriptor::Float(FloatSize::U4)),
+            Value::ArrayDouble => var_len_array_type_descr(TypeDescriptor::Float(FloatSize::U8)),
             value => return Err(error(value)),
         };
         Ok(datatype)
@@ -60,6 +74,6 @@ impl<'a> LogMessage<'a> for f144_LogData<'a> {
 
     #[tracing::instrument(skip_all, level = "debug", err(level = "warn"))]
     fn append_values_to(&self, dataset: &Dataset) -> NexusHDF5Result<()> {
-        dataset.append_f144_value_slice(self).err_dataset(dataset)
+        dataset.append_f144_value(self).err_dataset(dataset)
     }
 }

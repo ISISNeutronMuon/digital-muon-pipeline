@@ -43,12 +43,15 @@ impl Period {
             .labels
             .get_attribute(labels::LABELS_SEPARATOR)?
             .get_string()?;
-        self.labels
-            .get_string()?
-            .split(&separator)
-            .map(str::parse)
-            .collect::<Result<_, _>>()
-            .map_err(Into::into)
+        let text = self.labels.get_string()?;
+        if text.is_empty() {
+            Ok(vec![])
+        } else {
+            text.split(&separator)
+                .map(str::parse)
+                .collect::<Result<_, _>>()
+                .map_err(Into::into)
+        }
     }
 }
 

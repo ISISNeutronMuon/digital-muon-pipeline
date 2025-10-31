@@ -1,7 +1,8 @@
 use crate::{
     parameters::{
-        AdvancedMuonDetectorParameters, DetectorSettings, FixedThresholdDiscriminatorParameters,
-        Mode, Polarity,
+        AdvancedMuonDetectorParameters, DetectorSettings,
+        DifferentialThresholdDiscriminatorParameters, FixedThresholdDiscriminatorParameters, Mode,
+        Polarity,
     },
     pulse_detection::{
         AssembleFilter, EventFilter, Real,
@@ -89,7 +90,7 @@ fn find_differential_threshold_events(
     sample_time: Real,
     polarity: &Polarity,
     baseline: Real,
-    parameters: &FixedThresholdDiscriminatorParameters,
+    parameters: &DifferentialThresholdDiscriminatorParameters,
 ) -> (Vec<Time>, Vec<Intensity>) {
     let sign = match polarity {
         Polarity::Positive => 1.0,
@@ -103,11 +104,14 @@ fn find_differential_threshold_events(
         .map(|(i, v)| (i as Real * sample_time, sign * (v as Real - baseline)));
 
     let pulses = raw.clone().window(FiniteDifferences::<2>::new()).events(
-        DifferentialThresholdDetector::new(&ThresholdDuration {
-            threshold: parameters.threshold,
-            duration: parameters.duration,
-            cool_off: parameters.cool_off,
-        }),
+        DifferentialThresholdDetector::new(
+            &ThresholdDuration {
+                threshold: parameters.threshold,
+                duration: parameters.duration,
+                cool_off: parameters.cool_off,
+            },
+            parameters.constant_multiple,
+        ),
     );
 
     let mut time = Vec::<Time>::new();

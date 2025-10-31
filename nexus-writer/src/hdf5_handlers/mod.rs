@@ -309,7 +309,7 @@ pub(crate) trait DatasetFlatbuffersExt {
     /// Any errors are tagged with the relevant hdf5 path by [err_dataset].
     ///
     /// [err_dataset]: ConvertResult::err_dataset
-    fn append_f144_value_slice(&self, data: &f144_LogData<'_>) -> NexusHDF5Result<()>;
+    fn append_f144_value(&self, data: &f144_LogData<'_>) -> NexusHDF5Result<()>;
 
     /// Appends values from the given flatbuffer [se00_SampleEnvironmentData] message.
     /// # Parameters

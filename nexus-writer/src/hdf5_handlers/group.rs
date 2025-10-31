@@ -5,7 +5,7 @@ use super::{
 };
 use hdf5::{
     Attribute, Dataset, DatasetBuilderEmpty, Group, H5Type, SimpleExtents,
-    types::{FloatSize, IntSize, TypeDescriptor, VarLenUnicode},
+    types::{FloatSize, IntSize, TypeDescriptor, VarLenArray, VarLenUnicode},
 };
 
 impl HasAttributesExt for Group {
@@ -57,6 +57,32 @@ fn get_dataset_builder(
             FloatSize::U8 => parent.new_dataset::<f64>(),
         },
         TypeDescriptor::VarLenUnicode => parent.new_dataset::<VarLenUnicode>(),
+        TypeDescriptor::VarLenArray(inner_type_descriptor) => {
+            match inner_type_descriptor.to_packed_repr() {
+                TypeDescriptor::Integer(sz) => match sz {
+                    IntSize::U1 => parent.new_dataset::<VarLenArray<i8>>(),
+                    IntSize::U2 => parent.new_dataset::<VarLenArray<i16>>(),
+                    IntSize::U4 => parent.new_dataset::<VarLenArray<i32>>(),
+                    IntSize::U8 => parent.new_dataset::<VarLenArray<i64>>(),
+                },
+                TypeDescriptor::Unsigned(sz) => match sz {
+                    IntSize::U1 => parent.new_dataset::<VarLenArray<u8>>(),
+                    IntSize::U2 => parent.new_dataset::<VarLenArray<u16>>(),
+                    IntSize::U4 => parent.new_dataset::<VarLenArray<u32>>(),
+                    IntSize::U8 => parent.new_dataset::<VarLenArray<u64>>(),
+                },
+                TypeDescriptor::Float(sz) => match sz {
+                    FloatSize::U4 => parent.new_dataset::<VarLenArray<f32>>(),
+                    FloatSize::U8 => parent.new_dataset::<VarLenArray<f64>>(),
+                },
+                _ => {
+                    return Err(NexusHDF5Error::InvalidHDF5Type {
+                        error: type_descriptor.clone(),
+                        hdf5_path: None,
+                    });
+                }
+            }
+        }
         _ => {
             return Err(NexusHDF5Error::InvalidHDF5Type {
                 error: type_descriptor.clone(),

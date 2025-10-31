@@ -11,6 +11,7 @@ const_format.workspace = true
 git-version.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
+libm.workspace = true
 miette = { workspace = true, features = ["fancy"] }
 num.workspace = true
 rayon.workspace = true
