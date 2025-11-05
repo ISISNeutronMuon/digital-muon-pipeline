@@ -1,5 +1,3 @@
-#![allow(unused_crate_dependencies)]
-
 use cfg_if::cfg_if;
 use leptos::prelude::*;
 

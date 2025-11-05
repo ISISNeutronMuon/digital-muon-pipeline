@@ -54,14 +54,14 @@ where
         metadata: &FrameMetadata,
         data: D,
     ) -> Result<(), RejectMessageError> {
-        if let Some(latest_timestamp_dispatched) = self.latest_timestamp_dispatched {
-            if metadata.timestamp <= latest_timestamp_dispatched {
-                warn!(
-                    "Frame's timestamp earlier than or equal to the latest frame dispatched: {0} <= {1}",
-                    metadata.timestamp, latest_timestamp_dispatched
-                );
-                return Err(RejectMessageError::TimestampTooEarly);
-            }
+        if let Some(latest_timestamp_dispatched) = self.latest_timestamp_dispatched
+            && metadata.timestamp <= latest_timestamp_dispatched
+        {
+            warn!(
+                "Frame's timestamp earlier than or equal to the latest frame dispatched: {0} <= {1}",
+                metadata.timestamp, latest_timestamp_dispatched
+            );
+            return Err(RejectMessageError::TimestampTooEarly);
         }
         let frame = {
             match self

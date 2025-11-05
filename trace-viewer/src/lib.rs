@@ -1,12 +1,11 @@
-#![allow(unused_crate_dependencies)]
 #![recursion_limit = "256"]
+
 pub mod app;
 pub mod structs;
 
+pub use app::{App, shell};
 use cfg_if::cfg_if;
 use chrono::{DateTime, Utc};
-
-pub use app::{App, shell};
 
 /// Used by instances of the website to refer to server-side sessions.
 pub type Uuid = Option<String>;

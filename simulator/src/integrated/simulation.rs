@@ -84,7 +84,7 @@ impl Simulation {
         index: usize,
         frame_number: FrameNumber,
         repeat: usize,
-    ) -> Result<Vec<EventList>, SimulationError> {
+    ) -> Result<Vec<EventList<'_>>, SimulationError> {
         let source =
             self.event_lists
                 .get(index)
