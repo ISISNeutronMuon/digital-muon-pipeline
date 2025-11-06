@@ -1,4 +1,4 @@
-use crate::app::{main_content::MainLevelContext, server_functions::PollBroker, TopLevelContext};
+use crate::app::{TopLevelContext, main_content::MainLevelContext, server_functions::PollBroker};
 use leptos::{IntoView, component, html::Input, prelude::*, view};
 
 #[component]
@@ -35,9 +35,14 @@ pub fn BrokerPoller(poll_broker_action: ServerAction<PollBroker>) -> impl IntoVi
 }
 
 #[component]
-fn IndexedSelectList(name: String, id: String, items: Vec<String>, signal: RwSignal<usize>) -> impl IntoView {
+fn IndexedSelectList(
+    name: String,
+    id: String,
+    items: Vec<String>,
+    signal: RwSignal<usize>,
+) -> impl IntoView {
     let items = items.into_iter().enumerate().collect::<Vec<_>>();
-    view!{
+    view! {
         <select name = name id = id
             on:change = move |ev| signal.set(
                 event_target_value(&ev)

@@ -87,8 +87,10 @@ impl SearchEngine {
             poll_broker_timeout_ms,
         )
         .await?;
-    
-        let events_topic = self.topics.digitiser_event_topic
+
+        let events_topic = self
+            .topics
+            .digitiser_event_topic
             .get(events_topic_index)
             .expect("event topic index should be in range, this should never fail.");
         let events = Self::poll_broker_topic_info::<EventListMessage>(
@@ -112,9 +114,13 @@ impl SearchEngine {
     ) -> Result<SearchResults, SearchEngineError> {
         Ok(match target.mode {
             SearchTargetMode::Timestamp { timestamp } => {
-                SearchTask::<BinarySearchByTimestamp>::new(&self.consumer, &self.topics, self.events_topic_index)
-                    .search(timestamp, target.by, target.number)
-                    .await?
+                SearchTask::<BinarySearchByTimestamp>::new(
+                    &self.consumer,
+                    &self.topics,
+                    self.events_topic_index,
+                )
+                .search(timestamp, target.by, target.number)
+                .await?
             }
             SearchTargetMode::Dragnet {
                 timestamp,

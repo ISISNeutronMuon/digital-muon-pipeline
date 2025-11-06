@@ -55,7 +55,7 @@ pub(crate) fn SearchSection() -> impl IntoView {
 
         create_new_search.dispatch(CreateNewSearch {
             target,
-            events_topic_index: events_topic_index.get()
+            events_topic_index: events_topic_index.get(),
         });
     };
 

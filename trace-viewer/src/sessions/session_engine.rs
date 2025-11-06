@@ -41,7 +41,11 @@ impl SessionEngine {
         key
     }
 
-    pub fn create_new_search(&mut self, target: SearchTarget, events_topic_index: usize) -> Result<String, SessionError> {
+    pub fn create_new_search(
+        &mut self,
+        target: SearchTarget,
+        events_topic_index: usize,
+    ) -> Result<String, SessionError> {
         let consumer = digital_muon_common::create_default_consumer(
             &self.settings.broker,
             &self.settings.username,
@@ -120,6 +124,8 @@ impl SessionEngine {
 
         let searcher = SearchEngine::new(consumer, &self.settings.topics, events_topic_index);
 
-        Ok(searcher.poll_broker(poll_broker_timeout_ms, events_topic_index).await?)
+        Ok(searcher
+            .poll_broker(poll_broker_timeout_ms, events_topic_index)
+            .await?)
     }
 }

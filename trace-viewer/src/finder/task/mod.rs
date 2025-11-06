@@ -23,7 +23,11 @@ pub(crate) struct SearchTask<'a, C: TaskClass> {
 }
 
 impl<'a, C: TaskClass> SearchTask<'a, C> {
-    pub(crate) fn new(consumer: &'a StreamConsumer, topics: &'a Topics, events_topic_index: usize) -> Self {
+    pub(crate) fn new(
+        consumer: &'a StreamConsumer,
+        topics: &'a Topics,
+        events_topic_index: usize,
+    ) -> Self {
         Self {
             consumer,
             topics,

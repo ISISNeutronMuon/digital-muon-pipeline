@@ -40,7 +40,7 @@ pub(crate) fn Main() -> impl IntoView {
         uuid,
         await_search: ServerAction::new(),
         fetch_search_search: ServerAction::new(),
-        events_topic_index: RwSignal::new(Default::default())
+        events_topic_index: RwSignal::new(Default::default()),
     });
 
     init_search_control_effects();
