@@ -13,7 +13,7 @@ cfg_if! {
 /// Creates a new search session and returns the [Uuid].
 #[server]
 #[instrument(skip_all, err(level = "warn"))]
-pub async fn create_new_search(target: SearchTarget) -> Result<String, ServerFnError> {
+pub async fn create_new_search(target: SearchTarget, events_topic_index: usize) -> Result<String, ServerFnError> {
     debug!("Creating new search task for target: {:?}", target);
 
     // The mutex should be in scope to apply a lock.
@@ -23,7 +23,7 @@ pub async fn create_new_search(target: SearchTarget) -> Result<String, ServerFnE
 
     let mut session_engine = session_engine_arc_mutex.lock().await;
 
-    let uuid = session_engine.create_new_search(target)?;
+    let uuid = session_engine.create_new_search(target, events_topic_index)?;
 
     debug!("New search task has uuid: {}", uuid);
 

@@ -18,14 +18,16 @@ pub(crate) trait TaskClass {}
 pub(crate) struct SearchTask<'a, C: TaskClass> {
     consumer: &'a StreamConsumer,
     topics: &'a Topics,
+    events_topic_index: usize,
     phantom: PhantomData<C>,
 }
 
 impl<'a, C: TaskClass> SearchTask<'a, C> {
-    pub(crate) fn new(consumer: &'a StreamConsumer, topics: &'a Topics) -> Self {
+    pub(crate) fn new(consumer: &'a StreamConsumer, topics: &'a Topics, events_topic_index: usize) -> Self {
         Self {
             consumer,
             topics,
+            events_topic_index,
             phantom: PhantomData,
         }
     }
