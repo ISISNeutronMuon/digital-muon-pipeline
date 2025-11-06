@@ -24,6 +24,7 @@ pub(crate) fn SearchSection() -> impl IntoView {
     let main_context = use_context::<MainLevelContext>()
         .expect("MainLevelContext should be provided, this should never fail.");
     let create_new_search = main_context.create_new_search;
+    let events_topic_index = main_context.events_topic_index;
 
     let search_level_context = SearchLevelContext::new(&default_data);
     provide_context(search_level_context.clone());
@@ -52,7 +53,10 @@ pub(crate) fn SearchSection() -> impl IntoView {
             number: search_level_context.number.get(),
         };
 
-        create_new_search.dispatch(CreateNewSearch { target });
+        create_new_search.dispatch(CreateNewSearch {
+            target,
+            events_topic_index: events_topic_index.get()
+        });
     };
 
     view! {
