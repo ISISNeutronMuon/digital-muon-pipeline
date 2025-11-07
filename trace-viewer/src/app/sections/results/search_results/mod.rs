@@ -39,6 +39,7 @@ fn sort_trace_summaries(trace_summaries: Vec<TraceSummary>) -> Vec<(String, Trac
 /// and select the desired field.
 #[derive(Clone)]
 struct SelectTraceLevelContext {
+    events_topic: String,
     target: SearchTarget,
     num_results: usize,
     select_trace_index: RwSignal<Option<SelectedTraceIndex>>,
@@ -47,6 +48,7 @@ struct SelectTraceLevelContext {
 #[component]
 pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView {
     provide_context(SelectTraceLevelContext {
+        events_topic: search_summary.events_topic,
         target: search_summary.target,
         num_results: search_summary.traces.len(),
         select_trace_index: RwSignal::<Option<SelectedTraceIndex>>::new(None),
@@ -71,6 +73,7 @@ pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView
 #[component]
 pub(crate) fn SearchSummary() -> impl IntoView {
     let SelectTraceLevelContext {
+        events_topic,
         target,
         num_results,
         select_trace_index: _,
@@ -80,6 +83,7 @@ pub(crate) fn SearchSummary() -> impl IntoView {
         <div class = "search-results-summary">
             "Found " {num_results} " results matching search criteria:"
             <ul>
+                <li> "Events capured from topic: " {events_topic} </li>
                 {match target.mode {
                     SearchTargetMode::Timestamp { timestamp } => view! {
                         <li> {format!("At or after: {} {}", timestamp.date_naive(), timestamp.time())} </li>

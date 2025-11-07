@@ -30,13 +30,22 @@ impl SearchResults {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Cache {
+    events_topic: String,
     traces: BTreeMap<DigitiserMetadata, DigitiserTrace>,
     events: BTreeMap<DigitiserMetadata, DigitiserEventList>,
 }
 
 impl Cache {
+    pub(crate) fn new(events_topic: &str) -> Self {
+        Self {
+            events_topic: events_topic.into(),
+            traces: Default::default(),
+            events: Default::default(),
+        }
+    }
+
     #[tracing::instrument(skip_all)]
     pub(crate) fn push_trace(
         &mut self,
@@ -115,5 +124,9 @@ impl Cache {
                 }
             }
         }
+    }
+
+    pub(crate) fn get_events_topic(&self) -> &str {
+        &self.events_topic
     }
 }
