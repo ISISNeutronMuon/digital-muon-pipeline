@@ -2,6 +2,7 @@ use cfg_if::cfg_if;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[allow(dead_code)]
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum SessionError {
     #[error("No such session exists.")]
@@ -57,6 +58,7 @@ cfg_if! {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ServerError {
     #[error("Cannot get lock on Server Engine. Mutex poisoned.")]

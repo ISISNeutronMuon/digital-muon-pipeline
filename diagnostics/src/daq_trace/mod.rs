@@ -82,13 +82,12 @@ pub(crate) async fn run(args: DaqTraceOpts) -> miette::Result<()> {
                 .checked_sub(last_tick.elapsed())
                 .unwrap_or_else(|| Duration::from_secs(0));
 
-            if event::poll(timeout).is_ok() {
-                if let CEvent::Key(key) =
+            if event::poll(timeout).is_ok()
+                && let CEvent::Key(key) =
                     event::read().expect("should be able to read an event after a successful poll")
-                {
-                    tx.send(Event::Input(key))
-                        .expect("should be able to send the key event via channel");
-                }
+            {
+                tx.send(Event::Input(key))
+                    .expect("should be able to send the key event via channel");
             }
 
             if last_tick.elapsed() >= tick_rate && tx.send(Event::Tick).is_ok() {

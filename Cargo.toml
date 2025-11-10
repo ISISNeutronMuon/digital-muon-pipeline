@@ -43,7 +43,7 @@ libm = "0.2.15"
 metrics = "0.24.2"
 metrics-exporter-prometheus = "0.17.2"
 miette = "7.6.0"
-ndarray = "0.16.1"
+ndarray = "0.17.1"
 num = "0.4.3"
 opentelemetry = "0.22.0"
 opentelemetry-otlp = { version = "0.15.0", features = ["trace", "tonic", "tls-roots"] }
@@ -67,4 +67,4 @@ tracing-opentelemetry = "0.23.0"
 tracing-subscriber = { version = "0.3.20", features = ["std", "fmt", "env-filter"] }
 url = { version = "2.5.7", features = ["serde"] }
 uuid = { version = "1.17", features = ["v4"] }
-wasm-bindgen = "0.2.100"
+wasm-bindgen = "=0.2.100"
