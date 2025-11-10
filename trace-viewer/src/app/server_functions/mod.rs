@@ -30,16 +30,20 @@ pub async fn get_client_side_data() -> Result<ClientSideData, ServerFnError> {
 
 #[server]
 #[instrument(skip_all)]
-pub async fn poll_broker(poll_broker_timeout_ms: u64) -> Result<BrokerInfo, ServerFnError> {
+pub async fn poll_broker(
+    poll_broker_timeout_ms: u64,
+    events_topic_index: usize,
+) -> Result<BrokerInfo, ServerFnError> {
     // The mutex should be in scope to apply a lock.
     let session_engine_arc_mutex = use_context::<ServerSideData>()
         .expect("ServerSideData should be provided, this should never fail.")
         .session_engine;
 
     let session_engine = session_engine_arc_mutex.lock().await;
-    //.map_err(|_| ServerError::CannotObtainSessionEngine)?;
 
-    let broker_info = session_engine.poll_broker(poll_broker_timeout_ms).await?;
+    let broker_info = session_engine
+        .poll_broker(poll_broker_timeout_ms, events_topic_index)
+        .await?;
 
     Ok(broker_info)
 }

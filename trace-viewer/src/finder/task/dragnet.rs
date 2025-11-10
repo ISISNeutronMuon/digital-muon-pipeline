@@ -86,13 +86,17 @@ impl<'a> SearchTask<'a, Dragnet> {
             )
             .await;
 
-        let mut cache = Cache::default();
+        let event_topic = self
+            .topics
+            .digitiser_event_topic
+            .get(self.events_topic_index)
+            .expect("event topic index should be in range, this should never fail.");
+
+        let mut cache = Cache::new(event_topic);
 
         if let Some((trace_results, timestamps, offset)) = trace_results {
             // Find Digitiser Event Lists
-            let searcher =
-                Searcher::new(self.consumer, &self.topics.digitiser_event_topic, offset)?;
-
+            let searcher = Searcher::new(self.consumer, event_topic, offset)?;
             let digitiser_ids = Self::get_digitiser_ids_from_traces(trace_results.as_slice());
             let eventlist_results = self
                 .search_topic(

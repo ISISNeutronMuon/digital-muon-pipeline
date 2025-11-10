@@ -40,7 +40,7 @@ pub struct Topics {
 
     /// Kafka digitiser event list topic.
     #[cfg_attr(feature = "ssr", clap(long))]
-    pub digitiser_event_topic: String,
+    pub digitiser_event_topic: Vec<String>,
 }
 
 /// Contains the settings defined in the CLI used as default values in the UI's inputs.
@@ -74,6 +74,7 @@ pub struct DefaultData {
 pub struct ClientSideData {
     pub default_data: DefaultData,
     pub broker_name: String,
+    pub eventlist_topics: Vec<String>,
     pub link_to_redpanda_console: Option<String>,
     pub refresh_session_interval_sec: u64,
     pub public_url: Url,

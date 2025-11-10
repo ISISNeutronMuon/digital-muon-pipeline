@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 /// Encapsulates the data needed to summarise the results of a search in the results section.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SearchSummary {
+    /// Topic from which the events were captured.
+    pub events_topic: String,
     pub target: SearchTarget,
     pub traces: Vec<TraceSummary>,
 }
