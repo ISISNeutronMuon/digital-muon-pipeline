@@ -34,15 +34,15 @@ pub struct SearchEngine {
     /// it must be passed to it.
     consumer: StreamConsumer,
     topics: Topics,
-    events_topic_index: usize,
+    events_topic_indices: Vec<usize>,
 }
 
 impl SearchEngine {
-    pub fn new(consumer: StreamConsumer, topics: &Topics, events_topic_index: usize) -> Self {
+    pub fn new(consumer: StreamConsumer, topics: &Topics, events_topic_indices: Vec<usize>) -> Self {
         Self {
             consumer,
             topics: topics.clone(),
-            events_topic_index,
+            events_topic_indices,
         }
     }
 
@@ -117,7 +117,7 @@ impl SearchEngine {
                 SearchTask::<BinarySearchByTimestamp>::new(
                     &self.consumer,
                     &self.topics,
-                    self.events_topic_index,
+                    self.events_topic_indices.clone(),
                 )
                 .search(timestamp, target.by, target.number)
                 .await?
@@ -127,7 +127,7 @@ impl SearchEngine {
                 backstep,
                 forward_distance,
             } => {
-                SearchTask::<Dragnet>::new(&self.consumer, &self.topics, self.events_topic_index)
+                SearchTask::<Dragnet>::new(&self.consumer, &self.topics, self.events_topic_indices.clone())
                     .search(
                         timestamp,
                         backstep,

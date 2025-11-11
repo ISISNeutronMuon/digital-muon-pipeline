@@ -15,7 +15,7 @@ cfg_if! {
 #[instrument(skip_all, err(level = "warn"))]
 pub async fn create_new_search(
     target: SearchTarget,
-    events_topic_index: usize,
+    events_topic_indices: Vec<usize>,
 ) -> Result<String, ServerFnError> {
     debug!("Creating new search task for target: {:?}", target);
 
@@ -26,7 +26,7 @@ pub async fn create_new_search(
 
     let mut session_engine = session_engine_arc_mutex.lock().await;
 
-    let uuid = session_engine.create_new_search(target, events_topic_index)?;
+    let uuid = session_engine.create_new_search(target, events_topic_indices)?;
 
     debug!("New search task has uuid: {}", uuid);
 

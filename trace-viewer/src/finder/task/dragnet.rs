@@ -33,7 +33,6 @@ impl<'a> SearchTask<'a, Dragnet> {
         if iter.empty() {
             return None;
         }
-
         info!("Beginning Binary Search.");
         loop {
             if iter
@@ -86,32 +85,10 @@ impl<'a> SearchTask<'a, Dragnet> {
             )
             .await;
 
-        let event_topic = self
-            .topics
-            .digitiser_event_topic
-            .get(self.events_topic_index)
-            .expect("event topic index should be in range, this should never fail.");
-
-        let mut cache = Cache::new(event_topic);
+        let mut cache = Cache::new();
 
         if let Some((trace_results, timestamps, offset)) = trace_results {
-            // Find Digitiser Event Lists
-            let searcher = Searcher::new(self.consumer, event_topic, offset)?;
-            let digitiser_ids = Self::get_digitiser_ids_from_traces(trace_results.as_slice());
-            let eventlist_results = self
-                .search_topic(
-                    searcher,
-                    target_timestamp,
-                    backstep,
-                    forward_distance,
-                    timestamps.len(),
-                    |msg: &EventListMessage| {
-                        msg.filter_by_digitiser_id(&digitiser_ids)
-                            && timestamps.contains(&msg.timestamp())
-                    },
-                )
-                .await;
-
+            info!("Found {} trace(s).", trace_results.len());
             for trace in trace_results.iter() {
                 cache.push_trace(
                     &trace
@@ -120,13 +97,39 @@ impl<'a> SearchTask<'a, Dragnet> {
                 )?;
             }
 
-            if let Some((eventlist_results, _, _)) = eventlist_results {
-                for eventlist in eventlist_results.iter() {
-                    cache.push_events(
-                        &eventlist
-                            .try_unpacked_message()
-                            .expect("Cannot Unpack Eventlist. TODO should be handled"),
-                    )?;
+            for &index in self.events_topic_indices.iter() {
+                let event_topic = self
+                    .topics
+                    .digitiser_event_topic
+                    .get(index)
+                    .expect("event topic index should be in range, this should never fail.");
+
+                // Find Digitiser Event Lists
+                let searcher = Searcher::new(self.consumer, event_topic, offset)?;
+                let digitiser_ids = Self::get_digitiser_ids_from_traces(trace_results.as_slice());
+                let eventlist_results = self
+                    .search_topic(
+                        searcher,
+                        target_timestamp,
+                        backstep,
+                        forward_distance,
+                        timestamps.len(),
+                        |msg: &EventListMessage| {
+                            msg.filter_by_digitiser_id(&digitiser_ids)
+                                && timestamps.contains(&msg.timestamp())
+                        },
+                    )
+                    .await;
+
+
+                if let Some((eventlist_results, _, _)) = eventlist_results {
+                    for eventlist in eventlist_results.iter() {
+                        cache.push_events(index,
+                            &eventlist
+                                .try_unpacked_message()
+                                .expect("Cannot Unpack Eventlist. TODO should be handled"),
+                        )?;
+                    }
                 }
             }
         }

@@ -24,12 +24,12 @@ pub async fn create_and_fetch_plotly(
         .get(&index_and_channel.channel)
         .ok_or(SessionError::ChannelNotFound)?;
 
-    let eventlist = digitiser_traces
-        .events
-        .as_ref()
-        .and_then(|events| events.get(&index_and_channel.channel));
+    let eventlists = digitiser_traces.events
+        .iter()
+        .flat_map(|(&topic_idx, events)|events.get(&index_and_channel.channel).map(|events|(topic_idx, events)))
+        .collect::<Vec<_>>();
 
-    create_plotly(metadata, index_and_channel.channel, trace, eventlist)
+    create_plotly(metadata, index_and_channel.channel, trace, eventlists)
 }
 
 cfg_if! {
@@ -48,7 +48,7 @@ cfg_if! {
         };
         use tracing::info;
 
-        fn create_plotly<'a>(metadata: &DigitiserMetadata, channel: Channel, trace: &'a MuonTrace, eventlist: Option<&'a EventList>) -> Result<TracePlotly, ServerFnError> {
+        fn create_plotly<'a>(metadata: &DigitiserMetadata, channel: Channel, trace: &'a MuonTrace, eventlists: Vec<(usize, &'a EventList)>) -> Result<TracePlotly, ServerFnError> {
             info!("create_plotly_on_server");
 
             let date = metadata.timestamp.date_naive().to_string();
@@ -69,7 +69,7 @@ cfg_if! {
             .name("Trace")
             .line(Line::new().color(NamedColor::CadetBlue));
 
-            let eventlist = eventlist.map(|eventlist| {
+            let eventlists = eventlists.into_iter().map(|(topic_idx, eventlist)| {
                 Scatter::new(
                     eventlist.iter().map(|event| event.time).collect::<Vec<_>>(),
                     eventlist
@@ -78,14 +78,14 @@ cfg_if! {
                         .collect::<Vec<_>>(),
                 )
                 .mode(Mode::Markers)
-                .name("Events")
+                .name(&format!{"Events {topic_idx}"})
                 .marker(Marker::new().color(NamedColor::IndianRed))
             });
 
             Ok(TracePlotly {
                 title: format!("Channel {} from Digitiser {}", channel, metadata.id),
                 trace_data: trace.to_json(),
-                eventlist_data: eventlist.as_deref().map(Trace::to_json),
+                eventlist_data: eventlists.map(|eventlist|eventlist.to_json()).collect(),
                 layout: layout.to_json(),
             })
         }

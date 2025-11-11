@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SearchSummary {
     /// Topic from which the events were captured.
-    pub events_topic: String,
+    pub eventlist_topic_indices: Vec<usize>,
     pub target: SearchTarget,
     pub traces: Vec<TraceSummary>,
 }
@@ -53,7 +53,7 @@ pub struct TracePlotly {
     /// Json string of the trace data plotly graph.
     pub trace_data: String,
     /// If present, Json string of the event list data plotly graph.
-    pub eventlist_data: Option<String>,
+    pub eventlist_data: Vec<String>,
     /// Json string of the plotly layout to use.
     pub layout: String,
 }
