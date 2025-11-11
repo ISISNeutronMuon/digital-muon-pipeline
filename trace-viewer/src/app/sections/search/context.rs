@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::{
     Channel, DigitizerId, Timestamp,
     app::sections::search::search_settings::{SearchBy, SearchMode},
@@ -11,6 +13,7 @@ use leptos::prelude::*;
 /// and select the desired field.
 #[derive(Clone)]
 pub(crate) struct SearchLevelContext {
+    pub(crate) eventlist_sources: RwSignal<BTreeSet<usize>>,
     pub(crate) search_mode: RwSignal<SearchMode>,
     pub(crate) search_by: RwSignal<SearchBy>,
     pub(crate) date: RwSignal<NaiveDate>,
@@ -36,6 +39,7 @@ impl SearchLevelContext {
         };
 
         Self {
+            eventlist_sources: RwSignal::new(vec![0].into_iter().collect()),
             search_mode: RwSignal::new(SearchMode::default()),
             search_by: RwSignal::new(search_by),
             channels: RwSignal::new(default_data.channels.clone().unwrap_or_default()),
