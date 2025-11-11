@@ -8,10 +8,12 @@ label {
   flex-grow: 1;
   flex-direction: row;
   justify-content: left;
-  width: 18rem;
+  width: 16rem;
   align-items: center;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
+  flex-direction: row;
+  flex-wrap:wrap;
 }
 
 input[type=text],
@@ -79,4 +81,32 @@ input.cancel-button {
   margin-bottom: 1rem;
   margin-left: auto;
   margin-right: auto;
+}
+
+fieldset.checkbox-list {
+  border: none;
+  margin: 4px;
+  padding: 0
+
+}
+
+input[type=button].checkbox {
+  font-size: 14px;
+  margin: 0;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1px;
+  margin-bottom: 1px;
+  box-shadow: none;
+}
+
+input[type=button].checkbox.on {
+  background-color: lightcyan;
+  color: black;
+}
+input[type=button].checkbox.on:hover {
+  background-color: rgb(232, 255, 255)
 }
