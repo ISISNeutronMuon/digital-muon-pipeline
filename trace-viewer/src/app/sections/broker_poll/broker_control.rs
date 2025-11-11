@@ -1,4 +1,4 @@
-use crate::app::{TopLevelContext, main_content::MainLevelContext, server_functions::PollBroker};
+use crate::app::{TopLevelContext, server_functions::PollBroker};
 use leptos::{IntoView, component, html::Input, prelude::*, view};
 
 #[component]
@@ -9,9 +9,9 @@ pub fn BrokerPoller(poll_broker_action: ServerAction<PollBroker>) -> impl IntoVi
     let default_data = client_side_data.default_data;
     let eventlist_topics = client_side_data.eventlist_topics;
 
-    let events_topic_index = use_context::<MainLevelContext>()
+    /*let events_topic_index = use_context::<MainLevelContext>()
         .expect("MainLevelContext should be provided, this should never fail.")
-        .events_topic_index;
+        .events_topic_index;*/
 
     let timeout_ms_ref = NodeRef::<Input>::new();
 
@@ -22,7 +22,7 @@ pub fn BrokerPoller(poll_broker_action: ServerAction<PollBroker>) -> impl IntoVi
             <div class = "broker-poll">
                 <label class = "panel-item" for = "events_topic_index">
                     "Event List Topic:"
-                    <IndexedSelectList name = "events_topic_index".into() id = "events_topic_index".into() items = eventlist_topics signal = events_topic_index/>
+                    <IndexedSelectList name = "events_topic_index".into() id = "events_topic_index".into() items = eventlist_topics/>
                 </label>
                 <label class = "panel-item" for = "poll_broker_timeout_ms">
                     "Poll Broker Timeout (ms):"
@@ -38,20 +38,19 @@ pub fn BrokerPoller(poll_broker_action: ServerAction<PollBroker>) -> impl IntoVi
 fn IndexedSelectList(
     name: String,
     id: String,
-    items: Vec<String>,
-    signal: RwSignal<usize>,
+    items: Vec<String>
 ) -> impl IntoView {
     let items = items.into_iter().enumerate().collect::<Vec<_>>();
     view! {
         <select name = name id = id
-            on:change = move |ev| signal.set(
+            /*on:change = move |ev| signal.set(
                 event_target_value(&ev)
                     .parse()
                     .expect("Int value should parse, this should never fail.")
-            )
+            )*/
         >
             <For each = move || items.clone() key = |(idx,_)|*idx let ((idx, item))>
-                <option selected={signal.get() == idx}  value = idx>
+                <option /*selected={signal.get() == idx}*/  value = idx>
                     {item}
                 </option>
             </For>

@@ -18,7 +18,6 @@ pub(crate) struct MainLevelContext {
     pub(crate) await_search: ServerAction<AwaitSearch>,
     pub(crate) fetch_search_search: ServerAction<FetchSearchSummaries>,
     pub(crate) uuid: Signal<Uuid>,
-    pub(crate) events_topic_index: RwSignal<usize>,
 }
 
 /// Creates the body of the page below the [TopBar].
@@ -39,8 +38,7 @@ pub(crate) fn Main() -> impl IntoView {
         create_new_search,
         uuid,
         await_search: ServerAction::new(),
-        fetch_search_search: ServerAction::new(),
-        events_topic_index: RwSignal::new(Default::default()),
+        fetch_search_search: ServerAction::new()
     });
 
     init_search_control_effects();

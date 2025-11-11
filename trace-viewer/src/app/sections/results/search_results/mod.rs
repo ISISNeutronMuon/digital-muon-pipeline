@@ -3,9 +3,9 @@ mod results_settings;
 mod select_channel;
 
 use crate::{
-    app::sections::results::search_results::{
+    app::{sections::results::search_results::{
         digitiser_message::DigitiserMessage, results_settings::ResultsSettingsPanel,
-    },
+    }, TopLevelContext},
     structs::{
         SearchSummary, SearchTarget, SearchTargetBy, SearchTargetMode, SelectedTraceIndex,
         TraceSummary,
@@ -39,7 +39,7 @@ fn sort_trace_summaries(trace_summaries: Vec<TraceSummary>) -> Vec<(String, Trac
 /// and select the desired field.
 #[derive(Clone)]
 struct SelectTraceLevelContext {
-    events_topic: String,
+    eventlist_topic_indices: Vec<usize>,
     target: SearchTarget,
     num_results: usize,
     select_trace_index: RwSignal<Option<SelectedTraceIndex>>,
@@ -48,7 +48,7 @@ struct SelectTraceLevelContext {
 #[component]
 pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView {
     provide_context(SelectTraceLevelContext {
-        events_topic: search_summary.events_topic,
+        eventlist_topic_indices: search_summary.eventlist_topic_indices,
         target: search_summary.target,
         num_results: search_summary.traces.len(),
         select_trace_index: RwSignal::<Option<SelectedTraceIndex>>::new(None),
@@ -72,18 +72,29 @@ pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView
 
 #[component]
 pub(crate) fn SearchSummary() -> impl IntoView {
+    let eventlist_topics = use_context::<TopLevelContext>().expect("").client_side_data.eventlist_topics;
     let SelectTraceLevelContext {
-        events_topic,
+        eventlist_topic_indices,
         target,
         num_results,
         select_trace_index: _,
-    } = use_context::<SelectTraceLevelContext>().expect("");
+    } = use_context::<SelectTraceLevelContext>()
+        .expect("");
+
+    let eventlist_topic_indices = eventlist_topic_indices.into_iter()
+        .map(|idx|eventlist_topics.get(idx).expect("").clone())
+        .collect::<Vec<_>>();
 
     view! {
         <div class = "search-results-summary">
             "Found " {num_results} " results matching search criteria:"
             <ul>
-                <li> "Events capured from topic: " {events_topic} </li>
+                <For each=move||eventlist_topic_indices.clone()
+                    key=move|topic|topic.clone()
+                    let(topic)
+                >
+                    <li> "Events capured from topic: " {topic} </li>
+                </For>
                 {match target.mode {
                     SearchTargetMode::Timestamp { timestamp } => view! {
                         <li> {format!("At or after: {} {}", timestamp.date_naive(), timestamp.time())} </li>

@@ -1,53 +1,24 @@
 use crate::app::{sections::search::context::SearchLevelContext, TopLevelContext};
 use leptos::{IntoView, component, either::EitherOf3, prelude::*, view};
-use std::{collections::BTreeSet, str::FromStr};
+use std::str::FromStr;
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
-
-
-#[component]
-pub(crate) fn CheckBoxList(names: Vec<(usize,String)>, index_set: RwSignal<BTreeSet<usize>>) -> impl IntoView {
-    view! {
-        <fieldset name = "eventlist-sources" >
-            <For each = move || names.clone()
-                key = |(idx,_)|*idx
-                let ((idx, item))
-                >
-                    <label for = {item.clone()}>
-                        {item.clone()}
-                        <input name = {item.clone()} id = {item.clone()} type = "checkbox"
-                            value = {move ||index_set.get().contains(&idx)}
-                            on:change = move |ev| {
-                                let mut index_set_inner = index_set.read();
-                                if event_target_checked(&ev) {
-                                    index_set_inner.insert(idx);
-                                } else {
-                                    index_set_inner.remove(&idx);
-                                }
-                                index_set.set(index_set_inner);
-                            }
-                        />
-                    </label>
-                </For>
-        </fieldset>
-    }
-}
 
 #[component]
 pub(crate) fn SearchSettings() -> impl IntoView {
     let search_level_context = use_context::<SearchLevelContext>()
-        .expect("search_broker_node_refs should be provided, this should never fail.");
+        .expect("SearchLevelContext should be provided, this should never fail.");
 
     let eventlist_topics = use_context::<TopLevelContext>()
         .expect("TopLevelContext should be provided, this should never fail.")
         .client_side_data
         .eventlist_topics
-        .clone();
-    
-    let eventlist_topics = eventlist_topics.into_iter().enumerate().collect::<Vec<_>>();
+        .into_iter().zip(search_level_context.eventlist_sources.into_iter())
+        .collect::<Vec<_>>();
+
     view! {
         <label for = "eventlist-sources">
             "Eventlist source topics:"
-            <CheckBoxList names = {eventlist_topics.clone()} index_set = {search_level_context.eventlist_sources} />
+            <CheckBoxList checkboxes = {eventlist_topics} />
         </label>
         <SearchMode />
         <label for = "date">
@@ -90,6 +61,25 @@ pub(crate) fn SearchSettings() -> impl IntoView {
 
         <MatchCriteria />
         <MatchBy />
+    }
+}
+
+
+#[component]
+pub(crate) fn CheckBoxList(checkboxes: Vec<(String, RwSignal<bool>)>) -> impl IntoView {
+    view! {
+        <fieldset name = "eventlist-sources" class = "checkbox-list">
+            <For each = move || checkboxes.clone()
+                key = |(name,_)|name.clone()
+                let ((name, signal))
+                >
+                    <input type = "button" class = "checkbox"
+                        value = {name.clone()}
+                        class:on=move||signal.get()
+                        on:click=move|_|signal.set(!signal.get())
+                    />
+                </For>
+        </fieldset>
     }
 }
 
