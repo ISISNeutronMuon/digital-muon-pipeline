@@ -1,4 +1,5 @@
 @use "root.scss";
+@use "container-layout.scss";
 
 div.section {
   border: 1px gainsboro solid;
@@ -14,7 +15,7 @@ div.section.closed {
 div.section>div.name {
   background-color: rgb(172, 186, 202);
   font-size: medium;
-  font-family:sans-serif;
+  font-family: sans-serif;
   font-weight: 700;
   text-align: center;
   padding-top: 1rem;
@@ -26,27 +27,10 @@ div.section>div.name:hover {
   background-color: palegoldenrod;
 }
 
-div.section>div.content {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: space-between;
+div.section div.content {
+  display: grid;
 }
 
 div.closable-container.closed>div.closable {
   display: none;
-}
-
-div.panel {
-  display: grid;
-  padding: 1mm;
-}
-
-div.panel:not(:last-child) {
-  border-right: 1px lightgray solid;
-}
-
-.panel-item.across-two-cols {
-  grid-column-start: 1;
-  grid-column-end: 3;
 }

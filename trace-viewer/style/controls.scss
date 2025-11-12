@@ -1,14 +1,17 @@
 @use "root.scss";
+@use "controls-layout.scss";
 
 label {
   margin-left: 1rem;
   margin-right: 1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
   display: flex;
   flex-shrink: 0;
   flex-grow: 1;
   flex-direction: row;
   justify-content: left;
-  width: 16rem;
+  width: auto;
   align-items: center;
   font-size: 14px;
   font-weight: 700;
@@ -66,36 +69,22 @@ select:hover {
   background-color: var(--input-hover-color);
 }
 
-input.search-button {
-  width: 50%;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  margin-left: auto;
-  margin-right: auto;
-
-}
-
-input.cancel-button {
-  width: 50%;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  margin-left: auto;
-  margin-right: auto;
-}
-
 fieldset.checkbox-list {
+  width: 100%;
   border: none;
   margin: 4px;
-  padding: 0
-
+  padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 input[type=button].checkbox {
+  width: 100%;
   font-size: 14px;
-  margin: 0;
   padding-top: 0.25rem;
   padding-bottom: 0.25rem;
-  width: 100%;
+  padding-left: 2rem;
+  padding-right: 2rem;
   margin-left: auto;
   margin-right: auto;
   margin-top: 1px;

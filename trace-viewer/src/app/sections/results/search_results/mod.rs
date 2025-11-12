@@ -60,7 +60,7 @@ pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView
     let trace_by_date_and_time = sort_trace_summaries(search_summary.traces);
 
     view! {
-        <div class = "search-results">
+        <div class = "content search-results" id = "search-results">
             <SearchSummary />
             <ResultsSettingsPanel />
             <For
@@ -95,12 +95,15 @@ pub(crate) fn SearchSummary() -> impl IntoView {
         <div class = "search-results-summary">
             "Found " {num_results} " results matching search criteria:"
             <ul>
-                <For each=move||eventlist_topic_indices.clone()
-                    key=move|topic|topic.clone()
-                    let(topic)
-                >
-                    <li> "Events capured from topic: " {topic} </li>
-                </For>
+                <li>
+                    "Events capured from topic:"
+                    <ul>
+                        <For each=move||eventlist_topic_indices.clone()
+                            key=move|topic|topic.clone()
+                            children=|topic|view!{<li> {topic} </li>}
+                        />
+                    </ul>
+                </li>
                 {match target.mode {
                     SearchTargetMode::Timestamp { timestamp } => view! {
                         <li> {format!("At or after: {} {}", timestamp.date_naive(), timestamp.time())} </li>

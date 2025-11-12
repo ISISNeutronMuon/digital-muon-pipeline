@@ -39,7 +39,7 @@ pub(crate) fn DisplayGraph(trace_plotly: TracePlotly) -> impl IntoView {
     };
 
     view! {
-        <div class = "trace-graph">
+        <div class = "content trace-graph" id = "trace-graph">
             <div class = "trace-graph-title">
                 {title}
             </div>

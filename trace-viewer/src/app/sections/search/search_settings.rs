@@ -17,58 +17,64 @@ pub(crate) fn SearchSettings() -> impl IntoView {
         .collect::<Vec<_>>();
 
     view! {
-        <label for = "eventlist-sources">
-            "Eventlist source topics:"
-            <CheckBoxList checkboxes = {eventlist_topics} />
-        </label>
-        <SearchMode />
-        <label for = "date">
-            "Date:"
-            <input name = "date" id = "date" type = "date"
-                value = {move ||search_level_context.date.get().to_string()}
-                on:change = {move |ev|search_level_context.date.set(event_target_value(&ev).parse().expect("Date should parse, this should never fail."))}
-            />
-        </label>
-        <label for = "time">
-            "Time:"
-            <input name = "time" id = "time" type = "text"
-                value = {move ||search_level_context.time.get().to_string()}
-                on:change = {move |ev|search_level_context.time.set(event_target_value(&ev).parse().expect("Time should parse, this should never fail."))}
-            />
-        </label>
-        <label for = "number">
-            "Number:"
-            <input name = "number" id = "number" type = "text"
-                value = {move ||search_level_context.number.get().to_string()}
-                on:change = {move |ev|search_level_context.number.set(event_target_value(&ev).parse().expect("Number should parse, this should never fail."))}
-            />
-        </label>
-        <Show when = move|| matches!(search_level_context.search_mode.get(), SearchMode::Dragnet)>
-            <label for = "backstep">
-                "Backstep:"
-                <input name = "backstep" id = "backstep" type = "text"
-                    value = {move ||search_level_context.backstep.get().to_string()}
-                    on:change = {move |ev|search_level_context.backstep.set(event_target_value(&ev).parse().expect("Backstep should parse, this should never fail."))}
+        <div class = "content" id = "search-setup-eventlist-source">
+            <label>
+                "Eventlist source topics:"
+                <CheckBoxList name = "eventlist-sources" checkboxes = {eventlist_topics} />
+            </label>
+        </div>
+        <div class = "content" id = "search-setup-mode">
+            <SearchMode />
+            <label for = "date">
+                "Date:"
+                <input name = "date" id = "date" type = "date"
+                    value = {move ||search_level_context.date.get().to_string()}
+                    on:change = {move |ev|search_level_context.date.set(event_target_value(&ev).parse().expect("Date should parse, this should never fail."))}
                 />
             </label>
-            <label for = "forward-dist">
-                "Forward Distance:"
-                <input name = "forward-dist" id = "forward-dist" type = "text"
-                    value = {move ||search_level_context.forward_distance.get().to_string()}
-                    on:change = {move |ev|search_level_context.forward_distance.set(event_target_value(&ev).parse().expect("Forward Distance should parse, this should never fail."))}
+            <label for = "time">
+                "Time:"
+                <input name = "time" id = "time" type = "text"
+                    value = {move ||search_level_context.time.get().to_string()}
+                    on:change = {move |ev|search_level_context.time.set(event_target_value(&ev).parse().expect("Time should parse, this should never fail."))}
                 />
             </label>
-        </Show>
+            <Show when = move|| matches!(search_level_context.search_mode.get(), SearchMode::Dragnet)>
+                <label for = "backstep">
+                    "Backstep:"
+                    <input name = "backstep" id = "backstep" type = "text"
+                        value = {move ||search_level_context.backstep.get().to_string()}
+                        on:change = {move |ev|search_level_context.backstep.set(event_target_value(&ev).parse().expect("Backstep should parse, this should never fail."))}
+                    />
+                </label>
+                <label for = "forward-dist">
+                    "Forward Distance:"
+                    <input name = "forward-dist" id = "forward-dist" type = "text"
+                        value = {move ||search_level_context.forward_distance.get().to_string()}
+                        on:change = {move |ev|search_level_context.forward_distance.set(event_target_value(&ev).parse().expect("Forward Distance should parse, this should never fail."))}
+                    />
+                </label>
+            </Show>
+        </div>
 
-        <MatchCriteria />
-        <MatchBy />
+        <div class = "content" id = "search-setup-match">
+            <MatchCriteria />
+            <MatchBy />
+            <label for = "number" id = "search-setup-number">
+                "Number:"
+                <input name = "number" id = "number" type = "text"
+                    value = {move ||search_level_context.number.get().to_string()}
+                    on:change = {move |ev|search_level_context.number.set(event_target_value(&ev).parse().expect("Number should parse, this should never fail."))}
+                />
+            </label>
+        </div>
     }
 }
 
 #[component]
-pub(crate) fn CheckBoxList(checkboxes: Vec<(String, RwSignal<bool>)>) -> impl IntoView {
+pub(crate) fn CheckBoxList(name: &'static str, checkboxes: Vec<(String, RwSignal<bool>)>) -> impl IntoView {
     view! {
-        <fieldset name = "eventlist-sources" class = "checkbox-list">
+        <fieldset name = {name} class = "checkbox-list">
             <For each = move || checkboxes.clone()
                 key = |(name,_)|name.clone()
                 let ((name, signal))

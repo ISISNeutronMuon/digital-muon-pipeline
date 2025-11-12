@@ -70,9 +70,13 @@ pub(crate) fn SearchSection() -> impl IntoView {
 
     view! {
         <form on:submit = move |e|{ e.prevent_default(); on_submit() }>
-            <Section text = "Search" id = "search-setup">
-                <SearchSettings />
-                <SearchControl />
+            <Section text = "Search" id = "search">
+                <div class = "content" id = "search-setup">
+                    <SearchSettings />
+                </div>
+                <div class = "content" id = "search-controls">
+                    <SearchControl />
+                </div>
             </Section>
         </form>
     }

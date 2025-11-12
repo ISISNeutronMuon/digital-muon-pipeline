@@ -86,9 +86,8 @@ cfg_if! {
                         .collect::<Vec<_>>(),
                 )
                 .mode(Mode::Markers)
-                .marker(Marker::new().symbol(symbol.clone()))
+                .marker(Marker::new().color(*colour).symbol(symbol.clone()).opacity(0.5))
                 .name(format!{"Events {topic_idx}"})
-                .marker(Marker::new().color(*colour))
             });
 
             Ok(TracePlotly {
