@@ -23,7 +23,6 @@ pub(crate) fn SearchSection() -> impl IntoView {
     let main_context = use_context::<MainLevelContext>()
         .expect("MainLevelContext should be provided, this should never fail.");
     let create_new_search = main_context.create_new_search;
-    //let events_topic_index = main_context.events_topic_index;
 
     let search_level_context = SearchLevelContext::new(
         &client_side_data.default_data,
