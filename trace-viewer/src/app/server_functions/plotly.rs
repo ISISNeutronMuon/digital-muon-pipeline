@@ -87,8 +87,8 @@ cfg_if! {
                 )
                 .mode(Mode::Markers)
                 .marker(Marker::new().symbol(symbol.clone()))
-                .name(&format!{"Events {topic_idx}"})
-                .marker(Marker::new().color(colour.clone()))
+                .name(format!{"Events {topic_idx}"})
+                .marker(Marker::new().color(*colour))
             });
 
             Ok(TracePlotly {

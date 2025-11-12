@@ -13,7 +13,7 @@ pub(crate) fn SearchSettings() -> impl IntoView {
         .client_side_data
         .eventlist_topics
         .into_iter()
-        .zip(search_level_context.eventlist_sources.into_iter())
+        .zip(search_level_context.eventlist_sources)
         .collect::<Vec<_>>();
 
     view! {

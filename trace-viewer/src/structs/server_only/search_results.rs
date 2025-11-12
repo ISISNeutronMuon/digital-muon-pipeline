@@ -100,7 +100,7 @@ impl Cache {
             running: msg.metadata().running(),
             veto_flags: msg.metadata().veto_flags(),
         };
-        let events = self.events.entry(topic_index).or_insert(Default::default());
+        let events = self.events.entry(topic_index).or_default();
         match events.entry(metadata) {
             Entry::Occupied(occupied_entry) => {
                 error!("Event list already found: {0:?}", occupied_entry.key());
