@@ -72,7 +72,10 @@ pub(crate) fn SearchSettings() -> impl IntoView {
 }
 
 #[component]
-pub(crate) fn CheckBoxList(name: &'static str, checkboxes: Vec<(String, RwSignal<bool>)>) -> impl IntoView {
+pub(crate) fn CheckBoxList(
+    name: &'static str,
+    checkboxes: Vec<(String, RwSignal<bool>)>,
+) -> impl IntoView {
     view! {
         <fieldset name = {name} class = "checkbox-list">
             <For each = move || checkboxes.clone()
