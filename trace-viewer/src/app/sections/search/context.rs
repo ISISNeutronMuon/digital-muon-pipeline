@@ -37,7 +37,10 @@ impl SearchLevelContext {
         };
 
         Self {
-            eventlist_sources: (0..1).map(|_|RwSignal::new(true)).chain((1..num_eventlist_topics).map(|_|RwSignal::new(false))).collect(),
+            eventlist_sources: (0..1)
+                .map(|_| RwSignal::new(true))
+                .chain((1..num_eventlist_topics).map(|_| RwSignal::new(false)))
+                .collect(),
             search_mode: RwSignal::new(SearchMode::default()),
             search_by: RwSignal::new(search_by),
             channels: RwSignal::new(default_data.channels.clone().unwrap_or_default()),

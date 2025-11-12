@@ -3,9 +3,12 @@ mod results_settings;
 mod select_channel;
 
 use crate::{
-    app::{sections::results::search_results::{
-        digitiser_message::DigitiserMessage, results_settings::ResultsSettingsPanel,
-    }, TopLevelContext},
+    app::{
+        TopLevelContext,
+        sections::results::search_results::{
+            digitiser_message::DigitiserMessage, results_settings::ResultsSettingsPanel,
+        },
+    },
     structs::{
         SearchSummary, SearchTarget, SearchTargetBy, SearchTargetMode, SelectedTraceIndex,
         TraceSummary,
@@ -72,17 +75,20 @@ pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView
 
 #[component]
 pub(crate) fn SearchSummary() -> impl IntoView {
-    let eventlist_topics = use_context::<TopLevelContext>().expect("").client_side_data.eventlist_topics;
+    let eventlist_topics = use_context::<TopLevelContext>()
+        .expect("")
+        .client_side_data
+        .eventlist_topics;
     let SelectTraceLevelContext {
         eventlist_topic_indices,
         target,
         num_results,
         select_trace_index: _,
-    } = use_context::<SelectTraceLevelContext>()
-        .expect("");
+    } = use_context::<SelectTraceLevelContext>().expect("");
 
-    let eventlist_topic_indices = eventlist_topic_indices.into_iter()
-        .map(|idx|eventlist_topics.get(idx).expect("").clone())
+    let eventlist_topic_indices = eventlist_topic_indices
+        .into_iter()
+        .map(|idx| eventlist_topics.get(idx).expect("").clone())
         .collect::<Vec<_>>();
 
     view! {

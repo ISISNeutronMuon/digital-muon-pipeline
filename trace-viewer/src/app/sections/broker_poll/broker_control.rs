@@ -10,8 +10,8 @@ pub fn BrokerPoller(poll_broker_action: ServerAction<PollBroker>) -> impl IntoVi
     let eventlist_topics = client_side_data.eventlist_topics;
 
     /*let events_topic_index = use_context::<MainLevelContext>()
-        .expect("MainLevelContext should be provided, this should never fail.")
-        .events_topic_index;*/
+    .expect("MainLevelContext should be provided, this should never fail.")
+    .events_topic_index;*/
 
     let timeout_ms_ref = NodeRef::<Input>::new();
 
@@ -35,11 +35,7 @@ pub fn BrokerPoller(poll_broker_action: ServerAction<PollBroker>) -> impl IntoVi
 }
 
 #[component]
-fn IndexedSelectList(
-    name: String,
-    id: String,
-    items: Vec<String>
-) -> impl IntoView {
+fn IndexedSelectList(name: String, id: String, items: Vec<String>) -> impl IntoView {
     let items = items.into_iter().enumerate().collect::<Vec<_>>();
     view! {
         <select name = name id = id

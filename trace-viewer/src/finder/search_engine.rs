@@ -38,7 +38,11 @@ pub struct SearchEngine {
 }
 
 impl SearchEngine {
-    pub fn new(consumer: StreamConsumer, topics: &Topics, events_topic_indices: Vec<usize>) -> Self {
+    pub fn new(
+        consumer: StreamConsumer,
+        topics: &Topics,
+        events_topic_indices: Vec<usize>,
+    ) -> Self {
         Self {
             consumer,
             topics: topics.clone(),
@@ -127,15 +131,19 @@ impl SearchEngine {
                 backstep,
                 forward_distance,
             } => {
-                SearchTask::<Dragnet>::new(&self.consumer, &self.topics, self.events_topic_indices.clone())
-                    .search(
-                        timestamp,
-                        backstep,
-                        forward_distance,
-                        target.by,
-                        target.number,
-                    )
-                    .await?
+                SearchTask::<Dragnet>::new(
+                    &self.consumer,
+                    &self.topics,
+                    self.events_topic_indices.clone(),
+                )
+                .search(
+                    timestamp,
+                    backstep,
+                    forward_distance,
+                    target.by,
+                    target.number,
+                )
+                .await?
             }
         })
     }

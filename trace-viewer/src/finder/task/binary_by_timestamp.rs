@@ -121,13 +121,15 @@ impl<'a> SearchTask<'a, BinarySearchByTimestamp> {
                         |msg: &EventListMessage| msg.filter_by_digitiser_id(&digitiser_ids),
                     )
                     .await;
-                
+
                 if let Some((eventlist_results, _)) = eventlist_results {
                     info!("Found {} eventlist(s).", eventlist_results.len());
                     for eventlist in eventlist_results.iter() {
-                        cache.push_events(index, &eventlist
-                            .try_unpacked_message()
-                            .expect("Cannot Unpack Eventlist. TODO should be handled"),
+                        cache.push_events(
+                            index,
+                            &eventlist
+                                .try_unpacked_message()
+                                .expect("Cannot Unpack Eventlist. TODO should be handled"),
                         )?;
                     }
                 } else {

@@ -25,7 +25,10 @@ pub(crate) fn SearchSection() -> impl IntoView {
     let create_new_search = main_context.create_new_search;
     //let events_topic_index = main_context.events_topic_index;
 
-    let search_level_context = SearchLevelContext::new(&client_side_data.default_data, client_side_data.eventlist_topics.len());
+    let search_level_context = SearchLevelContext::new(
+        &client_side_data.default_data,
+        client_side_data.eventlist_topics.len(),
+    );
     provide_context(search_level_context.clone());
 
     let on_submit = move || {
@@ -52,10 +55,11 @@ pub(crate) fn SearchSection() -> impl IntoView {
             number: search_level_context.number.get(),
         };
 
-        let events_topic_indices = search_level_context.eventlist_sources
+        let events_topic_indices = search_level_context
+            .eventlist_sources
             .iter()
             .enumerate()
-            .filter_map(|(value, flag)|flag.get().then_some(value))
+            .filter_map(|(value, flag)| flag.get().then_some(value))
             .collect();
 
         create_new_search.dispatch(CreateNewSearch {

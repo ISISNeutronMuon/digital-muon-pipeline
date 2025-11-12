@@ -38,7 +38,7 @@ pub(crate) fn Main() -> impl IntoView {
         create_new_search,
         uuid,
         await_search: ServerAction::new(),
-        fetch_search_search: ServerAction::new()
+        fetch_search_search: ServerAction::new(),
     });
 
     init_search_control_effects();

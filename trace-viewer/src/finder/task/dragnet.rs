@@ -121,10 +121,10 @@ impl<'a> SearchTask<'a, Dragnet> {
                     )
                     .await;
 
-
                 if let Some((eventlist_results, _, _)) = eventlist_results {
                     for eventlist in eventlist_results.iter() {
-                        cache.push_events(index,
+                        cache.push_events(
+                            index,
                             &eventlist
                                 .try_unpacked_message()
                                 .expect("Cannot Unpack Eventlist. TODO should be handled"),

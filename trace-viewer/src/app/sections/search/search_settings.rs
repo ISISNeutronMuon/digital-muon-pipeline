@@ -1,4 +1,4 @@
-use crate::app::{sections::search::context::SearchLevelContext, TopLevelContext};
+use crate::app::{TopLevelContext, sections::search::context::SearchLevelContext};
 use leptos::{IntoView, component, either::EitherOf3, prelude::*, view};
 use std::str::FromStr;
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
@@ -12,7 +12,8 @@ pub(crate) fn SearchSettings() -> impl IntoView {
         .expect("TopLevelContext should be provided, this should never fail.")
         .client_side_data
         .eventlist_topics
-        .into_iter().zip(search_level_context.eventlist_sources.into_iter())
+        .into_iter()
+        .zip(search_level_context.eventlist_sources.into_iter())
         .collect::<Vec<_>>();
 
     view! {
@@ -63,7 +64,6 @@ pub(crate) fn SearchSettings() -> impl IntoView {
         <MatchBy />
     }
 }
-
 
 #[component]
 pub(crate) fn CheckBoxList(checkboxes: Vec<(String, RwSignal<bool>)>) -> impl IntoView {

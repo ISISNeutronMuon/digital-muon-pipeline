@@ -24,9 +24,14 @@ pub async fn create_and_fetch_plotly(
         .get(&index_and_channel.channel)
         .ok_or(SessionError::ChannelNotFound)?;
 
-    let eventlists = digitiser_traces.events
+    let eventlists = digitiser_traces
+        .events
         .iter()
-        .flat_map(|(&topic_idx, events)|events.get(&index_and_channel.channel).map(|events|(topic_idx, events)))
+        .flat_map(|(&topic_idx, events)| {
+            events
+                .get(&index_and_channel.channel)
+                .map(|events| (topic_idx, events))
+        })
         .collect::<Vec<_>>();
 
     create_plotly(metadata, index_and_channel.channel, trace, eventlists)
@@ -42,11 +47,12 @@ cfg_if! {
         use plotly::{
             Layout, Scatter, Trace,
             color::NamedColor,
-            common::Mode,
-            common::{Line, Marker},
+            common::{Line, Marker, MarkerSymbol, Mode},
             layout::{Axis, ModeBar},
         };
         use tracing::info;
+        const COLOURS: [NamedColor; 6] = [NamedColor::IndianRed, NamedColor::DarkGreen, NamedColor::Indigo, NamedColor::MediumSpringGreen, NamedColor::HotPink, NamedColor::YellowGreen];
+        const MARKERS: [MarkerSymbol; 5] = [MarkerSymbol::CircleOpen, MarkerSymbol::SquareOpen, MarkerSymbol::Cross, MarkerSymbol::DiamondOpen, MarkerSymbol::X];
 
         fn create_plotly<'a>(metadata: &DigitiserMetadata, channel: Channel, trace: &'a MuonTrace, eventlists: Vec<(usize, &'a EventList)>) -> Result<TracePlotly, ServerFnError> {
             info!("create_plotly_on_server");
@@ -69,7 +75,9 @@ cfg_if! {
             .name("Trace")
             .line(Line::new().color(NamedColor::CadetBlue));
 
-            let eventlists = eventlists.into_iter().map(|(topic_idx, eventlist)| {
+            let eventlists = eventlists.into_iter()
+                .zip(COLOURS.iter().cycle().zip(MARKERS.iter().cycle()))
+                .map(|((topic_idx, eventlist), (colour, symbol))| {
                 Scatter::new(
                     eventlist.iter().map(|event| event.time).collect::<Vec<_>>(),
                     eventlist
@@ -78,8 +86,9 @@ cfg_if! {
                         .collect::<Vec<_>>(),
                 )
                 .mode(Mode::Markers)
+                .marker(Marker::new().symbol(symbol.clone()))
                 .name(&format!{"Events {topic_idx}"})
-                .marker(Marker::new().color(NamedColor::IndianRed))
+                .marker(Marker::new().color(colour.clone()))
             });
 
             Ok(TracePlotly {

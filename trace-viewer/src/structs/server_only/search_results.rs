@@ -118,7 +118,10 @@ impl Cache {
                 match self.traces.entry(metadata.clone()) {
                     Entry::Occupied(mut occupied_entry) => {
                         info!("Found Trace for Events");
-                        occupied_entry.get_mut().events.insert(topic, events.clone());
+                        occupied_entry
+                            .get_mut()
+                            .events
+                            .insert(topic, events.clone());
                     }
                     Entry::Vacant(vacant_entry) => {
                         error!("Trace not found: {0:?}", vacant_entry.key());
@@ -128,7 +131,7 @@ impl Cache {
         }
     }
 
-    pub(crate) fn get_eventlist_topic_indices(&self) -> impl Iterator<Item=&usize> {
+    pub(crate) fn get_eventlist_topic_indices(&self) -> impl Iterator<Item = &usize> {
         self.events.keys()
     }
 }
