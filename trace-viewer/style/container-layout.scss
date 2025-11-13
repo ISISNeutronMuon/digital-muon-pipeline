@@ -19,24 +19,11 @@ div.content#search-controls {
     grid-area: 2/1/span 1/span 1;
 }
 
-div.content#search-setup-eventlist-source {
-}
-
-div.content#search-setup-mode {
-}
-
-div.content#search-setup-match {
-}
-
 /*
     Results Section
 */
 div.content#results {
-    grid-template-columns: auto auto;
-}
-
-div.content#results {
-    grid-template-columns: auto auto;
+    grid-template-columns: 40% 60%;
 }
 
 div.content#search-results {

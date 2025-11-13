@@ -95,7 +95,7 @@ cfg_if! {
                         .collect::<Vec<_>>(),
                 )
                 .mode(Mode::Markers)
-                .marker(Marker::new().color(*colour).symbol(symbol.clone()).opacity(0.5))
+                .marker(Marker::new().color(*colour).symbol(symbol.clone()).opacity(0.75))
                 .name(format!{"Events: {event_topic}"})
             );
 
