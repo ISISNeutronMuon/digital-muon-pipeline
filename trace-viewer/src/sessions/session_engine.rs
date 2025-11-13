@@ -68,6 +68,10 @@ impl SessionEngine {
         self.sessions.get(uuid).ok_or(SessionError::DoesNotExist)
     }
 
+    pub fn settings(&self) -> &SessionEngineSettings {
+        &self.settings
+    }
+
     pub fn session_mut(&mut self, uuid: &str) -> Result<&mut Session, SessionError> {
         self.sessions
             .get_mut(uuid)

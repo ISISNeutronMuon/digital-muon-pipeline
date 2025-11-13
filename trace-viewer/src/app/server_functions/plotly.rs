@@ -28,9 +28,18 @@ pub async fn create_and_fetch_plotly(
         .events
         .iter()
         .flat_map(|(&topic_idx, events)| {
-            events
-                .get(&index_and_channel.channel)
-                .map(|events| (topic_idx, events))
+            events.get(&index_and_channel.channel).map(|events| {
+                (
+                    session_engine
+                        .settings()
+                        .topics
+                        .digitiser_event_topic
+                        .get(topic_idx)
+                        .expect("Daq eventlist topic index should exist, this should never fail.")
+                        .clone(),
+                    events,
+                )
+            })
         })
         .collect::<Vec<_>>();
 
@@ -54,7 +63,7 @@ cfg_if! {
         const COLOURS: [NamedColor; 6] = [NamedColor::IndianRed, NamedColor::DarkGreen, NamedColor::Indigo, NamedColor::MediumSpringGreen, NamedColor::HotPink, NamedColor::YellowGreen];
         const MARKERS: [MarkerSymbol; 5] = [MarkerSymbol::CircleOpen, MarkerSymbol::SquareOpen, MarkerSymbol::Cross, MarkerSymbol::DiamondOpen, MarkerSymbol::X];
 
-        fn create_plotly<'a>(metadata: &DigitiserMetadata, channel: Channel, trace: &'a MuonTrace, eventlists: Vec<(usize, &'a EventList)>) -> Result<TracePlotly, ServerFnError> {
+        fn create_plotly<'a>(metadata: &DigitiserMetadata, channel: Channel, trace: &'a MuonTrace, eventlists: Vec<(String, &'a EventList)>) -> Result<TracePlotly, ServerFnError> {
             info!("create_plotly_on_server");
 
             let date = metadata.timestamp.date_naive().to_string();
@@ -77,7 +86,7 @@ cfg_if! {
 
             let eventlists = eventlists.into_iter()
                 .zip(COLOURS.iter().cycle().zip(MARKERS.iter().cycle()))
-                .map(|((topic_idx, eventlist), (colour, symbol))| {
+                .map(|((event_topic, eventlist), (colour, symbol))|
                 Scatter::new(
                     eventlist.iter().map(|event| event.time).collect::<Vec<_>>(),
                     eventlist
@@ -87,8 +96,8 @@ cfg_if! {
                 )
                 .mode(Mode::Markers)
                 .marker(Marker::new().color(*colour).symbol(symbol.clone()).opacity(0.5))
-                .name(format!{"Events {topic_idx}"})
-            });
+                .name(format!{"Events: {event_topic}"})
+            );
 
             Ok(TracePlotly {
                 title: format!("Channel {} from Digitiser {}", channel, metadata.id),
