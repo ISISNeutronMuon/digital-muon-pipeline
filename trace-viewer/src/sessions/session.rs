@@ -106,7 +106,7 @@ impl Session {
             })
             .collect::<Vec<_>>();
         Ok(SearchSummary {
-            events_topic: cache.get_events_topic().into(),
+            eventlist_topic_indices: cache.get_eventlist_topic_indices().copied().collect(),
             target: self.target.clone(),
             traces,
         })

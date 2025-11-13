@@ -128,8 +128,7 @@ impl<'a, M> Searcher<'a, M, StreamConsumer> {
             .await
             .inspect_err(|_| warn!("Recv Timed Out."))
             .ok()
-            .map(Result::ok)
-            .flatten()
+            .and_then(Result::ok)
     }
 
     pub(crate) fn get_current_bounds(&self) -> (i64, i64) {

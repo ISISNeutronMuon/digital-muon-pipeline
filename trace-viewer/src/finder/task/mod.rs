@@ -18,7 +18,7 @@ pub(crate) trait TaskClass {}
 pub(crate) struct SearchTask<'a, C: TaskClass> {
     consumer: &'a StreamConsumer,
     topics: &'a Topics,
-    events_topic_index: usize,
+    events_topic_indices: Vec<usize>,
     phantom: PhantomData<C>,
 }
 
@@ -26,12 +26,12 @@ impl<'a, C: TaskClass> SearchTask<'a, C> {
     pub(crate) fn new(
         consumer: &'a StreamConsumer,
         topics: &'a Topics,
-        events_topic_index: usize,
+        events_topic_indices: Vec<usize>,
     ) -> Self {
         Self {
             consumer,
             topics,
-            events_topic_index,
+            events_topic_indices,
             phantom: PhantomData,
         }
     }

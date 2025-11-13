@@ -3,8 +3,11 @@ mod results_settings;
 mod select_channel;
 
 use crate::{
-    app::sections::results::search_results::{
-        digitiser_message::DigitiserMessage, results_settings::ResultsSettingsPanel,
+    app::{
+        TopLevelContext,
+        sections::results::search_results::{
+            digitiser_message::DigitiserMessage, results_settings::ResultsSettingsPanel,
+        },
     },
     structs::{
         SearchSummary, SearchTarget, SearchTargetBy, SearchTargetMode, SelectedTraceIndex,
@@ -39,7 +42,7 @@ fn sort_trace_summaries(trace_summaries: Vec<TraceSummary>) -> Vec<(String, Trac
 /// and select the desired field.
 #[derive(Clone)]
 struct SelectTraceLevelContext {
-    events_topic: String,
+    eventlist_topic_indices: Vec<usize>,
     target: SearchTarget,
     num_results: usize,
     select_trace_index: RwSignal<Option<SelectedTraceIndex>>,
@@ -48,7 +51,7 @@ struct SelectTraceLevelContext {
 #[component]
 pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView {
     provide_context(SelectTraceLevelContext {
-        events_topic: search_summary.events_topic,
+        eventlist_topic_indices: search_summary.eventlist_topic_indices,
         target: search_summary.target,
         num_results: search_summary.traces.len(),
         select_trace_index: RwSignal::<Option<SelectedTraceIndex>>::new(None),
@@ -57,7 +60,7 @@ pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView
     let trace_by_date_and_time = sort_trace_summaries(search_summary.traces);
 
     view! {
-        <div class = "search-results">
+        <div class = "content search-results" id = "search-results">
             <SearchSummary />
             <ResultsSettingsPanel />
             <For
@@ -72,18 +75,35 @@ pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView
 
 #[component]
 pub(crate) fn SearchSummary() -> impl IntoView {
+    let eventlist_topics = use_context::<TopLevelContext>()
+        .expect("")
+        .client_side_data
+        .eventlist_topics;
     let SelectTraceLevelContext {
-        events_topic,
+        eventlist_topic_indices,
         target,
         num_results,
         select_trace_index: _,
     } = use_context::<SelectTraceLevelContext>().expect("");
 
+    let eventlist_topic_indices = eventlist_topic_indices
+        .into_iter()
+        .map(|idx| eventlist_topics.get(idx).expect("").clone())
+        .collect::<Vec<_>>();
+
     view! {
         <div class = "search-results-summary">
             "Found " {num_results} " results matching search criteria:"
             <ul>
-                <li> "Events capured from topic: " {events_topic} </li>
+                <li>
+                    "Events capured from topic:"
+                    <ul>
+                        <For each=move||eventlist_topic_indices.clone()
+                            key=move|topic|topic.clone()
+                            children=|topic|view!{<li> {topic} </li>}
+                        />
+                    </ul>
+                </li>
                 {match target.mode {
                     SearchTargetMode::Timestamp { timestamp } => view! {
                         <li> {format!("At or after: {} {}", timestamp.date_naive(), timestamp.time())} </li>

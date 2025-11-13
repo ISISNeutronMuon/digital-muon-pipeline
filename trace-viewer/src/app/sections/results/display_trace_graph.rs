@@ -32,12 +32,14 @@ pub(crate) fn DisplayGraph(trace_plotly: TracePlotly) -> impl IntoView {
         layout,
     } = trace_plotly;
 
-    let data = eventlist_data
-        .map(|eventlist_data| format!("{trace_data}, {eventlist_data}"))
-        .unwrap_or(trace_data);
+    let data = if eventlist_data.is_empty() {
+        trace_data
+    } else {
+        format!("{trace_data}, {}", eventlist_data.join(","))
+    };
 
     view! {
-        <div class = "trace-graph">
+        <div class = "content trace-graph" id = "trace-graph">
             <div class = "trace-graph-title">
                 {title}
             </div>

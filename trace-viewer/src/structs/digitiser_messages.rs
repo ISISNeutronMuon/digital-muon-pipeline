@@ -34,7 +34,7 @@ pub(crate) struct DigitiserTrace {
     /// Maps channels to traces.
     pub(crate) traces: HashMap<Channel, Trace>,
     /// If present, maps channels to [EventList]s.
-    pub(crate) events: Option<DigitiserEventList>,
+    pub(crate) events: HashMap<usize, DigitiserEventList>,
 }
 
 /// A pair defining a muon detection.
@@ -83,7 +83,7 @@ cfg_if! {
                 let traces: HashMap<Channel, Trace> = HashMap::from_iter(pairs);
                 DigitiserTrace {
                     traces,
-                    events: None,
+                    events: Default::default(),
                 }
             }
         }

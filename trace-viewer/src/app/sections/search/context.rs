@@ -11,6 +11,7 @@ use leptos::prelude::*;
 /// and select the desired field.
 #[derive(Clone)]
 pub(crate) struct SearchLevelContext {
+    pub(crate) eventlist_sources: Vec<RwSignal<bool>>,
     pub(crate) search_mode: RwSignal<SearchMode>,
     pub(crate) search_by: RwSignal<SearchBy>,
     pub(crate) date: RwSignal<NaiveDate>,
@@ -23,7 +24,7 @@ pub(crate) struct SearchLevelContext {
 }
 
 impl SearchLevelContext {
-    pub(crate) fn new(default_data: &DefaultData) -> Self {
+    pub(crate) fn new(default_data: &DefaultData, num_eventlist_topics: usize) -> Self {
         let default_timestamp = default_data.timestamp.unwrap_or_else(Utc::now);
         let default_date = default_timestamp.date_naive();
         let default_time = default_timestamp.time();
@@ -36,6 +37,10 @@ impl SearchLevelContext {
         };
 
         Self {
+            eventlist_sources: (0..1)
+                .map(|_| RwSignal::new(true))
+                .chain((1..num_eventlist_topics).map(|_| RwSignal::new(false)))
+                .collect(),
             search_mode: RwSignal::new(SearchMode::default()),
             search_by: RwSignal::new(search_by),
             channels: RwSignal::new(default_data.channels.clone().unwrap_or_default()),
