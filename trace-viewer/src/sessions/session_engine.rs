@@ -44,7 +44,7 @@ impl SessionEngine {
     pub fn create_new_search(
         &mut self,
         target: SearchTarget,
-        events_topic_index: usize,
+        events_topic_indices: Vec<usize>,
     ) -> Result<String, SessionError> {
         let consumer = digital_muon_common::create_default_consumer(
             &self.settings.broker,
@@ -54,7 +54,7 @@ impl SessionEngine {
             None,
         )?;
 
-        let searcher = SearchEngine::new(consumer, &self.settings.topics, events_topic_index);
+        let searcher = SearchEngine::new(consumer, &self.settings.topics, events_topic_indices);
 
         let key = self.generate_key();
         self.sessions.insert(
@@ -66,6 +66,10 @@ impl SessionEngine {
 
     pub fn session(&self, uuid: &str) -> Result<&Session, SessionError> {
         self.sessions.get(uuid).ok_or(SessionError::DoesNotExist)
+    }
+
+    pub fn settings(&self) -> &SessionEngineSettings {
+        &self.settings
     }
 
     pub fn session_mut(&mut self, uuid: &str) -> Result<&mut Session, SessionError> {
@@ -122,7 +126,7 @@ impl SessionEngine {
             None,
         )?;
 
-        let searcher = SearchEngine::new(consumer, &self.settings.topics, events_topic_index);
+        let searcher = SearchEngine::new(consumer, &self.settings.topics, Default::default());
 
         Ok(searcher
             .poll_broker(poll_broker_timeout_ms, events_topic_index)

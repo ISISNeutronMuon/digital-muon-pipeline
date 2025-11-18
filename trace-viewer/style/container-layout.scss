@@ -1,0 +1,54 @@
+/*
+    Search Section
+*/
+
+div.content#search {
+    grid-template-rows: auto auto;
+}
+
+div.content#search-setup {
+    grid-area: 1/1/span 1/span 1;
+}
+@media all and (min-width: 1024px) {
+    div.content#search-setup {   
+        grid-template-columns: auto auto auto;
+    }
+}
+
+div.content#search-controls {
+    grid-area: 2/1/span 1/span 1;
+}
+
+/*
+    Results Section
+*/
+div.content#results {
+    grid-template-columns: 40% 60%;
+}
+
+div.content#search-results {
+    grid-template-columns: auto;
+}
+
+
+/*
+    Broker Section
+*/
+div.content#broker {
+    grid-template-columns: auto auto;
+}
+
+div.content#broker-poll {
+    grid-template-rows: auto auto;
+}
+
+div.content#broker-poll-setup {
+    grid-template-columns: auto auto;
+}
+
+
+@media only screen and (max-width: 1024px) {
+    div.content#search-setup {
+        grid-template-rows: auto auto auto;
+    }
+}

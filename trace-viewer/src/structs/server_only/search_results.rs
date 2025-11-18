@@ -32,15 +32,13 @@ impl SearchResults {
 
 #[derive(Debug, Clone)]
 pub struct Cache {
-    events_topic: String,
     traces: BTreeMap<DigitiserMetadata, DigitiserTrace>,
-    events: BTreeMap<DigitiserMetadata, DigitiserEventList>,
+    events: BTreeMap<usize, BTreeMap<DigitiserMetadata, DigitiserEventList>>,
 }
 
 impl Cache {
-    pub(crate) fn new(events_topic: &str) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            events_topic: events_topic.into(),
             traces: Default::default(),
             events: Default::default(),
         }
@@ -85,6 +83,7 @@ impl Cache {
     #[tracing::instrument(skip_all)]
     pub(crate) fn push_events(
         &mut self,
+        topic_index: usize,
         msg: &DigitizerEventListMessage<'_>,
     ) -> Result<(), GpsTimeConversionError> {
         let metadata = DigitiserMetadata {
@@ -101,7 +100,8 @@ impl Cache {
             running: msg.metadata().running(),
             veto_flags: msg.metadata().veto_flags(),
         };
-        match self.events.entry(metadata) {
+        let events = self.events.entry(topic_index).or_default();
+        match events.entry(metadata) {
             Entry::Occupied(occupied_entry) => {
                 error!("Event list already found: {0:?}", occupied_entry.key());
             }
@@ -113,20 +113,25 @@ impl Cache {
     }
 
     pub(crate) fn attach_event_lists_to_trace(&mut self) {
-        for (metadata, events) in &self.events {
-            match self.traces.entry(metadata.clone()) {
-                Entry::Occupied(mut occupied_entry) => {
-                    info!("Found Trace for Events");
-                    occupied_entry.get_mut().events = Some(events.clone());
-                }
-                Entry::Vacant(vacant_entry) => {
-                    error!("Trace not found: {0:?}", vacant_entry.key());
+        for (&topic, events) in &self.events {
+            for (metadata, events) in events {
+                match self.traces.entry(metadata.clone()) {
+                    Entry::Occupied(mut occupied_entry) => {
+                        info!("Found Trace for Events");
+                        occupied_entry
+                            .get_mut()
+                            .events
+                            .insert(topic, events.clone());
+                    }
+                    Entry::Vacant(vacant_entry) => {
+                        error!("Trace not found: {0:?}", vacant_entry.key());
+                    }
                 }
             }
         }
     }
 
-    pub(crate) fn get_events_topic(&self) -> &str {
-        &self.events_topic
+    pub(crate) fn get_eventlist_topic_indices(&self) -> impl Iterator<Item = &usize> {
+        self.events.keys()
     }
 }
