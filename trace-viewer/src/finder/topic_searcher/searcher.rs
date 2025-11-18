@@ -26,7 +26,7 @@ pub(crate) enum SearcherError {
     EndOfTopicReached,
     #[error("Broker Timed Out")]
     BrokerTimeout,
-    #[error("No valid message found")]
+    #[error("No valid message found: {0}")]
     NoMessageFound(#[from] BorrowedMessageError),
     #[error("Timestamp Conversion Error: {0}")]
     TimestampConversion(#[from] GpsTimeConversionError),
