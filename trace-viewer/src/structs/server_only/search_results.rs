@@ -34,9 +34,13 @@ impl SearchResults {
     }
 }
 
+/// Stores trace and event list messages found by the searcher.
 #[derive(Debug, Clone)]
 pub struct Cache {
+    /// Associative array which keys each found trace message by its metadata.
     traces: BTreeMap<DigitiserMetadata, DigitiserTrace>,
+    /// Associative array of associative arrays. The top level key is the index of the eventlist topic,
+    /// to which the found eventlists belong. The lower level key is the metadata of the found eventlist.
     events: BTreeMap<usize, BTreeMap<DigitiserMetadata, DigitiserEventList>>,
 }
 
@@ -48,6 +52,7 @@ impl Cache {
         }
     }
 
+    /// Push a trace message to the cache.
     #[tracing::instrument(skip_all)]
     pub(crate) fn push_trace(
         &mut self,
@@ -84,6 +89,7 @@ impl Cache {
         self.traces.iter()
     }
 
+    /// Push an event list to the cache, along with the eventlist topic index it belongs to.
     #[tracing::instrument(skip_all)]
     pub(crate) fn push_events(
         &mut self,
@@ -116,6 +122,8 @@ impl Cache {
         Ok(())
     }
 
+    /// Traverse the eventlists in the cache and assign associate them
+    /// to the trace messages with matching metadata, if one exists.
     pub(crate) fn attach_event_lists_to_trace(&mut self) {
         for (&topic, events) in &self.events {
             for (metadata, events) in events {
@@ -135,6 +143,7 @@ impl Cache {
         }
     }
 
+    /// Returns iterator to the eventlist topic indices which exist in the cache.
     pub(crate) fn get_eventlist_topic_indices(&self) -> impl Iterator<Item = &usize> {
         self.events.keys()
     }
