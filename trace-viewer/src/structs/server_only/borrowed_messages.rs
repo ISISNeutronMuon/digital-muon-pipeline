@@ -47,13 +47,20 @@ pub(crate) trait FBMessage<'a>:
     fn digitiser_id(&self) -> DigitizerId;
 }
 
+/// Wraps a [BorrowedMessage] which is known to resolve to a [DigitizerAnalogTraceMessage].
 pub(crate) struct TraceMessage<'a> {
+    /// The underlying borrowed message.
     message: BorrowedMessage<'a>,
+    /// The status packet timestamp of the underlying message.
     timestamp: Timestamp,
+    /// The digitiser id of the underlying message.
     digitiser_id: DigitizerId,
 }
 
 impl<'a> TraceMessage<'a> {
+    /// Determine whether this trace message contains the given channel.
+    /// 
+    /// Returns `false` if the channels field is missing from the message.
     pub(crate) fn has_channel(&self, channel: Channel) -> bool {
         self.try_unpacked_message()
             .ok()
@@ -62,6 +69,7 @@ impl<'a> TraceMessage<'a> {
             .is_some()
     }
 
+    /// Returns `true` if and only if the underlying message is matched by the given [SearchTargetBy].
     pub(crate) fn filter_by(&self, by: &SearchTargetBy) -> bool {
         match by {
             SearchTargetBy::All => true,
@@ -121,6 +129,8 @@ impl<'a> FBMessage<'a> for TraceMessage<'a> {
     }
 }
 
+
+/// Wraps a [BorrowedMessage] which is known to resolve to a [DigitizerEventListMessage].
 pub(crate) struct EventListMessage<'a> {
     message: BorrowedMessage<'a>,
     timestamp: Timestamp,
@@ -128,6 +138,7 @@ pub(crate) struct EventListMessage<'a> {
 }
 
 impl<'a> EventListMessage<'a> {
+    /// Determine whether this trace message has digitiser id equal to any of the given list.
     pub(crate) fn filter_by_digitiser_id(&self, digitiser_ids: &[DigitizerId]) -> bool {
         digitiser_ids.iter().any(|&d: &u8| self.digitiser_id() == d)
     }
@@ -180,11 +191,14 @@ impl<'a> FBMessage<'a> for EventListMessage<'a> {
     }
 }
 
+/// Provides methods to [BorrowedMessage] which convert it either to a [DigitizerAnalogTraceMessage] or [DigitizerEventListMessage].
 pub(crate) trait UnpackMessage<'a> {
+    /// Converts to a [DigitizerAnalogTraceMessage] returning an error if the underlying message is not [DigitizerAnalogTraceMessage].
     fn unpack_trace_message(
         &'a self,
     ) -> Result<DigitizerAnalogTraceMessage<'a>, BorrowedMessageError>;
 
+    /// Converts to a [DigitizerEventListMessage] returning an error if the underlying message is not [DigitizerEventListMessage].
     fn unpack_event_list_message(
         &'a self,
     ) -> Result<DigitizerEventListMessage<'a>, BorrowedMessageError>;

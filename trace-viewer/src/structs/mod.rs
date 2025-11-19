@@ -21,7 +21,7 @@ cfg_if! {
     if #[cfg(feature = "ssr")] {
         mod server_only;
 
-        use clap::Args; // This should be imported only for server-side use.
+        use clap::Args;
 
         pub(crate) use digitiser_messages::{DigitiserMetadata, DigitiserTrace, EventList, Trace};
         pub(crate) use server_only::{Cache, BorrowedMessageError, SearchResults, EventListMessage, FBMessage, TraceMessage};
@@ -72,10 +72,16 @@ pub struct DefaultData {
 /// Encapsulates all run-time settings which are available to the client.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientSideData {
+    /// Default values to be used in the search settings, etc.
     pub default_data: DefaultData,
+    /// The name of the broker (e.g. HiFi, MuSR).
     pub broker_name: String,
+    /// List of topic names containing event lists.
     pub eventlist_topics: Vec<String>,
+    /// Optional link to the broker's RedPanda console.
     pub link_to_redpanda_console: Option<String>,
+    /// The time interval at which the client attepts to refresh a session with the server.
     pub refresh_session_interval_sec: u64,
+    /// The site's url as it appears to the client.
     pub public_url: Url,
 }

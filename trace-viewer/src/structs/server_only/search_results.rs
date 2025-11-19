@@ -15,13 +15,17 @@ use std::collections::{
 };
 use tracing::{error, info};
 
+/// Encapsulates the result of a completed search.
 #[derive(Debug, Clone)]
 pub(crate) enum SearchResults {
+    /// The search was cancelled by the user.
     Cancelled,
+    /// The search successfully returned results.
     Successful { cache: Cache },
 }
 
 impl SearchResults {
+    /// Returns the underlying cache of the search results, if they exist, returns [SessionError::SearchCancelled] otherwise.
     pub fn cache(&self) -> Result<&Cache, SessionError> {
         match self {
             SearchResults::Cancelled => Err(SessionError::SearchCancelled),
