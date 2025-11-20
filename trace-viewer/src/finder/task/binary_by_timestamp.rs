@@ -17,6 +17,11 @@ impl TaskClass for BinarySearchByTimestamp {}
 
 impl<'a> SearchTask<'a, BinarySearchByTimestamp> {
     /// Performs a binary tree search on a given topic, with generic filtering functions.
+    /// # Parameters
+    /// - searcher: the topic-specific [Searcher].
+    /// - target: the [Timestamp] to aim for.
+    /// - number: the maximum number of results to match.
+    /// - aquire_while: a generic filtering function.
     #[instrument(skip_all)]
     async fn search_topic<M, A>(
         &self,
@@ -74,7 +79,8 @@ impl<'a> SearchTask<'a, BinarySearchByTimestamp> {
     /// Performs a binary tree search.
     /// # Parameters
     /// - target: what to search for.
-    /// - by:
+    /// - by: what criteria to match on.
+    /// - number: the maximum number of results to match.
     #[instrument(skip_all)]
     pub(crate) async fn search(
         self,
