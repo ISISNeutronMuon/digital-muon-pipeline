@@ -1,6 +1,5 @@
 use crate::integrated::{
     Topics,
-    build_messages::build_trace_message,
     send_messages::{
         SendError, send_aggregated_frame_event_list_message, send_alarm_command,
         send_digitiser_event_list_message, send_digitiser_trace_message, send_run_log_command,
@@ -12,13 +11,13 @@ use crate::integrated::{
         utils::{JsonFloatError, JsonIntError},
     },
     simulation_engine::actions::{
-        Action, DigitiserAction, FrameAction, GenerateEventList, GenerateTrace,
-        SelectionModeOptions, Timestamp, TracingEvent, TracingLevel,
+        Action, DigitiserAction, FrameAction, GenerateEventList, GenerateTrace, Timestamp,
+        TracingEvent, TracingLevel,
     },
 };
 use chrono::{DateTime, TimeDelta, Utc};
 use digital_muon_common::{Channel, DigitizerId, FrameNumber};
-use digital_muon_streaming_types::{FrameMetadata, flatbuffers::FlatBufferBuilder};
+use digital_muon_streaming_types::FrameMetadata;
 use rdkafka::producer::FutureProducer;
 use std::{collections::VecDeque, thread::sleep, time::Duration};
 use thiserror::Error;
@@ -175,40 +174,6 @@ fn generate_trace_push_to_cache(
 }
 
 #[instrument(skip_all, level = "debug", err(level = "error"))]
-fn generate_trace_fbb_push_to_cache(
-    sample_rate: u64,
-    trace_cache_fbb: &mut VecDeque<FlatBufferBuilder<'_>>,
-    metadata: &FrameMetadata,
-    digitizer_id: DigitizerId,
-    channels: &[Channel],
-    simulation: &Simulation,
-    generate_trace: &GenerateTrace,
-) -> Result<(), SimulationError> {
-    let event_lists = simulation.generate_event_lists(
-        generate_trace.event_list_index,
-        metadata.frame_number,
-        generate_trace.repeat,
-    )?;
-    let mut traces =
-        VecDeque::from(simulation.generate_traces(event_lists.as_slice(), metadata.frame_number)?);
-
-    let mut fbb = FlatBufferBuilder::new();
-
-    build_trace_message(
-        &mut fbb,
-        sample_rate,
-        &mut traces,
-        metadata,
-        digitizer_id,
-        channels,
-        SelectionModeOptions::PopFront,
-    )?;
-
-    trace_cache_fbb.push_back(fbb);
-    Ok(())
-}
-
-#[instrument(skip_all, level = "debug", err(level = "error"))]
 fn generate_event_lists_push_to_cache(
     engine: &mut SimulationEngine,
     generate_event: &GenerateEventList,
@@ -358,8 +323,8 @@ fn run_frame(
     )
     err(level = "error")
 )]
-pub(crate) fn run_digitiser<'a>(
-    engine: &'a mut SimulationEngine,
+pub(crate) fn run_digitiser(
+    engine: &mut SimulationEngine,
     digitiser_actions: &[DigitiserAction],
 ) -> Result<(), SimulationEngineError> {
     for action in digitiser_actions {

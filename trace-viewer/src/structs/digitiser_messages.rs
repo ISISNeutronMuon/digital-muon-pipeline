@@ -7,9 +7,11 @@ use std::collections::HashMap;
 /// Timeseries of signal intensities.
 ///
 /// The time and value scaling is not stored here, so interpretation is owner dependent.
+#[allow(dead_code)]
 pub(crate) type Trace = Vec<Intensity>;
 
 /// Bundles all metadata which uniquely defines each digitiser message.
+#[allow(dead_code)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub(crate) struct DigitiserMetadata {
     /// Unique to each frame.
@@ -29,6 +31,7 @@ pub(crate) struct DigitiserMetadata {
 }
 
 /// Encapsulates all traces of a digitiser trace message.
+#[allow(dead_code)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct DigitiserTrace {
     /// Maps channels to traces.

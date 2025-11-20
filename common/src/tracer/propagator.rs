@@ -32,10 +32,10 @@ struct HeaderExtractor<'a>(pub &'a BorrowedHeaders);
 impl Extractor for HeaderExtractor<'_> {
     fn get(&self, key: &str) -> Option<&str> {
         for i in 0..self.0.count() {
-            if let Ok(val) = self.0.get_as::<str>(i) {
-                if val.key == key {
-                    return val.value;
-                }
+            if let Ok(val) = self.0.get_as::<str>(i)
+                && val.key == key
+            {
+                return val.value;
             }
         }
         None
@@ -97,13 +97,13 @@ impl OptionalHeaderTracerExt for Option<&BorrowedHeaders> {
     }
 
     fn conditional_extract_to_span(self, use_otel: bool, span: &Span) {
-        if let Some(headers) = self {
-            if use_otel {
-                debug!("Kafka Header Found");
-                span.set_parent(opentelemetry::global::get_text_map_propagator(
-                    |propagator| propagator.extract(&HeaderExtractor(headers)),
-                ));
-            }
+        if let Some(headers) = self
+            && use_otel
+        {
+            debug!("Kafka Header Found");
+            span.set_parent(opentelemetry::global::get_text_map_propagator(
+                |propagator| propagator.extract(&HeaderExtractor(headers)),
+            ));
         }
     }
 }
