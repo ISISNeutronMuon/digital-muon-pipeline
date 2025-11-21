@@ -129,11 +129,15 @@ impl Detector for DifferentialThresholdDetector {
                             None
                         }
                     })
+                    })
                 } else {
                     None
                 }
             }
             None => {
+                //  If we are under the threshold.
+
+                // If the current value as over the threshold:
                 //  If we are under the threshold.
 
                 // If the current value as over the threshold:
