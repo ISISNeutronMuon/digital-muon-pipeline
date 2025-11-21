@@ -110,7 +110,7 @@ fn find_differential_threshold_events(
                 duration: parameters.duration,
                 cool_off: parameters.cool_off,
             },
-            parameters.constant_multiple,
+            parameters.peak_height_mode.clone(),
         ),
     );
 
@@ -118,7 +118,12 @@ fn find_differential_threshold_events(
     let mut voltage = Vec::<Intensity>::new();
     for pulse in pulses {
         time.push(pulse.0 as Time);
-        voltage.push(pulse.1.pulse_height as Intensity);
+        voltage.push(match parameters.peak_height_basis {
+            crate::parameters::PeakHeightBasis::TraceBaseline => pulse.1.peak_height as Intensity,
+            crate::parameters::PeakHeightBasis::PulseBaseline => {
+                (pulse.1.peak_height - pulse.1.base_height) as Intensity
+            }
+        });
     }
     (time, voltage)
 }
