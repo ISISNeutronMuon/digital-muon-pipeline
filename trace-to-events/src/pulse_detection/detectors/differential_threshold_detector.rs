@@ -129,17 +129,11 @@ impl Detector for DifferentialThresholdDetector {
                             None
                         }
                     })
-                    })
                 } else {
                     None
                 }
             }
             None => {
-                //  If we are under the threshold.
-
-                // If the current value as over the threshold:
-                //  If we are under the threshold.
-
                 // If the current value as over the threshold:
                 if value[1] > self.trigger.threshold {
                     // If we have a "time_of_last_return", then test if we have passed the cool-down time.
@@ -233,27 +227,7 @@ mod tests {
         assert_eq!(iter.next(), Data::some_new_event(6.0, 1.0, 7.0));
         assert_eq!(iter.next(), None);
     }
-    /*
-       #[test]
-       fn test_zero_duration() {
-           let data = [4, 3, 2, 5, 2, 1, 5, 7, 2, 2];
-           let detector = DifferentialThresholdDetector::new(
-               &ThresholdDuration {
-                   threshold: -2.5,
-                   cool_off: 0,
-                   duration: 0,
-               },
-               Some(2.0),
-           );
-           let mut iter = data
-               .into_iter()
-               .enumerate()
-               .map(|(i, v)| (i as Real, -v as Real))
-               .window(FiniteDifferences::<2>::new())
-               .events(detector);
-           assert_eq!(iter.next(), None);
-       }
-    */
+
     #[test]
     fn test_cool_off() {
         // With a 1 sample cool-off the detector triggers at the following points
