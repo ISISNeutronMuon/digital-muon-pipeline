@@ -52,13 +52,21 @@ pub(crate) enum PeakHeightBasis {
 
 #[derive(Default, Debug, Clone, Parser)]
 pub(crate) struct DifferentialThresholdDiscriminatorParameters {
-    /// If the detector is armed, an event is registered when the trace passes this value for the given duration.
+    /// If the detector is armed, an event is registered when the trace derivative passes this value for the given duration.
     #[clap(long)]
-    pub(crate) threshold: Real,
+    pub(crate) begin_threshold: Real,
 
-    /// The duration, in samples, that the trace must exceed the threshold for.
+    /// The duration, in samples, that the trace derivative must exceed the begin threshold for a detection to begin.
     #[clap(long, default_value = "1")]
-    pub(crate) duration: i32,
+    pub(crate) begin_duration: i32,
+
+    /// If a detection is in progress, an event is concluded when the trace derivative passes below this value for the given duration.
+    #[clap(long)]
+    pub(crate) end_threshold: Real,
+
+    /// The duration, in samples, that the trace derivative must drop below the end threshold for a detection to end.
+    #[clap(long, default_value = "1")]
+    pub(crate) end_duration: i32,
 
     /// After an event is registered, the detector disarms for this many samples.
     #[clap(long, default_value = "0")]
