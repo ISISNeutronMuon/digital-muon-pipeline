@@ -5,7 +5,13 @@ use crate::{
         Polarity,
     },
     pulse_detection::{
-        advanced_muon_detector::{AdvancedMuonAssembler, AdvancedMuonDetector}, detectors::differential_threshold_detector::{DifferentialThresholdDetector, DifferentialThresholdDuration}, threshold_detector::{ThresholdDetector, ThresholdDuration}, window::{Baseline, FiniteDifferences, SmoothingWindow, WindowFilter}, AssembleFilter, EventFilter, Real
+        AssembleFilter, EventFilter, Real,
+        advanced_muon_detector::{AdvancedMuonAssembler, AdvancedMuonDetector},
+        detectors::differential_threshold_detector::{
+            DifferentialThresholdDetector, DifferentialThresholdParameters,
+        },
+        threshold_detector::{ThresholdDetector, ThresholdDuration},
+        window::{Baseline, FiniteDifferences, SmoothingWindow, WindowFilter},
     },
 };
 use digital_muon_common::{Intensity, Time};
@@ -101,12 +107,12 @@ fn find_differential_threshold_events(
 
     let pulses = raw.clone().window(FiniteDifferences::<2>::new()).events(
         DifferentialThresholdDetector::new(
-            &DifferentialThresholdDuration {
+            &DifferentialThresholdParameters {
                 begin_threshold: parameters.begin_threshold,
-                begin_duration: parameters.begin_duration,
+                begin_duration: parameters.begin_duration.into(),
                 end_threshold: parameters.end_threshold,
-                end_duration: parameters.end_duration,
-                cool_off: parameters.cool_off,
+                end_duration: parameters.end_duration.into(),
+                cool_off: parameters.cool_off.into(),
             },
             parameters.peak_height_mode.clone(),
         ),

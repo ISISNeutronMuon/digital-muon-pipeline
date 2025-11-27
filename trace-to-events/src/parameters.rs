@@ -57,7 +57,7 @@ pub(crate) struct DifferentialThresholdDiscriminatorParameters {
     pub(crate) begin_threshold: Real,
 
     /// The duration, in samples, that the trace derivative must exceed the begin threshold for a detection to begin.
-    #[clap(long, default_value = "1")]
+    #[clap(long, default_value = "0")]
     pub(crate) begin_duration: i32,
 
     /// If a detection is in progress, an event is concluded when the trace derivative passes below this value for the given duration.
@@ -65,7 +65,7 @@ pub(crate) struct DifferentialThresholdDiscriminatorParameters {
     pub(crate) end_threshold: Real,
 
     /// The duration, in samples, that the trace derivative must drop below the end threshold for a detection to end.
-    #[clap(long, default_value = "1")]
+    #[clap(long, default_value = "0")]
     pub(crate) end_duration: i32,
 
     /// After an event is registered, the detector disarms for this many samples.
