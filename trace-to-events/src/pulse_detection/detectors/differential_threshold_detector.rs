@@ -5,34 +5,25 @@ use std::fmt::Display;
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct DifferentialThresholdParameters {
-    ///
+    /// The differential threshold the trace must exceed to trigger the detector.
     pub(crate) begin_threshold: Real,
-    /// How long the trace derivative must be above the bein_threshold to begin the detection.
+    /// How long the trace derivative must be above the `begin_threshold` to begin the detection.
     pub(crate) begin_duration: Real,
-    ///
+    /// The differential threshold the trace must fall below to complete a detection.
     pub(crate) end_threshold: Real,
-    /// How long the trace derivative must be below the end_threshold to end the detection.
+    /// How long the trace derivative must be below the `end_threshold` to complete the detection.
     pub(crate) end_duration: Real,
     /// Minimum time between end of last pulse and detection of a new one.
     pub(crate) cool_off: Real,
 }
 
+/// The time-independent parameters of the recorded pulse.
 #[derive(Default, Debug, Clone, PartialEq)]
 pub(crate) struct Data {
+    /// The trace value at the base of the pulse.
     pub(crate) base_height: Real,
+    /// The trace value at the peak of the pulse.
     pub(crate) peak_height: Real,
-}
-
-impl Data {
-    fn new_event(time: Real, base_height: Real, peak_height: Real) -> (Real, Self) {
-        (
-            time,
-            Data {
-                base_height,
-                peak_height,
-            },
-        )
-    }
 }
 
 impl Display for Data {
@@ -43,29 +34,28 @@ impl Display for Data {
 
 impl EventData for Data {}
 
+/// The current state of the detector.
 #[derive(Default, Clone)]
 enum DetectorState {
+    /// The detector is waiting for the trace to exceed `begin_threshold`.
     #[default]
     Waiting,
     /// The trace has been over `begin_threshold` for less than least `begin_duration`.
-    Beginning {
-        time_begun: Real,
-    },
+    Beginning { time_begun: Real },
     /// The trace has been over `begin_threshold` for at least `begin_duration`.
     Detected,
     /// The trace has been below `end_threshold` for at less than `end_duration`, having previously been in the `Detected` state..
-    Ending {
-        time_ended: Real,
-    },
-    CoolingDown {
-        time_ended: Real,
-    },
+    Ending { time_ended: Real },
+    /// The detector has just completed an event detection and is waiting to cool down, before being able to detect another.
+    CoolingDown { time_ended: Real },
 }
 
+/// (Time, Data) pair defining a pulse detection event.
+pub(crate) type ThresholdEvent = (Real, Data);
+
+/// Represents an event in the process of being detected.
 #[derive(Clone)]
 struct PartialEvent {
-    // /// The time at the pulse's initial detection.
-    //time_begun: Real,
     /// The height of the trace at the pulse's detection.
     base_height: Real,
     /// The time associated with the event, i.e. time of the rising edge.
@@ -77,47 +67,59 @@ struct PartialEvent {
 }
 
 impl PartialEvent {
-    fn update(&mut self, peak_height_mode: PeakHeightMode, time: Real, value: TraceArray<2, Real>) {
-        self.update_max_derivative(time, value);
-        match peak_height_mode {
-            PeakHeightMode::ValueAtEndTrigger => self.set_peak_height_to_last_value(value),
-            PeakHeightMode::MaxValue => self.set_peak_height_to_max_value(value[0]),
+    /// Create and initialise new partial event from the inital trace values.
+    fn new(time: Real, value: TraceArray<2, Real>) -> Self {
+        Self {
+            time_of_event: time,
+            trace_array_at_max_deriv: value,
+            base_height: value[0] - value[1],
+            peak_height: value[0],
         }
     }
 
-    fn update_max_derivative(&mut self, time: Real, value: TraceArray<2, Real>) {
+    /// Applies new trace data to the current event in progress.
+    fn update(&mut self, peak_height_mode: PeakHeightMode, time: Real, value: TraceArray<2, Real>) {
+        // Updates the max derivative if the current derivative is higher.
         if self.trace_array_at_max_deriv[1] < value[1] {
-            // Set update the max derivative if the current derivative is higher.
             self.trace_array_at_max_deriv = value;
             self.time_of_event = time;
         }
+
+        // Updates the peak height, based on the mode specified.
+        self.peak_height = match peak_height_mode {
+            PeakHeightMode::ValueAtEndTrigger => value[0] - value[1],
+            PeakHeightMode::MaxValue => Real::max(self.peak_height, value[0]),
+        };
     }
 
-    fn set_peak_height_to_last_value(&mut self, value: TraceArray<2, Real>) {
-        self.peak_height = value[0] - value[1];
-    }
-
-    fn set_peak_height_to_max_value(&mut self, value: Real) {
-        if self.peak_height < value {
-            self.peak_height = value;
-        }
-    }
-
-    fn into_event(self) -> (Real, Data) {
-        Data::new_event(self.time_of_event, self.base_height, self.peak_height)
+    /// Convert partial event into a `ThresholdEvent`.
+    fn into_event(self) -> ThresholdEvent {
+        (
+            self.time_of_event,
+            Data {
+                base_height: self.base_height,
+                peak_height: self.peak_height,
+            },
+        )
     }
 }
 
+/// Detects pulses in a trace by analysing the differential of the trace.
 #[derive(Default, Clone)]
 pub(crate) struct DifferentialThresholdDetector {
+    /// The detection parameters.
     parameters: DifferentialThresholdParameters,
+    /// Determines how peak heights are calculated. This does not affect the number, or time of detections.
     peak_height_mode: PeakHeightMode,
 
+    /// The current state of the detector.
     state: DetectorState,
+    /// The state of a detection in progress.
     partial_event: Option<PartialEvent>,
 }
 
 impl DifferentialThresholdDetector {
+    /// Create new detector.
     pub(crate) fn new(
         parameters: &DifferentialThresholdParameters,
         peak_height_mode: PeakHeightMode,
@@ -129,27 +131,30 @@ impl DifferentialThresholdDetector {
         }
     }
 
-    fn init_new_partial_event(&mut self, time: Real, value: TraceArray<2, Real>) {
-        self.partial_event = Some(PartialEvent {
-            time_of_event: time,
-            trace_array_at_max_deriv: value,
-            base_height: value[0] - value[1],
-            peak_height: value[0],
-        });
-    }
-
     /// Modifies the detector state based on the current state, and outputs an event if appropriate.
     ///
-    /// Waiting => Beginning or Detected
-    /// Beginning => Waiting or Detected                 only if self.parameters.begin_duration is some.
-    /// Detected => Ending or CoolingDown or Waiting
-    /// Ending => Detected or CoolingDown                only if self.parameters.end_duration is some.
-    /// CoolingDown => Waiting                           only if self.parameters.cooloff is some.
-    fn modify_state(&mut self, time: Real, value: TraceArray<2, Real>) {
+    /// # Possible State Changes
+    /// The next state can only be one of the following, depending on the current state
+    /// |Current State| Next State |
+    /// |--|--|
+    /// |`Waiting`|`Beginning` or `Detected`|
+    /// |`Beginning`|`Waiting` or `Detected`|
+    /// |`Detected`|`Ending`, `CoolingDown` or `Waiting`|
+    /// |`Ending`|`Detected` or `CoolingDown`|
+    /// |`CoolingDown`|`Waiting`|
+    ///
+    /// # Allowed States
+    /// The following states will only ever occur if the following conditions are true.
+    /// |State|Only If|
+    /// |--|--|
+    /// |`Beginning`|`self.parameters.begin_duration` is nonzero|
+    /// |`Ending`|`self.parameters.end_duration` is nonzero|
+    /// |`CoolingDown`|`self.parameters.cooloff` is nonzero|
+    fn update_state(&mut self, time: Real, value: TraceArray<2, Real>) {
         match self.state {
             DetectorState::Waiting => {
                 if value[1] >= self.parameters.begin_threshold {
-                    self.init_new_partial_event(time, value);
+                    self.partial_event = Some(PartialEvent::new(time, value));
                     if self.parameters.begin_duration.is_zero() {
                         self.state = DetectorState::Detected;
                     } else {
@@ -197,6 +202,8 @@ impl DifferentialThresholdDetector {
         }
     }
 
+    /// If a partial event is in progress, take ownership of it as long as the sate
+    /// is `Ending`, `CoolingDown` or `Waiting`, otherwise return `None`.
     fn try_take_completed_event(&mut self) -> Option<PartialEvent> {
         match self.state {
             DetectorState::Ending { .. }
@@ -207,14 +214,12 @@ impl DifferentialThresholdDetector {
     }
 }
 
-pub(crate) type ThresholdEvent = (Real, Data);
-
 impl Detector for DifferentialThresholdDetector {
     type TracePointType = (Real, TraceArray<2, Real>);
-    type EventPointType = (Real, Data);
+    type EventPointType = ThresholdEvent;
 
     fn signal(&mut self, time: Real, value: TraceArray<2, Real>) -> Option<ThresholdEvent> {
-        self.modify_state(time, value);
+        self.update_state(time, value);
 
         if let Some(mut event) = self.try_take_completed_event() {
             event.update(self.peak_height_mode.clone(), time, value);
@@ -253,8 +258,14 @@ mod tests {
             .events(detector)
     }
 
-    fn some_new_event(time: Real, base_height: Real, peak_height: Real) -> Option<(Real, Data)> {
-        Some(Data::new_event(time, base_height, peak_height))
+    fn some_new_event(time: Real, base_height: Real, peak_height: Real) -> Option<ThresholdEvent> {
+        Some((
+            time,
+            Data {
+                base_height,
+                peak_height,
+            },
+        ))
     }
 
     #[test]
