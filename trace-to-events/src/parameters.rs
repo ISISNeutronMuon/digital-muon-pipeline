@@ -30,23 +30,55 @@ pub(crate) struct FixedThresholdDiscriminatorParameters {
     pub(crate) cool_off: i32,
 }
 
+/// Determines how the peak height is calculated.
+#[derive(Default, Debug, Clone, ValueEnum)]
+pub(crate) enum PeakHeightMode {
+    /// Take the maximum trace value between begin trigger time and end trigger time.
+    #[default]
+    MaxValue,
+    /// Take the trace value at the end trigger time.
+    ValueAtEndTrigger,
+}
+
+/// Determines the peak height baseline.
+#[derive(Default, Debug, Clone, ValueEnum)]
+pub(crate) enum PeakHeightBasis {
+    /// The peak height is relative to the trace's baseline.
+    #[default]
+    TraceBaseline,
+    /// The peak height is relative to the pulse's baseline, i.e. the trace value at the time the pulse was first detected.
+    PulseBaseline,
+}
+
 #[derive(Default, Debug, Clone, Parser)]
 pub(crate) struct DifferentialThresholdDiscriminatorParameters {
-    /// If the detector is armed, an event is registered when the trace passes this value for the given duration.
+    /// If the detector is armed, an event is registered when the trace derivative passes this value for the given duration.
     #[clap(long)]
-    pub(crate) threshold: Real,
+    pub(crate) begin_threshold: Real,
 
-    /// The duration, in samples, that the trace must exceed the threshold for.
-    #[clap(long, default_value = "1")]
-    pub(crate) duration: i32,
+    /// The duration, in samples, that the trace derivative must exceed the begin threshold for a detection to begin.
+    #[clap(long, default_value = "0")]
+    pub(crate) begin_duration: i32,
+
+    /// If a detection is in progress, an event is concluded when the trace derivative passes below this value for the given duration.
+    #[clap(long)]
+    pub(crate) end_threshold: Real,
+
+    /// The duration, in samples, that the trace derivative must drop below the end threshold for a detection to end.
+    #[clap(long, default_value = "0")]
+    pub(crate) end_duration: i32,
 
     /// After an event is registered, the detector disarms for this many samples.
     #[clap(long, default_value = "0")]
     pub(crate) cool_off: i32,
 
-    /// If set, the pulse height is the value of the rising edge, scaled by this factor,
-    /// otherwise the maximum trace value is used for the pulse height.
-    pub(crate) constant_multiple: Option<Real>,
+    /// Determines how the peak height is computed.
+    #[clap(long)]
+    pub(crate) peak_height_mode: PeakHeightMode,
+
+    /// Determines how the peak height is computed.
+    #[clap(long)]
+    pub(crate) peak_height_basis: PeakHeightBasis,
 }
 
 #[derive(Default, Debug, Clone, Parser)]
