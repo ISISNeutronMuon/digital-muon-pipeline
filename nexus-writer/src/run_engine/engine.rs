@@ -246,7 +246,6 @@ impl<D: NexusEngineDependencies> NexusEngine<D> {
         if let Some(last_run) = self.run_cache.back_mut() {
             last_run.push_ev44_events(&self.nexus_settings, data)?;
         }
-        // TODO do we want to error here if there isn't a run but we receive events?
         Ok(())
     }
 
