@@ -1,7 +1,6 @@
 //! Defines traits which, when implemented for appropriate flatbuffer messages,
 //! allow the messages to write their data into a given [Dataset].
 mod alarm;
-mod events;
 mod f114;
 mod se00;
 

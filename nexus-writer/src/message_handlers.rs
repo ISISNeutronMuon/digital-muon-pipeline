@@ -217,6 +217,7 @@ fn push_frame_event_list(
 /// - nexus_engine: the engine to push the message to.
 /// - kafka_message_timestamp_ms: the timestamp in milliseconds as reported in the Kafka message header. Only used for tracing.
 /// - payload: the byte-stream of the message.
+#[tracing::instrument(skip_all, fields(kafka_message_timestamp_ms=kafka_message_timestamp_ms, has_run))]
 fn push_ev44_event_data(
     nexus_engine: &mut NexusEngine<EngineDependencies>,
     kafka_message_timestamp_ms: i64,

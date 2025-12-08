@@ -238,6 +238,11 @@ impl<D: NexusEngineDependencies> NexusEngine<D> {
         Ok(())
     }
 
+    /// This pushes an Event message to the first valid run it finds in the run cache
+    /// As ev44 blobs do not have guaranteed wall clock timestamps it just uses the last run.
+    /// # Parameters
+    ///  - data: the `Event` message to push.
+    #[tracing::instrument(skip_all, level = "debug")]
     pub(crate) fn push_ev44_event_data(
         &mut self,
         data: &Event44Message<'_>,

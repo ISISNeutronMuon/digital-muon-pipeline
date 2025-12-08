@@ -205,6 +205,11 @@ impl<I: NexusFileInterface> Run<I> {
         Ok(())
     }
 
+    /// Takes `event` message and attempts to append it to the run.
+    /// # Parameters
+    ///  - nexus_settings: settings pertaining to local storage and hdf5 file properties
+    ///  - events: message to push.
+    #[tracing::instrument(skip_all, level = "debug", err(level = "warn"))]
     pub(crate) fn push_ev44_events(
         &mut self,
         nexus_settings: &NexusSettings,
@@ -212,7 +217,7 @@ impl<I: NexusFileInterface> Run<I> {
     ) -> NexusWriterResult<()> {
         self.link_events_span();
         self.file
-            .handle_message(&PushEv44EventData { message: events });
+            .handle_message(&PushEv44EventData { message: events })?;
         self.file.flush()?;
 
         self.parameters.update_last_modified();
