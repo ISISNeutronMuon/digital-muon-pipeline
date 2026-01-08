@@ -52,6 +52,7 @@ type TrySendDigitiserEventListError = TrySendError<DeliveryFuture>;
 
 const EVENTS_FOUND_METRIC: &str = concatcp!(METRIC_NAME_PREFIX, "events_found");
 
+/// [clap] derived struct to handle command line parameters.
 #[derive(Debug, Parser)]
 #[clap(author, version = digital_muon_common::version!(), about)]
 struct Cli {
@@ -196,6 +197,7 @@ async fn main() -> miette::Result<()> {
     }
 }
 
+///  This function wraps the [root_as_digitizer_analog_trace_message] function, allowing it to be instrumented.
 #[instrument(skip_all, level = "trace", err(level = "warn"))]
 fn spanned_root_as_digitizer_analog_trace_message(
     payload: &[u8],
@@ -203,6 +205,15 @@ fn spanned_root_as_digitizer_analog_trace_message(
     root_as_digitizer_analog_trace_message(payload)
 }
 
+/// Extracts the payload of a Kafka message and passes it to [process_digitiser_trace_message]
+/// # Parameters
+/// - tracer: the tracer object, this is used to call the [TracerEngine::user_otel()] method, this could be replaced by a [bool].
+/// - args: the user-specified Cli arguments.
+/// - sender: send channel which takes [DeliveryFuture] objects to dispatch.
+/// - producer: the Kafka producer which dispatches event lists to the broker.
+/// - m: the message.
+///
+/// [Span]: tracing::Span
 #[instrument(skip_all, level = "debug", err(level = "warn"))]
 fn process_kafka_message(
     tracer: &TracerEngine,
@@ -256,6 +267,14 @@ fn process_kafka_message(
     Ok(())
 }
 
+/// Processes a [DigitizerAnalogTraceMessage].
+/// # Parameters
+/// - tracer: the tracer object, this is used to call the [TracerEngine::user_otel()] method, this could be replaced by a [bool].
+/// - headers: the Kafka header of the message.
+/// - args: the user-specified Cli arguments.
+/// - sender: send channel which takes [DeliveryFuture] objects to dispatch.
+/// - kafka_timestamp_ms: the timestamp in milliseconds as reported in the Kafka message header. Only used for tracing.
+/// - message: the digitiser message.
 #[instrument(
     skip_all,
     fields(
@@ -362,7 +381,11 @@ fn process_digitiser_trace_message(
     }
 }
 
-// The following functions control the kafka producer thread
+// The following functions control the kafka producer thread.
+
+/// Create a new thread and setup the producer task.
+/// # Parameters
+/// - send_digitiser_eventlist_buffer_size: the maximum number of [DeliveryFuture] objects to store in the channel's buffer. If the buffer is filled, then sending another frame will block until there is sufficient space in the buffer.
 fn create_producer_task(
     send_digitiser_eventlist_buffer_size: usize,
 ) -> std::io::Result<(DigitiserEventListToBufferSender, JoinHandle<()>)> {
@@ -374,6 +397,16 @@ fn create_producer_task(
     Ok((channel_send, handle))
 }
 
+/// Runs infinitely, and waits on any [DeliveryFuture]s received through the given receive channel.
+///
+/// Calling this function returns a Future, which should be passed to a async task,
+/// as in function [create_producer_task]. The general form of this is:
+/// ```rust
+/// let join_handle = tokio::spawn(produce_to_kafka(...))?;
+/// ```
+/// # Parameters
+/// - channel_recv: receive channel that can receive [DeliveryFuture] objects.
+/// - sigint: triggers when the os sends a signal to the process.
 async fn produce_to_kafka(mut channel_recv: Receiver<DeliveryFuture>, mut sigint: Signal) {
     loop {
         // Blocks until a frame is received
@@ -396,6 +429,9 @@ async fn produce_to_kafka(mut channel_recv: Receiver<DeliveryFuture>, mut sigint
     }
 }
 
+/// Dispatches the given eventlist to the Kafka broker by waiting the [DeliveryFuture].
+/// # Parameters
+/// - future: the future which produces the message.
 async fn produce_eventlist_to_kafka(future: DeliveryFuture) {
     match future.await {
         Ok(_) => {
@@ -413,6 +449,9 @@ async fn produce_eventlist_to_kafka(future: DeliveryFuture) {
     }
 }
 
+/// Closes the producer channel and dispatch all [DeliveryFuture]s remaining in the channel.
+/// # Parameters
+/// - channel_recv: receive channel that can receive [DeliveryFuture] objects.
 #[tracing::instrument(skip_all, name = "Closing", level = "info", fields(capactity = channel_recv.capacity(), max_capactity = channel_recv.max_capacity()))]
 async fn close_and_flush_producer_channel(
     channel_recv: &mut Receiver<DeliveryFuture>,
@@ -425,6 +464,11 @@ async fn close_and_flush_producer_channel(
     }
 }
 
+/// Dispatches the given future to the Kafka broker by calling and awaiting [produce_eventlist_to_kafka()].
+///
+/// This function exists just to encapsulate [produce_eventlist_to_kafka] in a span, it might be better to do this directly in [close_and_flush_producer_channel].
+/// # Parameters
+/// - future: the future to dispatch.
 #[tracing::instrument(skip_all, name = "Flush Eventlist")]
 async fn flush_eventlist(future: DeliveryFuture) -> Option<()> {
     produce_eventlist_to_kafka(future).await;
