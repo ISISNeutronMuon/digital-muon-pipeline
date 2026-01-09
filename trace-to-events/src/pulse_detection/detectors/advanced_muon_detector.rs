@@ -1,14 +1,22 @@
+//! This detector registeres events when the trace differential exceeds a certain value (indicating onset),
+//! reaches zero (indicating the signal peak), and falls to a given value (indicating the pulse end).
 use super::{Assembler, Detector, EventData, EventPoint, Pulse, Real, RealArray, TimeValue};
 use std::fmt::Display;
 
+
+/// Indicates the type of event.
 #[derive(Default, Debug, Clone, PartialEq)]
 pub(crate) enum Class {
+    /// Indicates a pulse has started (i.e. is rising).
     #[default]
     Onset,
+    /// Indicating a pulse has peaked.
     Peak,
+    /// Indicating a pulse has ended.
     End,
 }
 
+// [Todo] this can be removed, or maybe repaced by [strum]
 impl Display for Class {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
@@ -21,7 +29,9 @@ impl Display for Class {
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub(crate) struct Data {
+    /// The type of event.
     class: Class,
+    /// 
     value: Real,
     superlative: Option<TimeValue<RealArray<2>>>,
 }
