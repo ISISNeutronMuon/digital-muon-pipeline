@@ -70,6 +70,7 @@ enum Mode {
     Fall,
 }
 
+/// The current state of the detector.
 #[derive(Clone, Debug)]
 struct State(Mode, SuperlativeValue, SuperlativeDiff);
 

@@ -1,3 +1,15 @@
+//!
+//! # Example
+//! 
+//! The following example applies a smoothing window of length five to a raw
+//! data stream.
+//! Note that a [SmoothingWindow] outputs a [Stats] type, so we need to extract
+//! the [Stats::mean] value to convert to a scalar stream.
+//! ```rust
+//!     let smoothed = raw
+//!        .window(SmoothingWindow::new(5))
+//!        .map(|(i, stats)| (i, stats.mean));
+//! ```
 use super::{Real, Stats, Window};
 use std::collections::VecDeque;
 

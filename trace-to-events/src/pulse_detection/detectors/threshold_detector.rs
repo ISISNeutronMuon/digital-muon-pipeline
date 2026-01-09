@@ -22,18 +22,26 @@ impl EventData for Data {}
 /// The triggering parameters of the threshold detector.
 #[derive(Default, Debug, Clone)]
 pub(crate) struct ThresholdDuration {
+    /// The threshold the trace must exceed to trigger the detector.
     pub(crate) threshold: Real,
+    /// How long the trace must be above the `threshold` to begin the detection.
     pub(crate) duration: i32,
+    /// Minimum time between end of last pulse and detection of a new one.
     pub(crate) cool_off: i32,
 }
 
 /// This detector triggers an event when the trace exceeds the threshold.
 #[derive(Default, Clone)]
 pub(crate) struct ThresholdDetector {
+    /// The detection parameters.
     trigger: ThresholdDuration,
+    /// The time at which the trace last returned below the threshold (if ever).
     time_of_last_return: Option<Real>,
+    /// If the trace is currently above the threshold, the time at which is crossed.
     time_crossed: Option<Real>,
+    /// A temp parameter. [TODO: Will be replaced].
     temp_time: Option<Real>,
+    /// The maximum height of the trace since the last 
     max_pulse_height: Real,
 }
 
