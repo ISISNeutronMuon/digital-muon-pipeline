@@ -38,17 +38,17 @@ leptos_meta = "0.8.5"
 leptos_actix = "0.8.5"
 leptos_reactive = "0.6.15"
 leptos_router = { version = "0.8.4", default-features = false }
-leptos-use = { version = "0.16.3", features = ["use_interval"] }
+leptos-use = { version = "0.18.0", features = ["use_interval"] }
 libm = "0.2.15"
 metrics = "0.24.2"
 metrics-exporter-prometheus = "0.18.1"
 miette = "7.6.0"
 ndarray = "0.17.1"
 num = "0.4.3"
-opentelemetry = "0.22.0"
-opentelemetry-otlp = { version = "0.15.0", features = ["trace", "tonic", "tls-roots"] }
-opentelemetry_sdk = { version = "0.22.1", default-features = false, features = ["trace", "rt-tokio"] }
-plotly = "0.13.5"
+opentelemetry = "0.31.0"
+opentelemetry-otlp = { version = "0.31.0", features = ["trace", "tonic", "tls-roots"] }
+opentelemetry_sdk = { version = "0.31.0", default-features = false, features = ["trace", "rt-tokio"] }
+plotly = "0.14.0"
 plotters = { version = "0.3.7", default-features = false, features = ["plotters-svg", "svg_backend", "bitmap_encoder", "all_series", "bitmap_backend"] }
 rand = "0.9.2"
 rand_distr = "0.5.1"
@@ -63,7 +63,7 @@ digital-muon-streaming-types = { path = "./streaming-types" }
 tokio = { version = "1.47", features = ["macros", "rt-multi-thread", "signal", "sync"] }
 thiserror = "2.0.17"
 tracing = "0.1.41"
-tracing-opentelemetry = "0.23.0"
+tracing-opentelemetry = "0.32.1"
 tracing-subscriber = { version = "0.3.20", features = ["std", "fmt", "env-filter"] }
 url = { version = "2.5.7", features = ["serde"] }
 uuid = { version = "1.17", features = ["v4"] }
