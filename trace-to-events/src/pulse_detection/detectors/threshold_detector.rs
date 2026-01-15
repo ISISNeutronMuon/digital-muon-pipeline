@@ -132,7 +132,7 @@ impl Detector for ThresholdDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::{EventFilter, Real};
+    use crate::pulse_detection::{EventsIterable, Real};
 
     #[test]
     fn zero_data() {

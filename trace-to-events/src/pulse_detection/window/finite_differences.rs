@@ -78,7 +78,7 @@ impl<const N: usize> Window for FiniteDifferences<N> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::window::WindowFilter;
+    use crate::pulse_detection::iterators::WindowIterable;
     use digital_muon_common::Intensity;
 
     #[test]

@@ -304,7 +304,7 @@ impl Assembler for AdvancedMuonAssembler {
 mod tests {
     use super::*;
     use crate::pulse_detection::{
-        EventFilter, WindowFilter, datatype::TraceArray, window::FiniteDifferences,
+        EventsIterable, WindowIterable, datatype::TraceArray, window::FiniteDifferences,
     };
 
     #[test]

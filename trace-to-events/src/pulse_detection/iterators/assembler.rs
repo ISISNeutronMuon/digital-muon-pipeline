@@ -32,8 +32,8 @@ where
     }
 }
 
-/// Provides method for converting an object into an [AssemblerIter].
-pub(crate) trait AssembleFilter<I, A>
+/// Should be implemented for any iterator which supports the `assemble` method.
+pub(crate) trait AssembleIterable<I, A>
 where
     A: Assembler,
     I: Iterator<Item = <A::DetectorType as Detector>::EventPointType> + Clone,
@@ -41,7 +41,7 @@ where
     fn assemble(self, assembler: A) -> AssemblerIter<I, A>;
 }
 
-impl<I, A> AssembleFilter<I, A> for I
+impl<I, A> AssembleIterable<I, A> for I
 where
     A: Assembler,
     I: Iterator<Item = <A::DetectorType as Detector>::EventPointType> + Clone,

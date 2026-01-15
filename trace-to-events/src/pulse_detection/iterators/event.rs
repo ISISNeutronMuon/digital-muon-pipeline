@@ -40,8 +40,8 @@ where
     }
 }
 
-/// Should be implemented for any iterator which supports the `events`` method.
-pub(crate) trait EventFilter<I, D>
+/// Should be implemented for any iterator which supports the `events` method.
+pub(crate) trait EventsIterable<I, D>
 where
     I: Iterator,
     I: Iterator<Item = D::TracePointType>,
@@ -50,7 +50,7 @@ where
     fn events(self, detector: D) -> EventIter<I, D>;
 }
 
-impl<I, D> EventFilter<I, D> for I
+impl<I, D> EventsIterable<I, D> for I
 where
     I: Iterator,
     I: Iterator<Item = D::TracePointType>,

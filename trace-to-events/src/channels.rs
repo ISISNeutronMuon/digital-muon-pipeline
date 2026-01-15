@@ -4,13 +4,9 @@ use crate::{
         AdvancedMuonDetectorParameters, DetectorSettings, DifferentialThresholdDiscriminatorParameters, FixedThresholdDiscriminatorParameters, Mode, PeakHeightBasis, Polarity
     },
     pulse_detection::{
-        AssembleFilter, EventFilter, Real,
-        advanced_muon_detector::{AdvancedMuonAssembler, AdvancedMuonDetector},
-        detectors::differential_threshold_detector::{
+        AssembleIterable, EventsIterable, WindowIterable, Real, advanced_muon_detector::{AdvancedMuonAssembler, AdvancedMuonDetector}, detectors::differential_threshold_detector::{
             DifferentialThresholdDetector, DifferentialThresholdParameters,
-        },
-        threshold_detector::{ThresholdDetector, ThresholdDuration},
-        window::{Baseline, FiniteDifferences, SmoothingWindow, WindowFilter},
+        }, threshold_detector::{ThresholdDetector, ThresholdDuration}, window::{Baseline, FiniteDifferences, SmoothingWindow}
     },
 };
 use digital_muon_common::{Intensity, Time};

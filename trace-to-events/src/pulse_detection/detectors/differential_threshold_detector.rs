@@ -240,7 +240,7 @@ impl Detector for DifferentialThresholdDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::{EventFilter, Real, WindowFilter, window::FiniteDifferences};
+    use crate::pulse_detection::{EventsIterable, Real, WindowIterable, window::FiniteDifferences};
     use digital_muon_common::Intensity;
 
     fn pipeline(
