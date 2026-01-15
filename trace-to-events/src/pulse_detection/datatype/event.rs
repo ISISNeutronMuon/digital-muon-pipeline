@@ -1,8 +1,14 @@
-//! An abstraction of the time-dependent types that are outputted by the various filters.
+//! An abstraction of both time-independent and time-dependent types that are outputted by the various filters.
 //!
 //! [Todo] This modules can be combined with others for brevity
-use super::{EventData, Temporal};
-use std::fmt::Debug;
+use super::Temporal;
+use std::fmt::{Debug, Display};
+
+/// Abstracts of the types that represent values outputted by the various filters.
+///
+/// This differs from the EventPoint type in that EventData must represent a time value,
+/// whereas TraceValue is time-agnostic.
+pub(crate) trait EventData: Default + Clone + Debug + Display {}
 
 /// Abstracts types that are outputted by the various filters.
 ///

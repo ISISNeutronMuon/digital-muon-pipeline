@@ -1,7 +1,7 @@
 //! An abstraction of the time-independent types that are processed by the various filters.
 //!
 //! [Todo] This modules can be combined with others for brevity
-use super::Real;
+use super::{Temporal, Real};
 use std::{
     fmt::{Debug, Display, Formatter, Result},
     ops::{Index, IndexMut},
@@ -11,9 +11,9 @@ use std::{
 ///
 /// This differs from the TracePoint type in that TracePoint must represent a time value,
 /// whereas TraceValue is time-agnostic.
-pub(crate) trait TraceValue: Default + Clone + Debug + Display {
+pub(crate) trait TraceValue: Default + Clone + Debug {
     /// The type which contains the value of the data point
-    type ContentType: Default + Clone + Debug + Display;
+    type ContentType: Default + Clone + Debug;
 }
 
 impl TraceValue for Real {
@@ -45,7 +45,7 @@ where
     }
 }
 
-impl<const N: usize, T> Display for TraceArray<N, T>
+/*impl<const N: usize, T> Display for TraceArray<N, T>
 where
     T: TraceValue,
 {
@@ -56,7 +56,7 @@ where
         }
         write!(f, "{0}", array[N - 1])
     }
-}
+}*/
 
 impl<const N: usize, T> Index<usize> for TraceArray<N, T>
 where
@@ -118,4 +118,52 @@ impl Display for Stats {
 
 impl TraceValue for Stats {
     type ContentType = Stats;
+}
+
+
+/// Abstracts types that are processed by the various filters.
+///
+/// To implement TracePoint a type must contain time data and a value.
+pub(crate) trait TracePoint: Clone {
+    /// Represents the time of the data point.
+    /// This should be trivially copyable (usually a scalar).
+    type Time: Temporal;
+
+    /// Represents the value of the data point.
+    type Value: TraceValue;
+
+    /// Returns the time of the data point.
+    fn get_time(&self) -> Self::Time;
+
+    /// Returns an immutable reference to the value of the data point.
+    fn get_value(&self) -> &Self::Value;
+
+    /// Take ownership of a clone of the value without destructing the data point.
+    fn clone_value(&self) -> Self::Value {
+        self.get_value().clone()
+    }
+}
+
+/// This is the most basic non-trivial TraceData type.
+/// The first element is the TimeType and the second the ValueType.
+/// feedback.
+impl<X, Y> TracePoint for (X, Y)
+where
+    X: Temporal,
+    Y: TraceValue,
+{
+    type Time = X;
+    type Value = Y;
+
+    fn get_time(&self) -> Self::Time {
+        self.0
+    }
+
+    fn get_value(&self) -> &Self::Value {
+        &self.1
+    }
+
+    fn clone_value(&self) -> Self::Value {
+        self.get_value().clone()
+    }
 }

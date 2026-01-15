@@ -41,7 +41,7 @@ where
 
 impl<T> From<TimeValue<T>> for TimeValueOptional<T>
 where
-    T: Default + Clone + Copy + Display,
+    T: Default + Clone + Copy,
 {
     fn from(source: TimeValue<T>) -> Self {
         TimeValueOptional {
@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<T> Display for TimeValueOptional<T>
+/*impl<T> Display for TimeValueOptional<T>
 where
     T: Default + Clone + Copy + Display,
 {
@@ -62,7 +62,7 @@ where
             self.value.unwrap_or_default()
         ))
     }
-}
+}*/
 
 /// A general pulse.
 ///
@@ -80,7 +80,7 @@ pub(crate) struct Pulse {
     /// Time at which the pulse is falling most sharply, and the value and derivative at this time.
     pub(crate) sharpest_fall: TimeValueOptional<RealArray<2>>,
 }
-
+/*
 impl Display for Pulse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
@@ -89,3 +89,4 @@ impl Display for Pulse {
         ))
     }
 }
+ */

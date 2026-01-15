@@ -3,7 +3,7 @@
 //!
 //! The detector also implements a cool-down period to wait before another detection is registered.
 use super::{Detector, EventData, Real};
-use crate::{parameters::PeakHeightMode, pulse_detection::datatype::tracevalue::TraceArray};
+use crate::{parameters::PeakHeightMode, pulse_detection::datatype::TraceArray};
 use num::Zero;
 use std::fmt::Display;
 
