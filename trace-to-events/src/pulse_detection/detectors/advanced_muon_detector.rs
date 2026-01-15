@@ -30,7 +30,6 @@ impl Display for Class {
 pub(crate) struct Data {
     /// The type of event.
     class: Class,
-    ///
     value: Real,
     superlative: Option<TimeValue<RealArray<2>>>,
 }
