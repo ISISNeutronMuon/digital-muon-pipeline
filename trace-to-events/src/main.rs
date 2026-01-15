@@ -440,6 +440,7 @@ async fn produce_to_kafka(mut channel_recv: Receiver<DeliveryFuture>, mut sigint
 /// Dispatches the given eventlist to the Kafka broker by waiting the [DeliveryFuture].
 /// # Parameters
 /// - future: the future which produces the message.
+#[instrument(skip_all)]
 async fn produce_eventlist_to_kafka(future: DeliveryFuture) {
     match future.await {
         Ok(_) => {
