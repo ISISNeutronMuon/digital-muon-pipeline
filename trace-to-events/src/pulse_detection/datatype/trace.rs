@@ -3,7 +3,7 @@
 //! [Todo] This modules can be combined with others for brevity
 use super::{Temporal, Real};
 use std::{
-    fmt::{Debug, Display, Formatter, Result},
+    fmt::Debug,
     ops::{Index, IndexMut},
 };
 
@@ -44,19 +44,6 @@ where
         Self([T::default(); N])
     }
 }
-
-/*impl<const N: usize, T> Display for TraceArray<N, T>
-where
-    T: TraceValue,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let TraceArray(array) = self;
-        for val in array.iter().take(N - 1) {
-            write!(f, "{val},")?;
-        }
-        write!(f, "{0}", array[N - 1])
-    }
-}*/
 
 impl<const N: usize, T> Index<usize> for TraceArray<N, T>
 where
@@ -107,12 +94,6 @@ impl From<Real> for Stats {
             mean: value,
             variance: 0.,
         }
-    }
-}
-
-impl Display for Stats {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "({}, {}, {})", self.value, self.mean, self.variance)
     }
 }
 

@@ -2,13 +2,13 @@
 //!
 //! [Todo] This modules can be combined with others for brevity
 use super::Temporal;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 /// Abstracts of the types that represent values outputted by the various filters.
 ///
 /// This differs from the EventPoint type in that EventData must represent a time value,
 /// whereas TraceValue is time-agnostic.
-pub(crate) trait EventData: Default + Clone + Debug + Display {}
+pub(crate) trait EventData: Default + Clone + Debug {}
 
 /// Abstracts types that are outputted by the various filters.
 ///

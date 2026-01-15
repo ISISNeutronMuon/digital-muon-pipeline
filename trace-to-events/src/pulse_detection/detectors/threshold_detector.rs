@@ -3,18 +3,11 @@
 //!
 //! The detector also implements a cool-down period to wait before another detection is registered.
 use super::{Detector, EventData, Real};
-use std::fmt::Display;
 
 /// The time-independnt data of the detector's event.
 #[derive(Default, Debug, Clone, PartialEq)]
 pub(crate) struct Data {
     pub(crate) pulse_height: Real,
-}
-
-impl Display for Data {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.pulse_height)
-    }
 }
 
 impl EventData for Data {}

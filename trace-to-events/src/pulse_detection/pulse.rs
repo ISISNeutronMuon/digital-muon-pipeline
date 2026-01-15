@@ -1,8 +1,6 @@
 //! Provides a general structure for capturing all possible attributes of a pulse.
 //!
 //! These attributes are optional, so that not all detectors/assemblers need to provide values for them.
-use std::fmt::Display;
-
 use super::Real;
 use super::RealArray;
 
@@ -18,14 +16,14 @@ where
     pub(crate) value: T,
 }
 
-impl<T> Display for TimeValue<T>
+/*impl<T> Display for TimeValue<T>
 where
-    T: Default + Clone + Copy + Display,
+    T: Default + Clone + Copy,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("{0},{1}", self.time, self.value))
     }
-}
+}*/
 
 /// A version of [TimeValue] in which the `time` or `value` field can be optional.
 #[derive(Default, Clone, Debug)]
