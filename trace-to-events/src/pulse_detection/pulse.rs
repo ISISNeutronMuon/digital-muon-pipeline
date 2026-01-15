@@ -16,15 +16,6 @@ where
     pub(crate) value: T,
 }
 
-/*impl<T> Display for TimeValue<T>
-where
-    T: Default + Clone + Copy,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{0},{1}", self.time, self.value))
-    }
-}*/
-
 /// A version of [TimeValue] in which the `time` or `value` field can be optional.
 #[derive(Default, Clone, Debug)]
 pub(crate) struct TimeValueOptional<T>
@@ -49,19 +40,6 @@ where
     }
 }
 
-/*impl<T> Display for TimeValueOptional<T>
-where
-    T: Default + Clone + Copy + Display,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{0},{1}",
-            self.time.unwrap_or_default(),
-            self.value.unwrap_or_default()
-        ))
-    }
-}*/
-
 /// A general pulse.
 ///
 /// This object is designed as a generic output for assemblers.
@@ -78,13 +56,3 @@ pub(crate) struct Pulse {
     /// Time at which the pulse is falling most sharply, and the value and derivative at this time.
     pub(crate) sharpest_fall: TimeValueOptional<RealArray<2>>,
 }
-/*
-impl Display for Pulse {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{0},{1},{2},{3},{4}",
-            self.start, self.end, self.peak, self.steepest_rise, self.sharpest_fall
-        ))
-    }
-}
- */
