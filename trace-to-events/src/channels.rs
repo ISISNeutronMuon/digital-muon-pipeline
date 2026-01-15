@@ -211,6 +211,8 @@ fn find_advanced_events(
     let mut time = Vec::<Time>::new();
     let mut voltage = Vec::<Intensity>::new();
     for pulse in pulses {
+        // Referring to these fields to satisfy clippy
+        let _ = (pulse.start, pulse.sharpest_fall, pulse.end);
         time.push(pulse.steepest_rise.time.unwrap_or_default() as Time);
         voltage.push(pulse.peak.value.unwrap_or_default() as Intensity);
     }
