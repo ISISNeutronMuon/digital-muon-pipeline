@@ -1,5 +1,5 @@
 //! An abstraction of the time-independent types that are processed by the various filters.
-use super::{Temporal, Real};
+use super::{Real, Temporal};
 use std::{
     fmt::Debug,
     ops::{Index, IndexMut},
@@ -98,7 +98,6 @@ impl From<Real> for Stats {
 impl TraceValue for Stats {
     type ContentType = Stats;
 }
-
 
 /// Abstracts types that are processed by the various filters.
 ///
