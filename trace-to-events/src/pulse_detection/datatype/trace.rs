@@ -1,6 +1,4 @@
 //! An abstraction of the time-independent types that are processed by the various filters.
-//!
-//! [Todo] This modules can be combined with others for brevity
 use super::{Temporal, Real};
 use std::{
     fmt::Debug,

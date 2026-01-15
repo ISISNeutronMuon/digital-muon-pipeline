@@ -1,6 +1,4 @@
 //! An abstraction of both time-independent and time-dependent types that are outputted by the various filters.
-//!
-//! [Todo] This modules can be combined with others for brevity
 use super::Temporal;
 use std::fmt::Debug;
 
