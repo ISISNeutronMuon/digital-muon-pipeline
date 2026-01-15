@@ -1,3 +1,18 @@
+//! Defines [Window]s which perform operations on subintervals of a waveform.
+//!
+//! # Example
+//!
+//! The following example applies a baseline window, a smoothing window of length five,
+//! and then a finite difference window to a raw data stream.
+//! ```rust
+//!     let smoothed = raw
+//!        .window(Baseline::new(4, 0.1))
+//!        .window(SmoothingWindow::new(5))
+//!        .map(|(i, stats)| (i, stats.mean))
+//!        .window(FiniteDifferences::<2>::new())
+//!        .map(|(i,fd)| (i, fd[1]));
+//! ```
+
 pub(crate) mod baseline;
 pub(crate) mod finite_differences;
 pub(crate) mod smoothing_window;
@@ -7,16 +22,23 @@ pub(crate) use baseline::Baseline;
 pub(crate) use finite_differences::FiniteDifferences;
 pub(crate) use smoothing_window::SmoothingWindow;
 
+/// Consumes values from a waveform, and outputs a waveform after processing.
 pub(crate) trait Window: Clone {
     type TimeType: Temporal;
     type InputType: Copy;
     type OutputType;
 
+    /// Pushes a value into the window.
     fn push(&mut self, value: Self::InputType) -> bool;
+
+    /// Extracts the window's current processed value.
     fn output(&self) -> Option<Self::OutputType>;
+
+    /// Shifts the time value by half the window's size.
     fn apply_time_shift(&self, time: Self::TimeType) -> Self::TimeType;
 }
 
+/// Iterator which applies a window to another iterator.
 #[derive(Clone)]
 pub(crate) struct WindowIter<I, W>
 where
@@ -24,7 +46,9 @@ where
     I::Item: TracePoint,
     W: Window,
 {
+    /// Window function to apply.
     window_function: W,
+    /// Source.
     source: I,
 }
 
@@ -34,6 +58,11 @@ where
     I::Item: TracePoint,
     W: Window,
 {
+    /// Creates a new iterator which applies the given window.
+    ///
+    /// # Parameters
+    /// - source: base iterator which is consumed.
+    /// - window_function: window to apply to the base iterator.
     pub fn new(source: I, window_function: W) -> Self {
         WindowIter {
             source,
@@ -67,12 +96,15 @@ where
         }
     }
 }
+
+/// Provides method for creating a window iterator from another iterator.
 pub(crate) trait WindowFilter<I, W>
 where
     I: Iterator,
     I::Item: TracePoint,
     W: Window,
 {
+    /// Creates an iterator which applies a window to the iterator.
     fn window(self, window: W) -> WindowIter<I, W>;
 }
 

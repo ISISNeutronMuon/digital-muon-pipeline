@@ -1,6 +1,11 @@
+//! This detector registers an event whenever the input stream passes a given threshold
+//! value for a given time.
+//!
+//! The detector also implements a cool-down period to wait before another detection is registered.
 use super::{Detector, EventData, Real};
 use std::fmt::Display;
 
+/// The time-independnt data of the detector's event.
 #[derive(Default, Debug, Clone, PartialEq)]
 pub(crate) struct Data {
     pub(crate) pulse_height: Real,
@@ -14,23 +19,35 @@ impl Display for Data {
 
 impl EventData for Data {}
 
+/// The triggering parameters of the threshold detector.
 #[derive(Default, Debug, Clone)]
 pub(crate) struct ThresholdDuration {
+    /// The threshold the trace must exceed to trigger the detector.
     pub(crate) threshold: Real,
+    /// How long the trace must be above the `threshold` to begin the detection.
     pub(crate) duration: i32,
+    /// Minimum time between end of last pulse and detection of a new one.
     pub(crate) cool_off: i32,
 }
 
+/// This detector triggers an event when the trace exceeds the threshold.
 #[derive(Default, Clone)]
 pub(crate) struct ThresholdDetector {
+    /// The detection parameters.
     trigger: ThresholdDuration,
+    /// The time at which the trace last returned below the threshold (if ever).
     time_of_last_return: Option<Real>,
+    /// If the trace is currently above the threshold, the time at which is crossed.
     time_crossed: Option<Real>,
+    /// A temp parameter. [TODO: Will be replaced].
     temp_time: Option<Real>,
+    /// The maximum height of the trace since the last
     max_pulse_height: Real,
 }
 
 impl ThresholdDetector {
+    /// Creates a new detector with the given triggering parameters.
+    /// # Parameters
     pub(crate) fn new(trigger: &ThresholdDuration) -> Self {
         Self {
             trigger: trigger.clone(),
@@ -39,6 +56,7 @@ impl ThresholdDetector {
     }
 }
 
+/// The time-dependent event of the threshold detector.
 pub(crate) type ThresholdEvent = (Real, Data);
 
 impl Detector for ThresholdDetector {

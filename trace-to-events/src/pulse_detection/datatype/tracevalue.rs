@@ -1,20 +1,18 @@
+//! An abstraction of the time-independent types that are processed by the various filters.
+//!
+//! [Todo] This modules can be combined with others for brevity
 use super::Real;
 use std::{
     fmt::{Debug, Display, Formatter, Result},
     ops::{Index, IndexMut},
 };
 
-/// An abstraction of the types that represent values processed by the various filters
+/// Abstracts of the types that represent values processed by the various filters.
+///
 /// This differs from the TracePoint type in that TracePoint must represent a time value,
 /// whereas TraceValue is time-agnostic.
-/// To implement TraceValue a type must contain time data, a value,
-/// and a parameter (which is used for applying feedback).
-/// *Associated Types
-/// - ValueType: the type which contains the value of the data point.
-/// * Methods
-/// - get_value(): returns an immutable reference to the value of the data point.
-/// - take_value(): destructs the data point and gives the caller ownership of the value.
 pub(crate) trait TraceValue: Default + Clone + Debug + Display {
+    /// The type which contains the value of the data point
     type ContentType: Default + Clone + Debug + Display;
 }
 
@@ -90,8 +88,15 @@ pub(crate) type RealArray<const N: usize> = TraceArray<N, Real>;
 /// This type allows contains descriptive statistical data.
 #[derive(Default, Clone, Debug)]
 pub(crate) struct Stats {
+    /// The current value.
     pub(crate) value: Real,
+    /// The arithmetic mean.
+    ///
+    /// This may have been calculated from applying a window to a range of values.
     pub(crate) mean: Real,
+    /// The variance.
+    ///
+    /// This may have been calculated from applying a window to a range of values.
     pub(crate) variance: Real,
 }
 

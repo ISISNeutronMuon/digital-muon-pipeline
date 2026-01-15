@@ -1,3 +1,7 @@
+//! This detector registers an event whenever the derivative of the input stream passes a given threshold
+//! value for a given time.
+//!
+//! The detector also implements a cool-down period to wait before another detection is registered.
 use super::{Detector, EventData, Real};
 use crate::{parameters::PeakHeightMode, pulse_detection::datatype::tracevalue::TraceArray};
 use num::Zero;

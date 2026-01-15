@@ -1,6 +1,12 @@
+//! An abstraction of the time-dependent types that are outputted by the various filters.
+//!
+//! [Todo] This modules can be combined with others for brevity
 use super::{EventData, Temporal};
 use std::fmt::Debug;
 
+/// Abstracts types that are outputted by the various filters.
+///
+/// To implement this a type must contain time and event data.
 pub(crate) trait EventPoint: Debug + Clone {
     type TimeType: Temporal;
     type EventType: EventData;
