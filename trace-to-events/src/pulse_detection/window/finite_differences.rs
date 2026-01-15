@@ -1,9 +1,9 @@
 //! Implements the [FiniteDifferences] window.
-//! 
+//!
 //! This outputs a vector of finite differences up to the nth.
 //!
 //! # Example
-//! 
+//!
 //! The following example applies a smoothing window of length five to a raw
 //! data stream.
 //! Note that a [FiniteDifference<N>] window outputs a static array type of length `N`, so we need to extract

@@ -1,6 +1,6 @@
 //! This detector registers an event whenever the input stream passes a given threshold
 //! value for a given time.
-//! 
+//!
 //! The detector also implements a cool-down period to wait before another detection is registered.
 use super::{Detector, EventData, Real};
 use std::fmt::Display;
@@ -41,7 +41,7 @@ pub(crate) struct ThresholdDetector {
     time_crossed: Option<Real>,
     /// A temp parameter. [TODO: Will be replaced].
     temp_time: Option<Real>,
-    /// The maximum height of the trace since the last 
+    /// The maximum height of the trace since the last
     max_pulse_height: Real,
 }
 

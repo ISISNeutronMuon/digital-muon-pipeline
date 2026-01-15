@@ -1,6 +1,6 @@
 //!
 //! # Example
-//! 
+//!
 //! The following example applies a smoothing window of length five to a raw
 //! data stream.
 //! Note that a [SmoothingWindow] outputs a [Stats] type, so we need to extract

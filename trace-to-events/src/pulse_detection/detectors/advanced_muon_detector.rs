@@ -3,7 +3,6 @@
 use super::{Assembler, Detector, EventData, EventPoint, Pulse, Real, RealArray, TimeValue};
 use std::fmt::Display;
 
-
 /// Indicates the type of event.
 #[derive(Default, Debug, Clone, PartialEq)]
 pub(crate) enum Class {
@@ -31,7 +30,7 @@ impl Display for Class {
 pub(crate) struct Data {
     /// The type of event.
     class: Class,
-    /// 
+    ///
     value: Real,
     superlative: Option<TimeValue<RealArray<2>>>,
 }

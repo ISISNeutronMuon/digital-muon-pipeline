@@ -57,7 +57,7 @@ where
     D: Detector,
 {
     /// Create an [EventIter] iterator, which applies a detector to a trace source as it is consumed.
-    /// 
+    ///
     /// # Parameters
     /// - detector: A detector which is to be applied as the iterator is consumed.
     fn events(self, detector: D) -> EventIter<I, D> {
@@ -67,7 +67,6 @@ where
         }
     }
 }
-
 
 /// Applies an assembler to a source iterator of detector events.
 #[derive(Clone)]
@@ -115,7 +114,7 @@ where
     I: Iterator<Item = <A::DetectorType as Detector>::EventPointType> + Clone,
 {
     /// Create an [AssemblerIter] iterator, which applies an assembler to an event source as it is consumed.
-    /// 
+    ///
     /// # Parameters
     /// - assembler: An assembler which is to be applied as the iterator is consumed.
     fn assemble(self, assembler: A) -> AssemblerIter<I, A> {

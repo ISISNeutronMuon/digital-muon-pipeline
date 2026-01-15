@@ -1,7 +1,7 @@
 //! Defines [Window]s which perform operations on subintervals of a waveform.
-//! 
+//!
 //! # Example
-//! 
+//!
 //! The following example applies a baseline window, a smoothing window of length five,
 //! and then a finite difference window to a raw data stream.
 //! ```rust
@@ -30,7 +30,7 @@ pub(crate) trait Window: Clone {
 
     /// Pushes a value into the window.
     fn push(&mut self, value: Self::InputType) -> bool;
-    
+
     /// Extracts the window's current processed value.
     fn output(&self) -> Option<Self::OutputType>;
 
@@ -59,7 +59,7 @@ where
     W: Window,
 {
     /// Creates a new iterator which applies the given window.
-    /// 
+    ///
     /// # Parameters
     /// - source: base iterator which is consumed.
     /// - window_function: window to apply to the base iterator.

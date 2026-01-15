@@ -1,5 +1,5 @@
 //! Provides a general structure for capturing all possible attributes of a pulse.
-//! 
+//!
 //! These attributes are optional, so that not all detectors/assemblers need to provide values for them.
 use std::fmt::Display;
 
@@ -65,7 +65,7 @@ where
 }
 
 /// A general pulse.
-/// 
+///
 /// This object is designed as a generic output for assemblers.
 #[derive(Default)]
 pub(crate) struct Pulse {

@@ -1,5 +1,5 @@
 //! An abstraction of the time-independent types that are processed by the various filters.
-//! 
+//!
 //! [Todo] This modules can be combined with others for brevity
 use super::Real;
 use std::{
@@ -8,7 +8,7 @@ use std::{
 };
 
 /// Abstracts of the types that represent values processed by the various filters.
-/// 
+///
 /// This differs from the TracePoint type in that TracePoint must represent a time value,
 /// whereas TraceValue is time-agnostic.
 pub(crate) trait TraceValue: Default + Clone + Debug + Display {

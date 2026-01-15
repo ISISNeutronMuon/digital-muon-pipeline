@@ -1,10 +1,10 @@
 //! An abstraction of the time-dependent types that are processed by the various filters.
-//! 
+//!
 //! [Todo] This modules can be combined with others for brevity
 use super::{EventData, Temporal, TraceValue, eventdata::Empty};
 
 /// Abstracts types that are processed by the various filters.
-/// 
+///
 /// To implement TracePoint a type must contain time data and a value.
 pub(crate) trait TracePoint: Clone {
     /// Represents the time of the data point.
