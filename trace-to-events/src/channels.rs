@@ -1,9 +1,7 @@
 //! Provides functions which extract and return lists of muon events using specified detectors and settings.
 use crate::{
     parameters::{
-        AdvancedMuonDetectorParameters, DetectorSettings,
-        DifferentialThresholdDiscriminatorParameters, FixedThresholdDiscriminatorParameters, Mode,
-        Polarity,
+        AdvancedMuonDetectorParameters, DetectorSettings, DifferentialThresholdDiscriminatorParameters, FixedThresholdDiscriminatorParameters, Mode, PeakHeightBasis, Polarity
     },
     pulse_detection::{
         AssembleFilter, EventFilter, Real,
@@ -143,8 +141,8 @@ fn find_differential_threshold_events(
     for pulse in pulses {
         time.push(pulse.0 as Time);
         voltage.push(match parameters.peak_height_basis {
-            crate::parameters::PeakHeightBasis::TraceBaseline => pulse.1.peak_height as Intensity,
-            crate::parameters::PeakHeightBasis::PulseBaseline => {
+            PeakHeightBasis::TraceBaseline => pulse.1.peak_height as Intensity,
+            PeakHeightBasis::PulseBaseline => {
                 (pulse.1.peak_height - pulse.1.base_height) as Intensity
             }
         });
