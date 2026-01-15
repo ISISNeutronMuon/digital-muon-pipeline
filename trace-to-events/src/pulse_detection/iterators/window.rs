@@ -1,6 +1,5 @@
 use crate::pulse_detection::{TracePoint, window::Window};
 
-
 /// Iterator which applies a window to another iterator.
 #[derive(Clone)]
 pub(crate) struct WindowIter<I, W>

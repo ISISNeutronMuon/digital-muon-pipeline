@@ -1,12 +1,18 @@
 //! Provides functions which extract and return lists of muon events using specified detectors and settings.
 use crate::{
     parameters::{
-        AdvancedMuonDetectorParameters, DetectorSettings, DifferentialThresholdDiscriminatorParameters, FixedThresholdDiscriminatorParameters, Mode, PeakHeightBasis, Polarity
+        AdvancedMuonDetectorParameters, DetectorSettings,
+        DifferentialThresholdDiscriminatorParameters, FixedThresholdDiscriminatorParameters, Mode,
+        PeakHeightBasis, Polarity,
     },
     pulse_detection::{
-        AssembleIterable, EventsIterable, WindowIterable, Real, advanced_muon_detector::{AdvancedMuonAssembler, AdvancedMuonDetector}, detectors::differential_threshold_detector::{
+        AssembleIterable, EventsIterable, Real, WindowIterable,
+        advanced_muon_detector::{AdvancedMuonAssembler, AdvancedMuonDetector},
+        detectors::differential_threshold_detector::{
             DifferentialThresholdDetector, DifferentialThresholdParameters,
-        }, threshold_detector::{ThresholdDetector, ThresholdDuration}, window::{Baseline, FiniteDifferences, SmoothingWindow}
+        },
+        threshold_detector::{ThresholdDetector, ThresholdDuration},
+        window::{Baseline, FiniteDifferences, SmoothingWindow},
     },
 };
 use digital_muon_common::{Intensity, Time};
@@ -178,7 +184,12 @@ fn find_advanced_events(
         .window(SmoothingWindow::new(
             parameters.smoothing_window_size.unwrap_or(1),
         ))
-        .map(|(i, stats)| (i, stats.mean));
+        .map(|(i, stats)| {
+            (i, {
+                let _ = (stats.value, stats.variance); // Referring to these fields to satisfy clippy
+                stats.mean
+            })
+        });
 
     let events = smoothed
         .clone()
@@ -207,8 +218,7 @@ fn find_advanced_events(
     let mut time = Vec::<Time>::new();
     let mut voltage = Vec::<Intensity>::new();
     for pulse in pulses {
-        // Referring to these fields to satisfy clippy
-        let _ = (pulse.start, pulse.sharpest_fall, pulse.end);
+        let _ = (pulse.start, pulse.sharpest_fall, pulse.end); // Referring to these fields to satisfy clippy
         time.push(pulse.steepest_rise.time.unwrap_or_default() as Time);
         voltage.push(pulse.peak.value.unwrap_or_default() as Intensity);
     }
