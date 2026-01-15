@@ -58,6 +58,7 @@ pub(crate) enum PeakHeightBasis {
     PulseBaseline,
 }
 
+/// Encapsulates the parameters specific to the Differential Threshold Discriminator detector.
 #[derive(Default, Debug, Clone, Parser)]
 pub(crate) struct DifferentialThresholdDiscriminatorParameters {
     /// If the detector is armed, an event is registered when the trace derivative passes this value for the given duration.
@@ -89,6 +90,7 @@ pub(crate) struct DifferentialThresholdDiscriminatorParameters {
     pub(crate) peak_height_basis: PeakHeightBasis,
 }
 
+/// Encapsulates the parameters specific to the Advanced Muon detector.
 #[derive(Default, Debug, Clone, Parser)]
 pub(crate) struct AdvancedMuonDetectorParameters {
     /// Differential threshold for detecting muon onset. See README.md.

@@ -19,6 +19,8 @@ use metrics::counter;
 use rayon::prelude::*;
 use tracing::debug;
 
+/// Extracts a flatbuffer trace message, converts its contents into events using the provided settings,
+/// and creates a flatbuffer eventlist message.
 /// 
 /// # Parameters
 /// - fbb: a flatbuffer builder object which creates the event list messages.

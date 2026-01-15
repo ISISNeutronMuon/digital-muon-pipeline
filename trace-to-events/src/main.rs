@@ -1,3 +1,11 @@
+//! # Trace to Events
+//!
+//! The Trace to Events component performs the following functions:
+//! * Subscribes to a Kafka broker and to a "trace" topic specified by the user.
+//! * Runs persistantly, and awaits broker messages issued by the DAQs.
+//! * Consumes digitisier trace messages, and applies the user specified event formation algorithm on it.
+//! * For each trace message, produces a digitiser event list message to an "event list" topic, specified by the user.
+//!
 mod channels;
 mod parameters;
 mod processing;
