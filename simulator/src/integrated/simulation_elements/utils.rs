@@ -1,12 +1,16 @@
 use chrono::Utc;
-use num::{Num, NumCast, traits::{Float, int::PrimInt, NumOps}};
+use num::{
+    Num, NumCast,
+    traits::{NumOps, int::PrimInt},
+};
 use rand::{Rng, SeedableRng};
 use rand_distr::{Distribution, Exp, Normal, uniform::SampleUniform};
 use serde::Deserialize;
 use std::{
     env::{self, VarError},
     num::{ParseFloatError, ParseIntError},
-    ops::RangeInclusive, str::FromStr,
+    ops::RangeInclusive,
+    str::FromStr,
 };
 use thiserror::Error;
 
@@ -29,8 +33,8 @@ pub(crate) enum JsonNumError {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum NumExpression<T> {
-    Num(T),
-    NumEnv(String),
+    Const(T),
+    FromEnvVar(String),
     NumFunc(Transformation<T>),
 }
 /*
@@ -48,16 +52,17 @@ impl<T : Num<FromStrRadixErr = ParseFloatError> + NumOps + NumCast + Copy> NumEx
     }
 }
  */
-impl<T> NumExpression<T> where T : Num + NumOps + NumCast + FromStr + Copy, JsonNumError : From<<T as FromStr>::Err> {
+impl<T> NumExpression<T>
+where
+    T: Num + NumOps + NumCast + FromStr + Copy,
+    JsonNumError: From<<T as FromStr>::Err>,
+{
     pub(crate) fn value(&self, frame_index: usize) -> Result<T, JsonNumError> {
         match self {
-            Self::Num(v) => Ok(*v),
-            Self::NumEnv(environment_variable) => {
-                Ok(env::var(environment_variable)?.parse()?)
-            }
-            Self::NumFunc(frame_function) => {
-                Ok(frame_function.transform(NumCast::from::<usize>(frame_index).ok_or(JsonNumError::UsizeConvert)?))
-            }
+            Self::Const(v) => Ok(*v),
+            Self::FromEnvVar(environment_variable) => Ok(env::var(environment_variable)?.parse()?),
+            Self::NumFunc(frame_function) => Ok(frame_function
+                .transform(NumCast::from::<usize>(frame_index).ok_or(JsonNumError::UsizeConvert)?)),
         }
     }
 }
@@ -88,15 +93,19 @@ pub(crate) enum JsonIntError {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum NumConstant<T> {
-    Num(T),
-    NumEnv(String),
+    Const(T),
+    FromEnvVar(String),
 }
 
-impl<T> NumConstant<T>  where T : Num + FromStr + Copy, JsonNumError : From<<T as FromStr>::Err> {
+impl<T> NumConstant<T>
+where
+    T: Num + FromStr + Copy,
+    JsonNumError: From<<T as FromStr>::Err>,
+{
     pub(crate) fn value(&self) -> Result<T, JsonNumError> {
         match self {
-            NumConstant::Num(v) => Ok(*v),
-            NumConstant::NumEnv(environment_variable) => {
+            NumConstant::Const(v) => Ok(*v),
+            NumConstant::FromEnvVar(environment_variable) => {
                 Ok(env::var(environment_variable)?.parse()?)
             }
         }
@@ -144,7 +153,7 @@ impl IntExpression {
  */
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "random-type")]
-pub(crate) enum FloatRandomDistribution<T : Num> {
+pub(crate) enum FloatRandomDistribution<T: Num> {
     Constant {
         value: NumExpression<T>,
     },
@@ -193,7 +202,7 @@ impl FloatRandomDistribution<f64> {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "random-type")]
-pub(crate) enum IntRandomDistribution<T : PrimInt> {
+pub(crate) enum IntRandomDistribution<T: PrimInt> {
     Constant {
         value: NumExpression<T>,
     },
@@ -203,7 +212,10 @@ pub(crate) enum IntRandomDistribution<T : PrimInt> {
     },
 }
 
-impl<T : PrimInt + FromStr + SampleUniform> IntRandomDistribution<T> where JsonNumError: From<<T as FromStr>::Err> {
+impl<T: PrimInt + FromStr + SampleUniform> IntRandomDistribution<T>
+where
+    JsonNumError: From<<T as FromStr>::Err>,
+{
     pub(crate) fn sample(&self, frame_index: usize) -> Result<T, JsonNumError> {
         match self {
             Self::Constant { value } => value.value(frame_index),
@@ -244,7 +256,7 @@ pub(crate) struct Transformation<T> {
     pub(crate) translate: T,
 }
 
-impl<T : NumOps + Copy> Transformation<T> {
+impl<T: NumOps + Copy> Transformation<T> {
     pub(crate) fn transform(&self, x: T) -> T {
         x * self.scale + self.translate
     }
