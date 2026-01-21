@@ -1,4 +1,4 @@
-//! Provides event iterators and traits for converting trace data iterators into event iterators.
+//! Provides assember iterators and traits for converting event data iterators into pulse data.
 use super::{Assembler, Detector, Pulse};
 
 /// Applies an assembler to a source iterator of detector events.
