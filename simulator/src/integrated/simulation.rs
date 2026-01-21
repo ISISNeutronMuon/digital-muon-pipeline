@@ -150,23 +150,23 @@ mod tests {
         },
         "pulses": [{
                         "pulse-type": "biexp",
-                        "height": { "random-type": "uniform", "min": { "const": 30 }, "max": { "const": 70 } },
+                        "height": { "random-type": "uniform-float", "min": { "const": 30 }, "max": { "const": 70 } },
                         "start":  { "random-type": "exponential", "lifetime": { "const": 2200 } },
-                        "rise":   { "random-type": "uniform", "min": { "const": 20 }, "max": { "const": 30 } },
-                        "decay":  { "random-type": "uniform", "min": { "const": 5 }, "max": { "const": 10 } }
+                        "rise":   { "random-type": "uniform-float", "min": { "const": 20 }, "max": { "const": 30 } },
+                        "decay":  { "random-type": "uniform-float", "min": { "const": 5 }, "max": { "const": 10 } }
                     },
                     {
                         "pulse-type": "flat",
                         "start":  { "random-type": "exponential", "lifetime": { "const": 2200 } },
-                        "width":  { "random-type": "uniform", "min": { "const": 20 }, "max": { "const": 50 } },
-                        "height": { "random-type": "uniform", "min": { "const": 30 }, "max": { "const": 70 } }
+                        "width":  { "random-type": "uniform-float", "min": { "const": 20 }, "max": { "const": 50 } },
+                        "height": { "random-type": "uniform-float", "min": { "const": 30 }, "max": { "const": 70 } }
                     },
                     {
                         "pulse-type": "triangular",
                         "start":     { "random-type": "exponential", "lifetime": { "const": 2200 } },
-                        "width":     { "random-type": "uniform", "min": { "const": 20 }, "max": { "const": 50 } },
-                        "peak_time": { "random-type": "uniform", "min": { "const": 0.25 }, "max": { "const": 0.75 } },
-                        "height":    { "random-type": "uniform", "min": { "const": 30 }, "max": { "const": 70 } }
+                        "width":     { "random-type": "uniform-float", "min": { "const": 20 }, "max": { "const": 50 } },
+                        "peak_time": { "random-type": "uniform-float", "min": { "const": 0.25 }, "max": { "const": 0.75 } },
+                        "height":    { "random-type": "uniform-float", "min": { "const": 30 }, "max": { "const": 70 } }
                     }],
         "event-lists": [
             {
@@ -187,7 +187,7 @@ mod tests {
                         "bounds" : { "min": 0, "max": 30000 }
                     }
                 ],
-                "num-pulses": { "random-type": "constant", "value": { "const": 500 } }
+                "num-pulses": { "random-type": "constant-int", "value": { "const": 500 } }
             }
         ],
         "schedule": [

@@ -154,10 +154,10 @@ impl IntExpression {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "random-type")]
 pub(crate) enum FloatRandomDistribution<T: Num> {
-    Constant {
+    ConstantFloat {
         value: NumExpression<T>,
     },
-    Uniform {
+    UniformFloat {
         min: NumExpression<T>,
         max: NumExpression<T>,
     },
@@ -173,8 +173,8 @@ pub(crate) enum FloatRandomDistribution<T: Num> {
 impl FloatRandomDistribution<f64> {
     pub(crate) fn sample(&self, frame_index: usize) -> Result<f64, JsonNumError> {
         match self {
-            Self::Constant { value } => value.value(frame_index),
-            Self::Uniform { min, max } => {
+            Self::ConstantFloat { value } => value.value(frame_index),
+            Self::UniformFloat { min, max } => {
                 let val =
                     rand::rngs::StdRng::seed_from_u64(Utc::now().timestamp_subsec_nanos() as u64)
                         .random_range(min.value(frame_index)?..max.value(frame_index)?);
@@ -203,10 +203,10 @@ impl FloatRandomDistribution<f64> {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "random-type")]
 pub(crate) enum IntRandomDistribution<T: PrimInt> {
-    Constant {
+    ConstantInt {
         value: NumExpression<T>,
     },
-    Uniform {
+    UniformInt {
         min: NumExpression<T>,
         max: NumExpression<T>,
     },
@@ -218,8 +218,8 @@ where
 {
     pub(crate) fn sample(&self, frame_index: usize) -> Result<T, JsonNumError> {
         match self {
-            Self::Constant { value } => value.value(frame_index),
-            Self::Uniform { min, max } => {
+            Self::ConstantInt { value } => value.value(frame_index),
+            Self::UniformInt { min, max } => {
                 let seed = Utc::now().timestamp_subsec_nanos() as u64;
                 let value = rand::rngs::StdRng::seed_from_u64(seed)
                     .random_range(min.value(frame_index)?..max.value(frame_index)?);
