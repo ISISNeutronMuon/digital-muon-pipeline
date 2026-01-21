@@ -29,9 +29,9 @@ pub(crate) enum JsonNumError {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum NumExpression<T> {
-    Float(T),
-    FloatEnv(String),
-    FloatFunc(Transformation<T>),
+    Num(T),
+    NumEnv(String),
+    NumFunc(Transformation<T>),
 }
 /*
 impl<T : Num<FromStrRadixErr = ParseFloatError> + NumOps + NumCast + Copy> NumExpression<T> {
@@ -48,14 +48,14 @@ impl<T : Num<FromStrRadixErr = ParseFloatError> + NumOps + NumCast + Copy> NumEx
     }
 }
  */
-impl<T : Num + NumOps + NumCast + FromStr + Copy> NumExpression<T> where JsonNumError : From<<T as FromStr>::Err> {
+impl<T> NumExpression<T> where T : Num + NumOps + NumCast + FromStr + Copy, JsonNumError : From<<T as FromStr>::Err> {
     pub(crate) fn value(&self, frame_index: usize) -> Result<T, JsonNumError> {
         match self {
-            Self::Float(v) => Ok(*v),
-            Self::FloatEnv(environment_variable) => {
+            Self::Num(v) => Ok(*v),
+            Self::NumEnv(environment_variable) => {
                 Ok(env::var(environment_variable)?.parse()?)
             }
-            Self::FloatFunc(frame_function) => {
+            Self::NumFunc(frame_function) => {
                 Ok(frame_function.transform(NumCast::from::<usize>(frame_index).ok_or(JsonNumError::UsizeConvert)?))
             }
         }
@@ -84,24 +84,25 @@ pub(crate) enum JsonIntError {
     FloatFromStr(#[from] ParseIntError),
 }
 
+*/
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum IntConstant<T> {
-    Int(T),
-    IntEnv(String),
+pub(crate) enum NumConstant<T> {
+    Num(T),
+    NumEnv(String),
 }
 
-impl<T> IntConstant<T> where T: FromStr {
-    pub(crate) fn value(&self) -> Result<T, JsonIntError> {
+impl<T> NumConstant<T>  where T : Num + FromStr + Copy, JsonNumError : From<<T as FromStr>::Err> {
+    pub(crate) fn value(&self) -> Result<T, JsonNumError> {
         match self {
-            IntConstant::Int(v) => Ok(*v),
-            IntConstant::IntEnv(environment_variable) => {
+            NumConstant::Num(v) => Ok(*v),
+            NumConstant::NumEnv(environment_variable) => {
                 Ok(env::var(environment_variable)?.parse()?)
             }
         }
     }
 }
- */
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum TextConstant {

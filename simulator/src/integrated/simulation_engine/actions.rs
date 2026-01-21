@@ -1,7 +1,7 @@
 use crate::integrated::simulation_elements::{
     Interval,
     run_messages::{SendAlarm, SendRunLogData, SendRunStart, SendRunStop, SendSampleEnvLog},
-    utils::IntConstant,
+    utils::NumConstant,
 };
 use serde::Deserialize;
 
@@ -51,8 +51,8 @@ pub(crate) struct GenerateEventList {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Loop<A> {
-    pub(crate) start: IntConstant,
-    pub(crate) end: IntConstant,
+    pub(crate) start: NumConstant<i32>,
+    pub(crate) end: NumConstant<i32>,
     pub(crate) schedule: Vec<A>,
 }
 
