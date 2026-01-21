@@ -1,4 +1,4 @@
-use super::{NumExpression, Interval, utils::JsonNumError};
+use super::{Interval, NumExpression, utils::JsonNumError};
 use chrono::Utc;
 use digital_muon_common::Time;
 use rand::SeedableRng;

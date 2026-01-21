@@ -8,5 +8,5 @@ pub(crate) mod utils;
 pub(crate) use digitiser_config::DigitiserConfig;
 pub(crate) use event_list::{EventList, Trace};
 pub(crate) use utils::{
-    NumExpression, FloatRandomDistribution, IntRandomDistribution, Interval, Transformation,
+    FloatRandomDistribution, IntRandomDistribution, Interval, NumExpression, Transformation,
 };
