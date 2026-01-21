@@ -4,13 +4,13 @@ use crate::integrated::{
         DigitiserConfig, Transformation,
         event_list::{EventList, EventListTemplate, Trace},
         pulses::PulseTemplate,
-        utils::{JsonFloatError, JsonIntError},
+        utils::{IntConstant, JsonFloatError, JsonIntError},
     },
     simulation_engine::actions::Action,
 };
 use chrono::Utc;
 use digital_muon_common::{
-    FrameNumber, Time,
+    FrameNumber,
     spanned::{SpanWrapper, Spanned},
 };
 use rand::SeedableRng;
@@ -30,9 +30,9 @@ pub(crate) struct Simulation {
     // Is applied to all voltages when traces are created
     pub(crate) voltage_transformation: Transformation<f64>,
     //  The length of each trace
-    pub(crate) time_bins: Time,
+    pub(crate) time_bins: IntConstant,
     //  Number of samples (time_bins) per second
-    pub(crate) sample_rate: u64,
+    pub(crate) sample_rate: IntConstant,
     pub(crate) digitiser_config: DigitiserConfig,
     pub(crate) event_lists: Vec<EventListTemplate>,
     pub(crate) pulses: Vec<PulseTemplate>,

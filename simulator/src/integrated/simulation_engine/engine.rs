@@ -346,7 +346,7 @@ pub(crate) fn run_digitiser(
                     )?;
                 send_digitiser_trace_message(
                     &mut engine.externals,
-                    engine.simulation.sample_rate,
+                    engine.simulation.sample_rate.value()?,
                     &mut engine.trace_cache,
                     &engine.state.metadata,
                     digitiser.id,
