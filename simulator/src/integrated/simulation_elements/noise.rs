@@ -1,4 +1,4 @@
-use super::{Interval, NumExpression, utils::JsonNumError};
+use super::{Interval, NumExpression, utils::JsonValueError};
 use chrono::Utc;
 use digital_muon_common::Time;
 use rand::SeedableRng;
@@ -19,14 +19,14 @@ impl NoiseSource {
         new_value: f64,
         old_value: f64,
         frame_index: usize,
-    ) -> Result<f64, JsonNumError> {
+    ) -> Result<f64, JsonValueError> {
         Ok(
             new_value * (1.0 - self.smoothing_factor.value(frame_index)?)
                 + old_value * self.smoothing_factor.value(frame_index)?,
         )
     }
 
-    pub(crate) fn sample(&self, time: Time, frame_index: usize) -> Result<f64, JsonNumError> {
+    pub(crate) fn sample(&self, time: Time, frame_index: usize) -> Result<f64, JsonValueError> {
         if self.bounds.is_in(time) {
             match &self.attributes {
                 NoiseAttributes::Uniform(Interval { min, max }) => {
@@ -77,7 +77,7 @@ impl<'a> Noise<'a> {
         value: f64,
         time: Time,
         frame_index: usize,
-    ) -> Result<f64, JsonNumError> {
+    ) -> Result<f64, JsonValueError> {
         self.prev = self.source.smooth(
             self.source.sample(time, frame_index)?,
             self.prev,

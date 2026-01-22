@@ -8,7 +8,7 @@ use crate::integrated::{
     simulation::{Simulation, SimulationError},
     simulation_elements::{
         event_list::{EventList, Trace},
-        utils::JsonNumError,
+        utils::JsonValueError,
     },
     simulation_engine::actions::{
         Action, DigitiserAction, FrameAction, GenerateEventList, GenerateTrace, Timestamp,
@@ -79,7 +79,7 @@ pub(crate) enum SimulationEngineError {
     #[error("Aggregated Frame Event List Channel Index {0} out of Range: {1}")]
     AggregatedFrameEventListChannelIndexOutOfRange(usize, usize),
     #[error("Json Numerical Error: {0}")]
-    JsonNum(#[from] JsonNumError),
+    JsonNum(#[from] JsonValueError),
     #[error("checked_add_signed failed: {0}")]
     TimestampAdd(usize),
     #[error("checked_sub_signed failed: {0}")]

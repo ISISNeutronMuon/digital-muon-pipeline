@@ -1,4 +1,4 @@
-use super::{FloatRandomDistribution, utils::JsonNumError};
+use super::{FloatRandomDistribution, utils::JsonValueError};
 use digital_muon_common::{Intensity, Time};
 use serde::Deserialize;
 
@@ -61,7 +61,7 @@ pub(crate) enum PulseEvent {
 }
 
 impl PulseEvent {
-    pub(crate) fn sample(template: &PulseTemplate, frame: usize) -> Result<Self, JsonNumError> {
+    pub(crate) fn sample(template: &PulseTemplate, frame: usize) -> Result<Self, JsonValueError> {
         match template {
             PulseTemplate::Flat {
                 start,

@@ -15,7 +15,7 @@ use std::{
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub(crate) enum JsonNumError {
+pub(crate) enum JsonValueError {
     #[error("Cannot Extract Environment Variable")]
     EnvVar(#[from] VarError),
     #[error("Invalid String to Float: {0}")]
@@ -32,66 +32,6 @@ pub(crate) enum JsonNumError {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum NumExpression<T> {
-    Const(T),
-    FromEnvVar(String),
-    NumFunc(Transformation<T>),
-}
-/*
-impl<T : Num<FromStrRadixErr = ParseFloatError> + NumOps + NumCast + Copy> NumExpression<T> {
-    pub(crate) fn value(&self, frame_index: usize) -> Result<T, JsonNumError> {
-        match self {
-            Self::Num(v) => Ok(*v),
-            Self::NumEnv(environment_variable) => {
-                Ok(Num::from_str_radix(&env::var(environment_variable)?, 10)?)
-            }
-            Self::NumFunc(frame_function) => {
-                Ok(frame_function.transform(NumCast::from::<usize>(frame_index).ok_or(JsonNumError::UsizeConvert)?))
-            }
-        }
-    }
-}
- */
-impl<T> NumExpression<T>
-where
-    T: Num + NumOps + NumCast + FromStr + Copy,
-    JsonNumError: From<<T as FromStr>::Err>,
-{
-    pub(crate) fn value(&self, frame_index: usize) -> Result<T, JsonNumError> {
-        match self {
-            Self::Const(v) => Ok(*v),
-            Self::FromEnvVar(environment_variable) => Ok(env::var(environment_variable)?.parse()?),
-            Self::NumFunc(frame_function) => Ok(frame_function
-                .transform(NumCast::from::<usize>(frame_index).ok_or(JsonNumError::UsizeConvert)?)),
-        }
-    }
-}
-
-/*impl<T : PrimInt + NumOps + NumCast + Copy> NumExpression<T> where JsonNumError : From<ParseIntError> {
-    pub(crate) fn value(&self, frame_index: usize) -> Result<T, JsonNumError> {
-        match self {
-            Self::Num(v) => Ok(*v),
-            Self::NumEnv(environment_variable) => {
-                Ok(Num::from_str_radix(&env::var(environment_variable)?, 10)?)
-            }
-            Self::NumFunc(frame_function) => {
-                Ok(frame_function.transform(NumCast::from::<usize>(frame_index).ok_or(JsonNumError::UsizeConvert)?))
-            }
-        }
-    }
-}*/
-/*
-#[derive(Debug, Error)]
-pub(crate) enum JsonIntError {
-    #[error("Cannot Extract Environment Variable")]
-    EnvVar(#[from] VarError),
-    #[error("Invalid String to Float: {0}")]
-    FloatFromStr(#[from] ParseIntError),
-}
-
-*/
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
 pub(crate) enum NumConstant<T> {
     Const(T),
     FromEnvVar(String),
@@ -100,14 +40,12 @@ pub(crate) enum NumConstant<T> {
 impl<T> NumConstant<T>
 where
     T: Num + FromStr + Copy,
-    JsonNumError: From<<T as FromStr>::Err>,
+    JsonValueError: From<<T as FromStr>::Err>,
 {
-    pub(crate) fn value(&self) -> Result<T, JsonNumError> {
+    pub(crate) fn value(&self) -> Result<T, JsonValueError> {
         match self {
-            NumConstant::Const(v) => Ok(*v),
-            NumConstant::FromEnvVar(environment_variable) => {
-                Ok(env::var(environment_variable)?.parse()?)
-            }
+            Self::Const(v) => Ok(*v),
+            Self::FromEnvVar(environment_variable) => Ok(env::var(environment_variable)?.parse()?),
         }
     }
 }
@@ -120,37 +58,38 @@ pub(crate) enum TextConstant {
 }
 
 impl TextConstant {
-    pub(crate) fn value(&self) -> String {
+    pub(crate) fn value(&self) -> Result<String, JsonValueError> {
         match self {
-            TextConstant::Text(v) => v.clone(),
-            TextConstant::TextEnv(environment_variable) => env::var(environment_variable).unwrap(),
+            Self::Text(v) => Ok(v.clone()),
+            Self::TextEnv(environment_variable) => Ok(env::var(environment_variable)?),
         }
     }
 }
 
-/*
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum NumExpression<T> where T : Debug + Deserialize + Clone {
-    Int(T),
-    IntEnv(String),
-    IntFunc(Transformation<T>),
+pub(crate) enum NumExpression<T> {
+    Const(T),
+    FromEnvVar(String),
+    NumFunc(Transformation<T>),
 }
 
-impl IntExpression {
-    pub(crate) fn value(&self, frame_index: usize) -> Result<i32, JsonNumError> {
+impl<T> NumExpression<T>
+where
+    T: Num + NumOps + NumCast + FromStr + Copy,
+    JsonValueError: From<<T as FromStr>::Err>,
+{
+    pub(crate) fn value(&self, frame_index: usize) -> Result<T, JsonValueError> {
         match self {
-            IntExpression::Int(v) => Ok(*v),
-            IntExpression::IntEnv(environment_variable) => {
-                Ok(env::var(environment_variable)?.parse()?)
-            }
-            IntExpression::IntFunc(frame_function) => {
-                Ok(frame_function.transform(frame_index as i32))
-            }
+            Self::Const(v) => Ok(*v),
+            Self::FromEnvVar(environment_variable) => Ok(env::var(environment_variable)?.parse()?),
+            Self::NumFunc(frame_function) => Ok(frame_function.transform(
+                NumCast::from::<usize>(frame_index).ok_or(JsonValueError::UsizeConvert)?,
+            )),
         }
     }
 }
- */
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "random-type")]
 pub(crate) enum FloatRandomDistribution<T: Num> {
@@ -171,7 +110,7 @@ pub(crate) enum FloatRandomDistribution<T: Num> {
 }
 
 impl FloatRandomDistribution<f64> {
-    pub(crate) fn sample(&self, frame_index: usize) -> Result<f64, JsonNumError> {
+    pub(crate) fn sample(&self, frame_index: usize) -> Result<f64, JsonValueError> {
         match self {
             Self::ConstantFloat { value } => value.value(frame_index),
             Self::UniformFloat { min, max } => {
@@ -214,9 +153,9 @@ pub(crate) enum IntRandomDistribution<T: PrimInt> {
 
 impl<T: PrimInt + FromStr + SampleUniform> IntRandomDistribution<T>
 where
-    JsonNumError: From<<T as FromStr>::Err>,
+    JsonValueError: From<<T as FromStr>::Err>,
 {
-    pub(crate) fn sample(&self, frame_index: usize) -> Result<T, JsonNumError> {
+    pub(crate) fn sample(&self, frame_index: usize) -> Result<T, JsonValueError> {
         match self {
             Self::ConstantInt { value } => value.value(frame_index),
             Self::UniformInt { min, max } => {

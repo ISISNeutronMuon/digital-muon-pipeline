@@ -4,7 +4,7 @@ use crate::integrated::{
         DigitiserConfig, Transformation,
         event_list::{EventList, EventListTemplate, Trace},
         pulses::PulseTemplate,
-        utils::{JsonNumError, NumConstant},
+        utils::{JsonValueError, NumConstant},
     },
     simulation_engine::actions::Action,
 };
@@ -46,7 +46,7 @@ pub(crate) enum SimulationError {
     #[error("Event Pulse Template index {0} out of range {1}")]
     EventPulseTemplateIndexOutOfRange(usize, usize),
     #[error("Json Float error: {0}")]
-    JsonNum(#[from] JsonNumError),
+    JsonValue(#[from] JsonValueError),
     #[error("Build error: {0}")]
     Build(#[from] BuildError),
 }
@@ -113,7 +113,7 @@ impl Simulation {
         &'a self,
         event_lists: &'a [EventList],
         frame_number: FrameNumber,
-    ) -> Result<Vec<Trace>, JsonNumError> {
+    ) -> Result<Vec<Trace>, JsonValueError> {
         event_lists
             .iter()
             .map(SpanWrapper::<_>::new_with_current)
@@ -127,7 +127,7 @@ impl Simulation {
                 let event_list: &EventList = *event_list; //  This is the spanned event list
                 current_span.in_scope(|| Trace::new(self, frame_number, event_list))
             })
-            .collect::<Vec<Result<_, JsonNumError>>>()
+            .collect::<Vec<Result<_, JsonValueError>>>()
             .into_iter()
             .collect()
     }

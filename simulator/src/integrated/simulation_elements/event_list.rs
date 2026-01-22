@@ -1,4 +1,3 @@
-use super::utils::JsonNumError;
 use crate::integrated::{
     active_pulses::ActivePulses,
     simulation::{Simulation, SimulationError},
@@ -6,6 +5,7 @@ use crate::integrated::{
         IntRandomDistribution,
         noise::{Noise, NoiseSource},
         pulses::PulseEvent,
+        utils::JsonValueError,
     },
 };
 use digital_muon_common::{
@@ -37,7 +37,7 @@ impl Trace {
         simulation: &Simulation,
         frame_number: FrameNumber,
         event_list: &EventList<'_>,
-    ) -> Result<Self, JsonNumError> {
+    ) -> Result<Self, JsonValueError> {
         let mut noise = event_list.noises.iter().map(Noise::new).collect::<Vec<_>>();
         let mut active_pulses = ActivePulses::new(&event_list.pulses);
         let sample_time = 1_000_000_000.0 / simulation.sample_rate.value()? as f64;
@@ -60,7 +60,7 @@ impl Trace {
                     })?;
                     Ok(simulation.voltage_transformation.transform(val) as Intensity)
                 })
-                .collect::<Result<_, JsonNumError>>()?,
+                .collect::<Result<_, JsonValueError>>()?,
         })
     }
 
