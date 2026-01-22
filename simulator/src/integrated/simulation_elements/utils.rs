@@ -111,7 +111,7 @@ pub(crate) enum FloatRandomDistribution<T> {
 
 impl<T> FloatRandomDistribution<T>
 where
-    T : Float + Inv<Output = T> + FromStr + SampleUniform,
+    T: Float + Inv<Output = T> + FromStr + SampleUniform,
     JsonValueError: From<<T as FromStr>::Err>,
     rand_distr::StandardNormal: rand_distr::Distribution<T>,
     rand_distr::Exp1: rand_distr::Distribution<T>,
