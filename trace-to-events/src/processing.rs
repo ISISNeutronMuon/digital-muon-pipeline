@@ -22,16 +22,19 @@ use tracing::debug;
 /// Extracts a flatbuffer trace message, converts its contents into events using the provided settings,
 /// and creates a flatbuffer eventlist message.
 ///
+/// # Returns
+/// The total number of pulses found in all channels.
+///
 /// # Parameters
 /// - fbb: a flatbuffer builder object which creates the event list messages.
 /// - trace: the flatbuffer message of the trace.
 /// - detector_settings: settings to use for the detector.
-#[tracing::instrument(skip_all, fields(num_total_pulses = tracing::field::Empty))]
+#[tracing::instrument(skip_all, fields(num_total_pulses))]
 pub(crate) fn process<'a>(
     fbb: &mut FlatBufferBuilder<'a>,
     trace: &'a DigitizerAnalogTraceMessage,
     detector_settings: &DetectorSettings,
-) {
+) -> usize {
     debug!(
         "Dig ID: {}, Metadata: {:?}",
         trace.digitizer_id(),
@@ -107,6 +110,7 @@ pub(crate) fn process<'a>(
     finish_digitizer_event_list_message_buffer(fbb, message);
 
     tracing::Span::current().record("num_total_pulses", events.channel.len());
+    events.channel.len()
 }
 
 #[cfg(test)]

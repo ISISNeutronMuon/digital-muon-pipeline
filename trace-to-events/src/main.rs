@@ -55,8 +55,9 @@ use tokio::{
 };
 use tracing::{debug, error, info, instrument, trace, warn};
 
-type DigitiserEventListToBufferSender = Sender<DeliveryFuture>;
-type TrySendDigitiserEventListError = TrySendError<DeliveryFuture>;
+type InstrumentedDeliveryFuture = tracing::instrument::Instrumented<DeliveryFuture>;
+type DigitiserEventListToBufferSender = Sender<InstrumentedDeliveryFuture>;
+type TrySendDigitiserEventListError = TrySendError<InstrumentedDeliveryFuture>;
 
 const EVENTS_FOUND_METRIC: &str = concatcp!(METRIC_NAME_PREFIX, "events_found");
 
@@ -294,6 +295,7 @@ fn process_kafka_message(
         metadata_veto_flags,
         metadata_protons_per_pulse,
         metadata_running,
+        num_total_pulses,
     )
 )]
 fn process_digitiser_trace_message(
@@ -357,7 +359,7 @@ fn process_digitiser_trace_message(
 
     headers.conditional_extract_to_current_span(tracer.use_otel());
     let mut fbb = FlatBufferBuilder::new();
-    processing::process(
+    let num_total_pulses = processing::process(
         &mut fbb,
         &message,
         &DetectorSettings {
@@ -366,6 +368,7 @@ fn process_digitiser_trace_message(
             mode: &args.mode,
         },
     );
+    tracing::Span::current().record("num_total_pulses", num_total_pulses);
 
     let future_record = FutureRecord::to(&args.event_topic)
         .payload(fbb.finished_data())
@@ -374,7 +377,10 @@ fn process_digitiser_trace_message(
 
     let future = producer.send_result(future_record).expect("Producer sends");
 
-    if let Err(e) = sender.try_send(future) {
+    if let Err(e) = sender.try_send(tracing::Instrument::instrument(
+        future,
+        tracing::Span::current(),
+    )) {
         match &e {
             TrySendError::Closed(_) => {
                 error!("Send-Frame Channel Closed");
@@ -397,8 +403,9 @@ fn process_digitiser_trace_message(
 fn create_producer_task(
     send_digitiser_eventlist_buffer_size: usize,
 ) -> std::io::Result<(DigitiserEventListToBufferSender, JoinHandle<()>)> {
-    let (channel_send, channel_recv) =
-        tokio::sync::mpsc::channel::<DeliveryFuture>(send_digitiser_eventlist_buffer_size);
+    let (channel_send, channel_recv) = tokio::sync::mpsc::channel::<InstrumentedDeliveryFuture>(
+        send_digitiser_eventlist_buffer_size,
+    );
 
     let sigint = signal(SignalKind::interrupt())?;
     let handle = tokio::spawn(produce_to_kafka(channel_recv, sigint));
@@ -415,7 +422,10 @@ fn create_producer_task(
 /// # Parameters
 /// - channel_recv: receive channel that can receive [DeliveryFuture] objects.
 /// - sigint: triggers when the os sends a signal to the process.
-async fn produce_to_kafka(mut channel_recv: Receiver<DeliveryFuture>, mut sigint: Signal) {
+async fn produce_to_kafka(
+    mut channel_recv: Receiver<InstrumentedDeliveryFuture>,
+    mut sigint: Signal,
+) {
     loop {
         // Blocks until a frame is received
         select! {
@@ -440,8 +450,8 @@ async fn produce_to_kafka(mut channel_recv: Receiver<DeliveryFuture>, mut sigint
 /// Dispatches the given eventlist to the Kafka broker by waiting the [DeliveryFuture].
 /// # Parameters
 /// - future: the future which produces the message.
-#[instrument(skip_all)]
-async fn produce_eventlist_to_kafka(future: DeliveryFuture) {
+#[instrument(skip_all, parent = future.span())]
+async fn produce_eventlist_to_kafka(future: InstrumentedDeliveryFuture) {
     match future.await {
         Ok(_) => {
             trace!("Published event message");
@@ -463,7 +473,7 @@ async fn produce_eventlist_to_kafka(future: DeliveryFuture) {
 /// - channel_recv: receive channel that can receive [DeliveryFuture] objects.
 #[tracing::instrument(skip_all, name = "Closing", level = "info", fields(capactity = channel_recv.capacity(), max_capactity = channel_recv.max_capacity()))]
 async fn close_and_flush_producer_channel(
-    channel_recv: &mut Receiver<DeliveryFuture>,
+    channel_recv: &mut Receiver<InstrumentedDeliveryFuture>,
 ) -> Option<()> {
     channel_recv.close();
 
@@ -479,7 +489,7 @@ async fn close_and_flush_producer_channel(
 /// # Parameters
 /// - future: the future to dispatch.
 #[tracing::instrument(skip_all, name = "Flush Eventlist")]
-async fn flush_eventlist(future: DeliveryFuture) -> Option<()> {
+async fn flush_eventlist(future: InstrumentedDeliveryFuture) -> Option<()> {
     produce_eventlist_to_kafka(future).await;
     Some(())
 }
