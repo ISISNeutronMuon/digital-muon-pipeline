@@ -1,7 +1,7 @@
 use chrono::Utc;
 use num::{
-    Num, NumCast,
-    traits::{NumOps, int::PrimInt},
+    Float, Num, NumCast,
+    traits::{Inv, NumOps, int::PrimInt},
 };
 use rand::{Rng, SeedableRng};
 use rand_distr::{Distribution, Exp, Normal, uniform::SampleUniform};
@@ -76,7 +76,7 @@ pub(crate) enum NumExpression<T> {
 
 impl<T> NumExpression<T>
 where
-    T: Num + NumOps + NumCast + FromStr + Copy,
+    T: Num + NumCast + FromStr + Copy,
     JsonValueError: From<<T as FromStr>::Err>,
 {
     pub(crate) fn value(&self, frame_index: usize) -> Result<T, JsonValueError> {
@@ -92,7 +92,7 @@ where
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "random-type")]
-pub(crate) enum FloatRandomDistribution<T: Num> {
+pub(crate) enum FloatRandomDistribution<T> {
     ConstantFloat {
         value: NumExpression<T>,
     },
@@ -109,8 +109,14 @@ pub(crate) enum FloatRandomDistribution<T: Num> {
     },
 }
 
-impl FloatRandomDistribution<f64> {
-    pub(crate) fn sample(&self, frame_index: usize) -> Result<f64, JsonValueError> {
+impl<T> FloatRandomDistribution<T>
+where
+    T : Float + Inv<Output = T> + FromStr + SampleUniform,
+    JsonValueError: From<<T as FromStr>::Err>,
+    rand_distr::StandardNormal: rand_distr::Distribution<T>,
+    rand_distr::Exp1: rand_distr::Distribution<T>,
+{
+    pub(crate) fn sample(&self, frame_index: usize) -> Result<T, JsonValueError> {
         match self {
             Self::ConstantFloat { value } => value.value(frame_index),
             Self::UniformFloat { min, max } => {
@@ -128,7 +134,7 @@ impl FloatRandomDistribution<f64> {
                 Ok(val)
             }
             Self::Exponential { lifetime } => {
-                let val = Exp::new(1.0 / lifetime.value(frame_index)?)?.sample(
+                let val = Exp::new(lifetime.value(frame_index)?.inv())?.sample(
                     &mut rand::rngs::StdRng::seed_from_u64(
                         Utc::now().timestamp_subsec_nanos() as u64
                     ),
@@ -141,7 +147,7 @@ impl FloatRandomDistribution<f64> {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "random-type")]
-pub(crate) enum IntRandomDistribution<T: PrimInt> {
+pub(crate) enum IntRandomDistribution<T> {
     ConstantInt {
         value: NumExpression<T>,
     },
