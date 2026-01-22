@@ -13,13 +13,13 @@ use tracing::instrument;
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum DigitiserConfig {
     #[serde(rename_all = "kebab-case")]
-    AutoAggregatedFrame { num_channels: NumConstant<i32> },
+    AutoAggregatedFrame { num_channels: NumConstant<usize> },
     #[serde(rename_all = "kebab-case")]
     ManualAggregatedFrame { channels: Vec<Channel> },
     #[serde(rename_all = "kebab-case")]
     AutoDigitisers {
-        num_digitisers: NumConstant<i32>,
-        num_channels_per_digitiser: NumConstant<i32>,
+        num_digitisers: NumConstant<usize>,
+        num_channels_per_digitiser: NumConstant<usize>,
     },
     #[serde(rename_all = "kebab-case")]
     ManualDigitisers(Vec<Digitiser>),
@@ -60,8 +60,8 @@ impl DigitiserConfig {
                 .map(|d| {
                     Ok(SimulationEngineDigitiser::new(
                         d as DigitizerId,
-                        ((d as usize * num_channels_per_digitiser.value()? as usize)
-                            ..((d as usize + 1) * num_channels_per_digitiser.value()? as usize))
+                        ((d * num_channels_per_digitiser.value()?)
+                            ..((d + 1) * num_channels_per_digitiser.value()?))
                             .collect(),
                     ))
                 })

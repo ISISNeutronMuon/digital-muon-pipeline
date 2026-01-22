@@ -303,7 +303,7 @@ fn run_frame(
             FrameAction::SetTimestamp(timestamp) => set_timestamp(engine, timestamp)?,
             FrameAction::DigitiserLoop(digitiser_loop) => {
                 for digitiser in digitiser_loop.start.value()?..=digitiser_loop.end.value()? {
-                    engine.state.digitiser_index = digitiser as usize;
+                    engine.state.digitiser_index = digitiser;
                     run_digitiser(engine, &digitiser_loop.schedule)?;
                 }
             }

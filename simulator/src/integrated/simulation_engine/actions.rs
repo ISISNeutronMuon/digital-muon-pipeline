@@ -51,8 +51,8 @@ pub(crate) struct GenerateEventList {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Loop<A> {
-    pub(crate) start: NumConstant<i32>,
-    pub(crate) end: NumConstant<i32>,
+    pub(crate) start: NumConstant<usize>,
+    pub(crate) end: NumConstant<usize>,
     pub(crate) schedule: Vec<A>,
 }
 

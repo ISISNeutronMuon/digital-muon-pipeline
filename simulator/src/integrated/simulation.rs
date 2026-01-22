@@ -10,7 +10,7 @@ use crate::integrated::{
 };
 use chrono::Utc;
 use digital_muon_common::{
-    FrameNumber,
+    FrameNumber, Time,
     spanned::{SpanWrapper, Spanned},
 };
 use rand::SeedableRng;
@@ -30,7 +30,7 @@ pub(crate) struct Simulation {
     // Is applied to all voltages when traces are created
     pub(crate) voltage_transformation: Transformation<f64>,
     //  The length of each trace
-    pub(crate) time_bins: NumConstant<u32>,
+    pub(crate) time_bins: NumConstant<Time>,
     //  Number of samples (time_bins) per second
     pub(crate) sample_rate: NumConstant<u64>,
     pub(crate) digitiser_config: DigitiserConfig,
