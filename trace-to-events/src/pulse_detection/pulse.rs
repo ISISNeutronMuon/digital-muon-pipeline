@@ -46,16 +46,16 @@ where
 #[derive(Default)]
 pub(crate) struct Pulse {
     /// Time at which the pulse starts, and the value at this time.
-    #[allow(unused)] // TODO: Fixme
+    #[allow(unused)] // FIXME
     pub(crate) start: TimeValueOptional<Real>,
     /// Time at which the pulse ends, and the value at this time.
-    #[allow(unused)] // TODO: Fixme
+    #[allow(unused)] // FIXME
     pub(crate) end: TimeValueOptional<Real>,
     /// Time at which the pulse peaks, and the value at this time.
     pub(crate) peak: TimeValueOptional<Real>,
     /// Time at which the pulse is rising most steeply, and the value and derivative at this time.
     pub(crate) steepest_rise: TimeValueOptional<RealArray<2>>,
     /// Time at which the pulse is falling most sharply, and the value and derivative at this time.
-    #[allow(unused)] // TODO: Fixme
+    #[allow(unused)] // FIXME
     pub(crate) sharpest_fall: TimeValueOptional<RealArray<2>>,
 }

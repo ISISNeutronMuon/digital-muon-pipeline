@@ -73,7 +73,7 @@ pub(crate) type RealArray<const N: usize> = TraceArray<N, Real>;
 /// This type allows contains descriptive statistical data.
 #[derive(Default, Clone, Debug)]
 pub(crate) struct Stats {
-    #[allow(unused)] // TODO: Fixme
+    #[allow(unused)] // FIXME
     /// The current value.
     pub(crate) value: Real,
     /// The arithmetic mean.
@@ -83,7 +83,7 @@ pub(crate) struct Stats {
     /// The variance.
     ///
     /// This may have been calculated from applying a window to a range of values.
-    #[allow(unused)] // TODO: Fixme
+    #[allow(unused)] // FIXME
     pub(crate) variance: Real,
 }
 
