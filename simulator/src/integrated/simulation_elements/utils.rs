@@ -1,20 +1,29 @@
 use chrono::Utc;
+use num::{
+    Float, Num, NumCast,
+    traits::{Inv, NumOps, int::PrimInt},
+};
 use rand::{Rng, SeedableRng};
-use rand_distr::{Distribution, Exp, Normal};
+use rand_distr::{Distribution, Exp, Normal, uniform::SampleUniform};
 use serde::Deserialize;
 use std::{
     env::{self, VarError},
     num::{ParseFloatError, ParseIntError},
     ops::RangeInclusive,
+    str::FromStr,
 };
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub(crate) enum JsonFloatError {
+pub(crate) enum JsonValueError {
     #[error("Cannot Extract Environment Variable")]
     EnvVar(#[from] VarError),
     #[error("Invalid String to Float: {0}")]
     FloatFromStr(#[from] ParseFloatError),
+    #[error("Invalid String to Int: {0}")]
+    IntFromStr(#[from] ParseIntError),
+    #[error("Cannot convert from usize")]
+    UsizeConvert,
     #[error("Invalid Normal Distribution: {0}")]
     NormalDistribution(#[from] rand_distr::NormalError),
     #[error("Invalid Exponential Distribution: {0}")]
@@ -23,48 +32,20 @@ pub(crate) enum JsonFloatError {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum FloatExpression {
-    Float(f64),
-    FloatEnv(String),
-    FloatFunc(Transformation<f64>),
+pub(crate) enum NumConstant<T> {
+    Const(T),
+    FromEnvVar(String),
 }
 
-impl FloatExpression {
-    pub(crate) fn value(&self, frame_index: usize) -> Result<f64, JsonFloatError> {
+impl<T> NumConstant<T>
+where
+    T: Num + FromStr + Copy,
+    JsonValueError: From<<T as FromStr>::Err>,
+{
+    pub(crate) fn value(&self) -> Result<T, JsonValueError> {
         match self {
-            FloatExpression::Float(v) => Ok(*v),
-            FloatExpression::FloatEnv(environment_variable) => {
-                Ok(env::var(environment_variable)?.parse()?)
-            }
-            FloatExpression::FloatFunc(frame_function) => {
-                Ok(frame_function.transform(frame_index as f64))
-            }
-        }
-    }
-}
-
-#[derive(Debug, Error)]
-pub(crate) enum JsonIntError {
-    #[error("Cannot Extract Environment Variable")]
-    EnvVar(#[from] VarError),
-    #[error("Invalid String to Float: {0}")]
-    FloatFromStr(#[from] ParseIntError),
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum IntConstant {
-    Int(i32),
-    IntEnv(String),
-}
-
-impl IntConstant {
-    pub(crate) fn value(&self) -> Result<i32, JsonIntError> {
-        match self {
-            IntConstant::Int(v) => Ok(*v),
-            IntConstant::IntEnv(environment_variable) => {
-                Ok(env::var(environment_variable)?.parse()?)
-            }
+            Self::Const(v) => Ok(*v),
+            Self::FromEnvVar(environment_variable) => Ok(env::var(environment_variable)?.parse()?),
         }
     }
 }
@@ -77,60 +58,68 @@ pub(crate) enum TextConstant {
 }
 
 impl TextConstant {
-    pub(crate) fn value(&self) -> String {
+    pub(crate) fn value(&self) -> Result<String, JsonValueError> {
         match self {
-            TextConstant::Text(v) => v.clone(),
-            TextConstant::TextEnv(environment_variable) => env::var(environment_variable).unwrap(),
+            Self::Text(v) => Ok(v.clone()),
+            Self::TextEnv(environment_variable) => Ok(env::var(environment_variable)?),
         }
     }
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum IntExpression {
-    Int(i32),
-    IntEnv(String),
-    IntFunc(Transformation<i32>),
+pub(crate) enum NumExpression<T> {
+    Const(T),
+    FromEnvVar(String),
+    NumFunc(Transformation<T>),
 }
 
-impl IntExpression {
-    pub(crate) fn value(&self, frame_index: usize) -> Result<i32, JsonIntError> {
+impl<T> NumExpression<T>
+where
+    T: Num + NumCast + FromStr + Copy,
+    JsonValueError: From<<T as FromStr>::Err>,
+{
+    pub(crate) fn value(&self, frame_index: usize) -> Result<T, JsonValueError> {
         match self {
-            IntExpression::Int(v) => Ok(*v),
-            IntExpression::IntEnv(environment_variable) => {
-                Ok(env::var(environment_variable)?.parse()?)
-            }
-            IntExpression::IntFunc(frame_function) => {
-                Ok(frame_function.transform(frame_index as i32))
-            }
+            Self::Const(v) => Ok(*v),
+            Self::FromEnvVar(environment_variable) => Ok(env::var(environment_variable)?.parse()?),
+            Self::NumFunc(frame_function) => Ok(frame_function.transform(
+                NumCast::from::<usize>(frame_index).ok_or(JsonValueError::UsizeConvert)?,
+            )),
         }
     }
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "random-type")]
-pub(crate) enum FloatRandomDistribution {
-    Constant {
-        value: FloatExpression,
+pub(crate) enum FloatRandomDistribution<T> {
+    ConstantFloat {
+        value: NumExpression<T>,
     },
-    Uniform {
-        min: FloatExpression,
-        max: FloatExpression,
+    UniformFloat {
+        min: NumExpression<T>,
+        max: NumExpression<T>,
     },
     Normal {
-        mean: FloatExpression,
-        sd: FloatExpression,
+        mean: NumExpression<T>,
+        sd: NumExpression<T>,
     },
     Exponential {
-        lifetime: FloatExpression,
+        lifetime: NumExpression<T>,
     },
 }
 
-impl FloatRandomDistribution {
-    pub(crate) fn sample(&self, frame_index: usize) -> Result<f64, JsonFloatError> {
+impl<T> FloatRandomDistribution<T>
+where
+    T: Float + Inv<Output = T> + FromStr + SampleUniform,
+    JsonValueError: From<<T as FromStr>::Err>,
+    rand_distr::StandardNormal: rand_distr::Distribution<T>,
+    rand_distr::Exp1: rand_distr::Distribution<T>,
+{
+    pub(crate) fn sample(&self, frame_index: usize) -> Result<T, JsonValueError> {
         match self {
-            Self::Constant { value } => value.value(frame_index),
-            Self::Uniform { min, max } => {
+            Self::ConstantFloat { value } => value.value(frame_index),
+            Self::UniformFloat { min, max } => {
                 let val =
                     rand::rngs::StdRng::seed_from_u64(Utc::now().timestamp_subsec_nanos() as u64)
                         .random_range(min.value(frame_index)?..max.value(frame_index)?);
@@ -145,7 +134,7 @@ impl FloatRandomDistribution {
                 Ok(val)
             }
             Self::Exponential { lifetime } => {
-                let val = Exp::new(1.0 / lifetime.value(frame_index)?)?.sample(
+                let val = Exp::new(lifetime.value(frame_index)?.inv())?.sample(
                     &mut rand::rngs::StdRng::seed_from_u64(
                         Utc::now().timestamp_subsec_nanos() as u64
                     ),
@@ -158,21 +147,24 @@ impl FloatRandomDistribution {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "random-type")]
-pub(crate) enum IntRandomDistribution {
-    Constant {
-        value: IntExpression,
+pub(crate) enum IntRandomDistribution<T> {
+    ConstantInt {
+        value: NumExpression<T>,
     },
-    Uniform {
-        min: IntExpression,
-        max: IntExpression,
+    UniformInt {
+        min: NumExpression<T>,
+        max: NumExpression<T>,
     },
 }
 
-impl IntRandomDistribution {
-    pub(crate) fn sample(&self, frame_index: usize) -> Result<i32, JsonIntError> {
+impl<T: PrimInt + FromStr + SampleUniform> IntRandomDistribution<T>
+where
+    JsonValueError: From<<T as FromStr>::Err>,
+{
+    pub(crate) fn sample(&self, frame_index: usize) -> Result<T, JsonValueError> {
         match self {
-            Self::Constant { value } => value.value(frame_index),
-            Self::Uniform { min, max } => {
+            Self::ConstantInt { value } => value.value(frame_index),
+            Self::UniformInt { min, max } => {
                 let seed = Utc::now().timestamp_subsec_nanos() as u64;
                 let value = rand::rngs::StdRng::seed_from_u64(seed)
                     .random_range(min.value(frame_index)?..max.value(frame_index)?);
@@ -209,14 +201,8 @@ pub(crate) struct Transformation<T> {
     pub(crate) translate: T,
 }
 
-impl Transformation<f64> {
-    pub(crate) fn transform(&self, x: f64) -> f64 {
-        x * self.scale + self.translate
-    }
-}
-
-impl Transformation<i32> {
-    pub(crate) fn transform(&self, x: i32) -> i32 {
+impl<T: NumOps + Copy> Transformation<T> {
+    pub(crate) fn transform(&self, x: T) -> T {
         x * self.scale + self.translate
     }
 }

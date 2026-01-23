@@ -4,7 +4,7 @@ use crate::integrated::{
         DigitiserConfig, Transformation,
         event_list::{EventList, EventListTemplate, Trace},
         pulses::PulseTemplate,
-        utils::{JsonFloatError, JsonIntError},
+        utils::{JsonValueError, NumConstant},
     },
     simulation_engine::actions::Action,
 };
@@ -30,9 +30,9 @@ pub(crate) struct Simulation {
     // Is applied to all voltages when traces are created
     pub(crate) voltage_transformation: Transformation<f64>,
     //  The length of each trace
-    pub(crate) time_bins: Time,
+    pub(crate) time_bins: NumConstant<Time>,
     //  Number of samples (time_bins) per second
-    pub(crate) sample_rate: u64,
+    pub(crate) sample_rate: NumConstant<u64>,
     pub(crate) digitiser_config: DigitiserConfig,
     pub(crate) event_lists: Vec<EventListTemplate>,
     pub(crate) pulses: Vec<PulseTemplate>,
@@ -46,9 +46,7 @@ pub(crate) enum SimulationError {
     #[error("Event Pulse Template index {0} out of range {1}")]
     EventPulseTemplateIndexOutOfRange(usize, usize),
     #[error("Json Float error: {0}")]
-    JsonFloat(#[from] JsonFloatError),
-    #[error("Json Int error: {0}")]
-    JsonInt(#[from] JsonIntError),
+    JsonValue(#[from] JsonValueError),
     #[error("Build error: {0}")]
     Build(#[from] BuildError),
 }
@@ -115,7 +113,7 @@ impl Simulation {
         &'a self,
         event_lists: &'a [EventList],
         frame_number: FrameNumber,
-    ) -> Result<Vec<Trace>, JsonFloatError> {
+    ) -> Result<Vec<Trace>, JsonValueError> {
         event_lists
             .iter()
             .map(SpanWrapper::<_>::new_with_current)
@@ -129,7 +127,7 @@ impl Simulation {
                 let event_list: &EventList = *event_list; //  This is the spanned event list
                 current_span.in_scope(|| Trace::new(self, frame_number, event_list))
             })
-            .collect::<Vec<Result<_, JsonFloatError>>>()
+            .collect::<Vec<Result<_, JsonValueError>>>()
             .into_iter()
             .collect()
     }
@@ -142,33 +140,33 @@ mod tests {
     const JSON_INPUT_1: &str = r#"
     {
         "voltage-transformation": {"scale": 1, "translate": 0 },
-        "time-bins": 30000,
-        "sample-rate": 1000000000,
+        "time-bins": { "const": 30000 },
+        "sample-rate": { "const": 1000000000 },
         "digitiser-config": {
             "auto-digitisers": {
-                "num-digitisers": { "int" : 32 },
-                "num-channels-per-digitiser": { "int" : 8 }
+                "num-digitisers": { "const" : 32 },
+                "num-channels-per-digitiser": { "const" : 8 }
             }
         },
         "pulses": [{
                         "pulse-type": "biexp",
-                        "height": { "random-type": "uniform", "min": { "float": 30 }, "max": { "float": 70 } },
-                        "start":  { "random-type": "exponential", "lifetime": { "float": 2200 } },
-                        "rise":   { "random-type": "uniform", "min": { "float": 20 }, "max": { "float": 30 } },
-                        "decay":  { "random-type": "uniform", "min": { "float": 5 }, "max": { "float": 10 } }
+                        "height": { "random-type": "uniform-float", "min": { "const": 30 }, "max": { "const": 70 } },
+                        "start":  { "random-type": "exponential", "lifetime": { "const": 2200 } },
+                        "rise":   { "random-type": "uniform-float", "min": { "const": 20 }, "max": { "const": 30 } },
+                        "decay":  { "random-type": "uniform-float", "min": { "const": 5 }, "max": { "const": 10 } }
                     },
                     {
                         "pulse-type": "flat",
-                        "start":  { "random-type": "exponential", "lifetime": { "float": 2200 } },
-                        "width":  { "random-type": "uniform", "min": { "float": 20 }, "max": { "float": 50 } },
-                        "height": { "random-type": "uniform", "min": { "float": 30 }, "max": { "float": 70 } }
+                        "start":  { "random-type": "exponential", "lifetime": { "const": 2200 } },
+                        "width":  { "random-type": "uniform-float", "min": { "const": 20 }, "max": { "const": 50 } },
+                        "height": { "random-type": "uniform-float", "min": { "const": 30 }, "max": { "const": 70 } }
                     },
                     {
                         "pulse-type": "triangular",
-                        "start":     { "random-type": "exponential", "lifetime": { "float": 2200 } },
-                        "width":     { "random-type": "uniform", "min": { "float": 20 }, "max": { "float": 50 } },
-                        "peak_time": { "random-type": "uniform", "min": { "float": 0.25 }, "max": { "float": 0.75 } },
-                        "height":    { "random-type": "uniform", "min": { "float": 30 }, "max": { "float": 70 } }
+                        "start":     { "random-type": "exponential", "lifetime": { "const": 2200 } },
+                        "width":     { "random-type": "uniform-float", "min": { "const": 20 }, "max": { "const": 50 } },
+                        "peak_time": { "random-type": "uniform-float", "min": { "const": 0.25 }, "max": { "const": 0.75 } },
+                        "height":    { "random-type": "uniform-float", "min": { "const": 30 }, "max": { "const": 70 } }
                     }],
         "event-lists": [
             {
@@ -179,17 +177,17 @@ mod tests {
                 ],
                 "noises": [
                     {
-                        "attributes": { "noise-type" : "gaussian", "mean" : { "float": 0 }, "sd" : { "float": 20 } },
-                        "smoothing-factor" : { "float": 0.975 },
+                        "attributes": { "noise-type" : "gaussian", "mean" : { "const": 0 }, "sd" : { "const": 20 } },
+                        "smoothing-factor" : { "const": 0.975 },
                         "bounds" : { "min": 0, "max": 30000 }
                     },
                     {
-                        "attributes": { "noise-type" : "gaussian", "mean" : { "float": 0 }, "sd" : { "float-func": { "scale": 50, "translate": 50 } } },
-                        "smoothing-factor" : { "float": 0.995 },
+                        "attributes": { "noise-type" : "gaussian", "mean" : { "const": 0 }, "sd" : { "num-func": { "scale": 50, "translate": 50 } } },
+                        "smoothing-factor" : { "const": 0.995 },
                         "bounds" : { "min": 0, "max": 30000 }
                     }
                 ],
-                "num-pulses": { "random-type": "constant", "value": { "int": 500 } }
+                "num-pulses": { "random-type": "constant-int", "value": { "const": 500 } }
             }
         ],
         "schedule": [
@@ -197,8 +195,8 @@ mod tests {
             { "set-timestamp": "now" },
             { "wait-ms": 100 },
             { "frame-loop": {
-                    "start": { "int": 0 },
-                    "end": { "int": 99 },
+                    "start": { "const": 0 },
+                    "end": { "const": 99 },
                     "schedule": [
                         { "set-timestamp": { "advance-by-ms" : 5} },
                         { "set-timestamp": { "rewind-by-ms" : 5} }

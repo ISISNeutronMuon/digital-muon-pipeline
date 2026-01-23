@@ -1,4 +1,4 @@
-use super::{FloatExpression, Interval, utils::JsonFloatError};
+use super::{Interval, NumExpression, utils::JsonValueError};
 use chrono::Utc;
 use digital_muon_common::Time;
 use rand::SeedableRng;
@@ -10,7 +10,7 @@ use serde::Deserialize;
 pub(crate) struct NoiseSource {
     bounds: Interval<Time>,
     attributes: NoiseAttributes,
-    smoothing_factor: FloatExpression,
+    smoothing_factor: NumExpression<f64>,
 }
 
 impl NoiseSource {
@@ -19,14 +19,14 @@ impl NoiseSource {
         new_value: f64,
         old_value: f64,
         frame_index: usize,
-    ) -> Result<f64, JsonFloatError> {
+    ) -> Result<f64, JsonValueError> {
         Ok(
             new_value * (1.0 - self.smoothing_factor.value(frame_index)?)
                 + old_value * self.smoothing_factor.value(frame_index)?,
         )
     }
 
-    pub(crate) fn sample(&self, time: Time, frame_index: usize) -> Result<f64, JsonFloatError> {
+    pub(crate) fn sample(&self, time: Time, frame_index: usize) -> Result<f64, JsonValueError> {
         if self.bounds.is_in(time) {
             match &self.attributes {
                 NoiseAttributes::Uniform(Interval { min, max }) => {
@@ -52,10 +52,10 @@ impl NoiseSource {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "noise-type")]
 pub(crate) enum NoiseAttributes {
-    Uniform(Interval<FloatExpression>),
+    Uniform(Interval<NumExpression<f64>>),
     Gaussian {
-        mean: FloatExpression,
-        sd: FloatExpression,
+        mean: NumExpression<f64>,
+        sd: NumExpression<f64>,
     },
 }
 
@@ -77,7 +77,7 @@ impl<'a> Noise<'a> {
         value: f64,
         time: Time,
         frame_index: usize,
-    ) -> Result<f64, JsonFloatError> {
+    ) -> Result<f64, JsonValueError> {
         self.prev = self.source.smooth(
             self.source.sample(time, frame_index)?,
             self.prev,

@@ -1,4 +1,4 @@
-use super::{FloatRandomDistribution, utils::JsonFloatError};
+use super::{FloatRandomDistribution, utils::JsonValueError};
 use digital_muon_common::{Intensity, Time};
 use serde::Deserialize;
 
@@ -6,26 +6,26 @@ use serde::Deserialize;
 #[serde(rename_all = "kebab-case", tag = "pulse-type")]
 pub(crate) enum PulseTemplate {
     Flat {
-        start: FloatRandomDistribution,
-        width: FloatRandomDistribution,
-        height: FloatRandomDistribution,
+        start: FloatRandomDistribution<f64>,
+        width: FloatRandomDistribution<f64>,
+        height: FloatRandomDistribution<f64>,
     },
     Triangular {
-        start: FloatRandomDistribution,
-        peak_time: FloatRandomDistribution,
-        width: FloatRandomDistribution,
-        height: FloatRandomDistribution,
+        start: FloatRandomDistribution<f64>,
+        peak_time: FloatRandomDistribution<f64>,
+        width: FloatRandomDistribution<f64>,
+        height: FloatRandomDistribution<f64>,
     },
     Gaussian {
-        height: FloatRandomDistribution,
-        peak_time: FloatRandomDistribution,
-        sd: FloatRandomDistribution,
+        height: FloatRandomDistribution<f64>,
+        peak_time: FloatRandomDistribution<f64>,
+        sd: FloatRandomDistribution<f64>,
     },
     Biexp {
-        start: FloatRandomDistribution,
-        decay: FloatRandomDistribution,
-        rise: FloatRandomDistribution,
-        height: FloatRandomDistribution,
+        start: FloatRandomDistribution<f64>,
+        decay: FloatRandomDistribution<f64>,
+        rise: FloatRandomDistribution<f64>,
+        height: FloatRandomDistribution<f64>,
     },
 }
 
@@ -61,7 +61,7 @@ pub(crate) enum PulseEvent {
 }
 
 impl PulseEvent {
-    pub(crate) fn sample(template: &PulseTemplate, frame: usize) -> Result<Self, JsonFloatError> {
+    pub(crate) fn sample(template: &PulseTemplate, frame: usize) -> Result<Self, JsonValueError> {
         match template {
             PulseTemplate::Flat {
                 start,

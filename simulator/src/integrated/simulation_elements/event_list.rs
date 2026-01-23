@@ -1,4 +1,3 @@
-use super::utils::JsonFloatError;
 use crate::integrated::{
     active_pulses::ActivePulses,
     simulation::{Simulation, SimulationError},
@@ -6,6 +5,7 @@ use crate::integrated::{
         IntRandomDistribution,
         noise::{Noise, NoiseSource},
         pulses::PulseEvent,
+        utils::JsonValueError,
     },
 };
 use digital_muon_common::{
@@ -37,13 +37,13 @@ impl Trace {
         simulation: &Simulation,
         frame_number: FrameNumber,
         event_list: &EventList<'_>,
-    ) -> Result<Self, JsonFloatError> {
+    ) -> Result<Self, JsonValueError> {
         let mut noise = event_list.noises.iter().map(Noise::new).collect::<Vec<_>>();
         let mut active_pulses = ActivePulses::new(&event_list.pulses);
-        let sample_time = 1_000_000_000.0 / simulation.sample_rate as f64;
+        let sample_time = 1_000_000_000.0 / simulation.sample_rate.value()? as f64;
         Ok(Self {
             span: SpanOnce::Spanned(tracing::Span::current()),
-            intensities: (0..simulation.time_bins)
+            intensities: (0..simulation.time_bins.value()?)
                 .map(|time| {
                     //  Remove any expired muons
                     active_pulses.drop_spent_muons(time);
@@ -60,7 +60,7 @@ impl Trace {
                     })?;
                     Ok(simulation.voltage_transformation.transform(val) as Intensity)
                 })
-                .collect::<Result<_, JsonFloatError>>()?,
+                .collect::<Result<_, JsonValueError>>()?,
         })
     }
 
@@ -87,7 +87,7 @@ pub(crate) struct EventPulseTemplate {
 pub(crate) struct EventListTemplate {
     pub(crate) pulses: Vec<EventPulseTemplate>,
     pub(crate) noises: Vec<NoiseSource>,
-    pub(crate) num_pulses: IntRandomDistribution,
+    pub(crate) num_pulses: IntRandomDistribution<i32>,
 }
 
 #[derive(Default)]

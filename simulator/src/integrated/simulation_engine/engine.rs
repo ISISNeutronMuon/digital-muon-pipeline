@@ -8,7 +8,7 @@ use crate::integrated::{
     simulation::{Simulation, SimulationError},
     simulation_elements::{
         event_list::{EventList, Trace},
-        utils::{JsonFloatError, JsonIntError},
+        utils::JsonValueError,
     },
     simulation_engine::actions::{
         Action, DigitiserAction, FrameAction, GenerateEventList, GenerateTrace, Timestamp,
@@ -78,10 +78,8 @@ pub(crate) enum SimulationEngineError {
     Send(#[from] SendError),
     #[error("Aggregated Frame Event List Channel Index {0} out of Range: {1}")]
     AggregatedFrameEventListChannelIndexOutOfRange(usize, usize),
-    #[error("Json Float Error: {0}")]
-    JsonFloat(#[from] JsonFloatError),
-    #[error("Json Int Error: {0}")]
-    IntFloat(#[from] JsonIntError),
+    #[error("Json Numerical Error: {0}")]
+    JsonNum(#[from] JsonValueError),
     #[error("checked_add_signed failed: {0}")]
     TimestampAdd(usize),
     #[error("checked_sub_signed failed: {0}")]
@@ -305,7 +303,7 @@ fn run_frame(
             FrameAction::SetTimestamp(timestamp) => set_timestamp(engine, timestamp)?,
             FrameAction::DigitiserLoop(digitiser_loop) => {
                 for digitiser in digitiser_loop.start.value()?..=digitiser_loop.end.value()? {
-                    engine.state.digitiser_index = digitiser as usize;
+                    engine.state.digitiser_index = digitiser;
                     run_digitiser(engine, &digitiser_loop.schedule)?;
                 }
             }
@@ -346,7 +344,7 @@ pub(crate) fn run_digitiser(
                     )?;
                 send_digitiser_trace_message(
                     &mut engine.externals,
-                    engine.simulation.sample_rate,
+                    engine.simulation.sample_rate.value()?,
                     &mut engine.trace_cache,
                     &engine.state.metadata,
                     digitiser.id,

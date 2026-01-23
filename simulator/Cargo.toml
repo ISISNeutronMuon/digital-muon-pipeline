@@ -9,6 +9,7 @@ chrono.workspace = true
 clap.workspace = true
 git-version.workspace = true
 miette = { workspace = true, features = ["fancy"] }
+num.workspace = true
 rand.workspace = true
 rand_distr.workspace = true
 rayon.workspace = true
