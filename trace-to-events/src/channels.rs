@@ -184,12 +184,7 @@ fn find_advanced_events(
         .window(SmoothingWindow::new(
             parameters.smoothing_window_size.unwrap_or(1),
         ))
-        .map(|(i, stats)| {
-            (i, {
-                let _ = (stats.value, stats.variance); // Referring to these fields to satisfy clippy
-                stats.mean
-            })
-        });
+        .map(|(i, stats)| (i, stats.mean));
 
     let events = smoothed
         .clone()
@@ -218,7 +213,6 @@ fn find_advanced_events(
     let mut time = Vec::<Time>::new();
     let mut voltage = Vec::<Intensity>::new();
     for pulse in pulses {
-        let _ = (pulse.start, pulse.sharpest_fall, pulse.end); // Referring to these fields to satisfy clippy
         time.push(pulse.steepest_rise.time.unwrap_or_default() as Time);
         voltage.push(pulse.peak.value.unwrap_or_default() as Intensity);
     }
