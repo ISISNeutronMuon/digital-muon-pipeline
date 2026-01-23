@@ -24,9 +24,7 @@ pub(crate) mod window;
 
 pub(crate) use datatype::{EventData, EventPoint, RealArray, Stats, Temporal, TracePoint};
 pub(crate) use detectors::{Assembler, Detector, advanced_muon_detector, threshold_detector};
-pub(crate) use iterators::{AssembleFilter, EventFilter};
-#[cfg(test)]
-pub(crate) use window::WindowFilter;
+pub(crate) use iterators::{AssembleIterable, EventsIterable, WindowIterable};
 
 pub(crate) use pulse::Pulse;
 

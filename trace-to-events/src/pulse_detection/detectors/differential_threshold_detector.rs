@@ -3,9 +3,8 @@
 //!
 //! The detector also implements a cool-down period to wait before another detection is registered.
 use super::{Detector, EventData, Real};
-use crate::{parameters::PeakHeightMode, pulse_detection::datatype::tracevalue::TraceArray};
+use crate::{parameters::PeakHeightMode, pulse_detection::datatype::TraceArray};
 use num::Zero;
-use std::fmt::Display;
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct DifferentialThresholdParameters {
@@ -28,12 +27,6 @@ pub(crate) struct Data {
     pub(crate) base_height: Real,
     /// The trace value at the peak of the pulse.
     pub(crate) peak_height: Real,
-}
-
-impl Display for Data {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{},{}", self.base_height, self.peak_height)
-    }
 }
 
 impl EventData for Data {}
@@ -247,7 +240,7 @@ impl Detector for DifferentialThresholdDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::{EventFilter, Real, WindowFilter, window::FiniteDifferences};
+    use crate::pulse_detection::{EventsIterable, Real, WindowIterable, window::FiniteDifferences};
     use digital_muon_common::Intensity;
 
     fn pipeline(

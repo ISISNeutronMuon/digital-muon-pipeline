@@ -1,22 +1,14 @@
 //! Provides abstractions for data types used in both traces and eventlists.
 use super::Real;
-use digital_muon_common::Intensity;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
-pub(crate) mod eventdata;
-pub(crate) mod eventpoint;
-pub(crate) mod tracepoint;
-pub(crate) mod tracevalue;
+mod event;
+mod trace;
 
-pub(crate) use eventdata::EventData;
-pub(crate) use eventpoint::EventPoint;
-pub(crate) use tracepoint::TracePoint;
-pub(crate) use tracevalue::{RealArray, Stats, TraceValue};
+pub(crate) use event::{EventData, EventPoint};
+pub(crate) use trace::{RealArray, Stats, TraceArray, TracePoint};
 
 /// This trait abstracts any type used as a time variable.
-pub(crate) trait Temporal: Default + Copy + Debug + Display + PartialEq {}
-
-/// [Todo] Remove.
-impl Temporal for Intensity {}
+pub(crate) trait Temporal: Default + Copy + Debug + PartialEq {}
 
 impl Temporal for Real {}

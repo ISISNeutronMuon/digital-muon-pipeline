@@ -52,7 +52,7 @@ impl Window for Baseline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::window::WindowFilter;
+    use crate::pulse_detection::iterators::WindowIterable;
     use assert_approx_eq::assert_approx_eq;
 
     #[test]

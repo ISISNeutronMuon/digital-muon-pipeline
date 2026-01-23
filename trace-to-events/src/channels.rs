@@ -3,16 +3,16 @@ use crate::{
     parameters::{
         AdvancedMuonDetectorParameters, DetectorSettings,
         DifferentialThresholdDiscriminatorParameters, FixedThresholdDiscriminatorParameters, Mode,
-        Polarity,
+        PeakHeightBasis, Polarity,
     },
     pulse_detection::{
-        AssembleFilter, EventFilter, Real,
+        AssembleIterable, EventsIterable, Real, WindowIterable,
         advanced_muon_detector::{AdvancedMuonAssembler, AdvancedMuonDetector},
         detectors::differential_threshold_detector::{
             DifferentialThresholdDetector, DifferentialThresholdParameters,
         },
         threshold_detector::{ThresholdDetector, ThresholdDuration},
-        window::{Baseline, FiniteDifferences, SmoothingWindow, WindowFilter},
+        window::{Baseline, FiniteDifferences, SmoothingWindow},
     },
 };
 use digital_muon_common::{Intensity, Time};
@@ -143,8 +143,8 @@ fn find_differential_threshold_events(
     for pulse in pulses {
         time.push(pulse.0 as Time);
         voltage.push(match parameters.peak_height_basis {
-            crate::parameters::PeakHeightBasis::TraceBaseline => pulse.1.peak_height as Intensity,
-            crate::parameters::PeakHeightBasis::PulseBaseline => {
+            PeakHeightBasis::TraceBaseline => pulse.1.peak_height as Intensity,
+            PeakHeightBasis::PulseBaseline => {
                 (pulse.1.peak_height - pulse.1.base_height) as Intensity
             }
         });

@@ -1,5 +1,5 @@
 //! Provides event iterators and traits for converting trace data iterators into event iterators.
-use super::{Assembler, Detector, Pulse, TracePoint};
+use super::{Detector, TracePoint};
 use tracing::trace;
 
 /// Applies a detector to a source iterator.
@@ -40,8 +40,8 @@ where
     }
 }
 
-/// Provides method for converting an object into an [EventIter].
-pub(crate) trait EventFilter<I, D>
+/// Should be implemented for any iterator which supports the `events` method.
+pub(crate) trait EventsIterable<I, D>
 where
     I: Iterator,
     I: Iterator<Item = D::TracePointType>,
@@ -50,7 +50,7 @@ where
     fn events(self, detector: D) -> EventIter<I, D>;
 }
 
-impl<I, D> EventFilter<I, D> for I
+impl<I, D> EventsIterable<I, D> for I
 where
     I: Iterator,
     I: Iterator<Item = D::TracePointType>,
@@ -64,63 +64,6 @@ where
         EventIter {
             source: self,
             detector,
-        }
-    }
-}
-
-/// Applies an assembler to a source iterator of detector events.
-#[derive(Clone)]
-pub(crate) struct AssemblerIter<I, A>
-where
-    A: Assembler,
-    I: Iterator<Item = <A::DetectorType as Detector>::EventPointType> + Clone,
-{
-    /// Source to apply the assembler to.
-    source: I,
-    /// Assembler to apply.
-    assembler: A,
-}
-
-impl<I, A> Iterator for AssemblerIter<I, A>
-where
-    A: Assembler,
-    I: Iterator<Item = <A::DetectorType as Detector>::EventPointType> + Clone,
-{
-    type Item = Pulse;
-
-    fn next(&mut self) -> Option<Pulse> {
-        for event in &mut self.source {
-            let pulse = self.assembler.assemble_pulses(event);
-            if pulse.is_some() {
-                return pulse;
-            }
-        }
-        None
-    }
-}
-
-/// Provides method for converting an object into an [AssemblerIter].
-pub(crate) trait AssembleFilter<I, A>
-where
-    A: Assembler,
-    I: Iterator<Item = <A::DetectorType as Detector>::EventPointType> + Clone,
-{
-    fn assemble(self, assembler: A) -> AssemblerIter<I, A>;
-}
-
-impl<I, A> AssembleFilter<I, A> for I
-where
-    A: Assembler,
-    I: Iterator<Item = <A::DetectorType as Detector>::EventPointType> + Clone,
-{
-    /// Create an [AssemblerIter] iterator, which applies an assembler to an event source as it is consumed.
-    ///
-    /// # Parameters
-    /// - assembler: An assembler which is to be applied as the iterator is consumed.
-    fn assemble(self, assembler: A) -> AssemblerIter<I, A> {
-        AssemblerIter {
-            source: self,
-            assembler,
         }
     }
 }

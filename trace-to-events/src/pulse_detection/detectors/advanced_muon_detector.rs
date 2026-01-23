@@ -1,7 +1,6 @@
 //! This detector registeres events when the trace differential exceeds a certain value (indicating onset),
 //! reaches zero (indicating the signal peak), and falls to a given value (indicating the pulse end).
 use super::{Assembler, Detector, EventData, EventPoint, Pulse, Real, RealArray, TimeValue};
-use std::fmt::Display;
 
 /// Indicates the type of event.
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -13,17 +12,6 @@ pub(crate) enum Class {
     Peak,
     /// Indicating a pulse has ended.
     End,
-}
-
-// [Todo] this can be removed, or maybe repaced by [strum]
-impl Display for Class {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::Onset => "0",
-            Self::Peak => "2",
-            Self::End => "-1",
-        })
-    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -49,12 +37,6 @@ impl Data {
 }
 
 impl EventData for Data {}
-
-impl Display for Data {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{0},{1}", self.class, self.value))
-    }
-}
 
 type BasicMuonEvent = (Real, Data);
 
@@ -322,7 +304,7 @@ impl Assembler for AdvancedMuonAssembler {
 mod tests {
     use super::*;
     use crate::pulse_detection::{
-        EventFilter, WindowFilter, datatype::tracevalue::TraceArray, window::FiniteDifferences,
+        EventsIterable, WindowIterable, datatype::TraceArray, window::FiniteDifferences,
     };
 
     #[test]
