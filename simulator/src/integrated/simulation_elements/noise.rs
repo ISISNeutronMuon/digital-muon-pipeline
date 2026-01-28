@@ -8,7 +8,7 @@ use serde::Deserialize;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct NoiseSource {
-    bounds: Interval<Time>,
+    bounds: Interval<NumExpression<Time>>,
     attributes: NoiseAttributes,
     smoothing_factor: NumExpression<f64>,
 }
@@ -27,7 +27,7 @@ impl NoiseSource {
     }
 
     pub(crate) fn sample(&self, time: Time, frame_index: usize) -> Result<f64, JsonValueError> {
-        if self.bounds.is_in(time) {
+        if self.bounds.is_in(time, frame_index)? {
             match &self.attributes {
                 NoiseAttributes::Uniform(Interval { min, max }) => {
                     let val = (max.value(frame_index)? - min.value(frame_index)?)

@@ -188,9 +188,22 @@ impl<T: PartialOrd + Copy> Interval<T> {
     pub(crate) fn range_inclusive(&self) -> RangeInclusive<T> {
         self.min..=self.max
     }
+}
 
-    pub(crate) fn is_in(&self, value: T) -> bool {
-        self.range_inclusive().contains(&value)
+impl<T> Interval<NumExpression<T>>
+where
+    T: PartialOrd + Num + NumCast + FromStr + Copy,
+    JsonValueError: From<<T as FromStr>::Err>,
+{
+    pub(crate) fn range_inclusive(
+        &self,
+        frame_index: usize,
+    ) -> Result<RangeInclusive<T>, JsonValueError> {
+        Ok(self.min.value(frame_index)?..=self.max.value(frame_index)?)
+    }
+
+    pub(crate) fn is_in(&self, value: T, frame_index: usize) -> Result<bool, JsonValueError> {
+        Ok(self.range_inclusive(frame_index)?.contains(&value))
     }
 }
 
