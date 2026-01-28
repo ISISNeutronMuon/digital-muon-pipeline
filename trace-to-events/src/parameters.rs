@@ -126,6 +126,23 @@ pub(crate) struct AdvancedMuonDetectorParameters {
     pub(crate) min_amplitude: Option<Real>,
 }
 
+/// Encapsulates the parameters specific to the Smoothing detector.
+#[derive(Default, Debug, Clone, Parser)]
+pub(crate) struct SmoothingDetectorParameters {
+    /// FIXME
+    #[clap(long)]
+    pub(crate) noise_centile: Real,
+    /// FIXME
+    #[clap(long)]
+    pub(crate) kernel_sigma: Real,
+    /// FIXME
+    #[clap(long)]
+    pub(crate) nsig_noise: Real,
+    /// FIXME
+    #[clap(long)]
+    pub(crate) min_size: Option<usize>
+}
+
 /// Specifies which detector is to be used, and wraps the detector-specific options in each variant.
 #[derive(Subcommand, Debug)]
 pub(crate) enum Mode {
@@ -135,4 +152,6 @@ pub(crate) enum Mode {
     DifferentialThresholdDiscriminator(DifferentialThresholdDiscriminatorParameters),
     /// Detects events using differential discriminators. Event lists consist of time and voltage values.
     AdvancedMuonDetector(AdvancedMuonDetectorParameters),
+    ///
+    SmoothingDetector(SmoothingDetectorParameters),
 }

@@ -3,6 +3,7 @@
 pub mod advanced_muon_detector;
 pub mod differential_threshold_detector;
 pub mod threshold_detector;
+pub mod smoothing_detector;
 
 use super::{EventData, EventPoint, Pulse, Real, RealArray, TracePoint, pulse::TimeValue};
 
