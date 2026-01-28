@@ -38,36 +38,40 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(x : &[Real], y : &[Real], noise_cent
 
     // 2. second derivative (discrete Laplacian in 1D): d2[i] = y_smooth[i-1] - 2*y_smooth[i] + y_smooth[i+1]
     // use reflect for boundaries
-    let mut yd2 = vec![0.0; n as usize];
-    for i in 0..n {
+    let yd2 = (0..n).map(|i|{
         let im = reflect_index(i as i32 - 1, n);
         let ip = reflect_index(i as i32 + 1, n);
-        yd2[i as usize] = y_smooth[im as usize] - 2.0 * y_smooth[i as usize] + y_smooth[ip as usize];
-    }
+        y_smooth[im] - 2.0 * y_smooth[i] + y_smooth[ip]
+    }).collect::<Vec<_>>();
 
     // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
     let xp = percentile(x, noise_centile)?;
-    let mut noise_samples = Vec::<Real>::new();
-    for i in 0..n {
-        if x[i as usize] > xp {
-            noise_samples.push(yd2[i as usize]);
-        }
-    }
+    let noise_samples = x.iter()
+        .zip(yd2.iter())
+        .filter_map(|(&x, &yd2)|(x > xp).then_some(yd2))
+        .collect::<Vec<_>>();
+
     let noise_std = stddev(&noise_samples);
 
     // 4. label contiguous regions where yd2 < -nsig_noise * noise_std
     let thresh = -nsig_noise * noise_std;
-    let mut labels = vec![0.0; n as usize];
-    let mut current_label = 0;
-    for i in 0..n {
-        if yd2[i as usize] < thresh {
-            if i == 0 || labels[i as usize - 1] == 0.0 {
-                current_label += 1;
+    let mut current_label = 0.0;
+    let mut prev_label = 0.0;
+    let labels = (0..n).map(|i| {
+        let this_label = {
+            if yd2[i] < thresh {
+                if i == 0 || prev_label == 0.0 {
+                    current_label += 1.0;
+                }
+                current_label
+            } else {
+                Real::default()
             }
-            labels[i] = current_label as Real;
-        }
-    }
-    let nlabels = current_label;
+        };
+        prev_label = this_label;
+        this_label    
+    }).collect::<Vec<_>>();
+    let nlabels = current_label as usize;
 
     // collect slices (start, end inclusive) for each label
     let mut slices = Vec::<Option<(usize,usize)>>::new();
