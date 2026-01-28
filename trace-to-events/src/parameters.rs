@@ -140,7 +140,7 @@ pub(crate) struct SmoothingDetectorParameters {
     pub(crate) nsig_noise: Real,
     /// FIXME
     #[clap(long)]
-    pub(crate) min_size: Option<usize>
+    pub(crate) min_size: Option<usize>,
 }
 
 /// Specifies which detector is to be used, and wraps the detector-specific options in each variant.
