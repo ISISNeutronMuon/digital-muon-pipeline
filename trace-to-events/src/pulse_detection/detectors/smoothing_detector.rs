@@ -4,6 +4,8 @@
 
 
 
+use std::usize;
+
 use crate::pulse_detection::Real;
 
 /*
@@ -55,36 +57,45 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(x : &[Real], y : &[Real], noise_cent
 
     // 4. label contiguous regions where yd2 < -nsig_noise * noise_std
     let thresh = -nsig_noise * noise_std;
-    let mut current_label = 0.0;
-    let mut prev_label = 0.0;
+    let mut current_label = 0;
+    let mut prev_label = 0;
     let labels = (0..n).map(|i| {
         let this_label = {
             if yd2[i] < thresh {
-                if i == 0 || prev_label == 0.0 {
-                    current_label += 1.0;
+                if i == 0 || prev_label == 0 {
+                    current_label += 1;
                 }
                 current_label
             } else {
-                Real::default()
+                usize::default()
             }
         };
         prev_label = this_label;
-        this_label    
+        this_label
     }).collect::<Vec<_>>();
-    let nlabels = current_label as usize;
+    let nlabels = current_label;
 
     // collect slices (start, end inclusive) for each label
-    let mut slices = Vec::<Option<(usize,usize)>>::new();
+    let mut slices = vec![None; nlabels];
     if nlabels > 0 {
-        slices.resize(nlabels, None);
-        for i in 0..n {
-            let lab = labels[i];
-            if lab > 0.0 {
-                let pr = slices.get_mut(lab as usize - 1).expect("");
-                *pr = Some((i,i));
-            }
+        for (i,label) in labels.into_iter().enumerate().filter(|&(_, label)|label > 0) {
+            *slices.get_mut(label - 1).expect("") = Some((i,i));
         }
     }
+    /*let slices = {
+        if nlabels > 0 {
+            [(0.)].iter()
+                .chain(labels.iter())
+                .take(labels.len())
+                .enumerate()
+                .map(|(i, &label)|
+                    (label > 0)
+                        .then_some((i + 1, i + 1)))
+                .collect()
+        } else {
+            Vec::<_>::default()
+        }
+    };*/
 
     // 5. pick peaks
     let mut ipks = Vec::<usize>::new(); // indices of peaks
@@ -113,7 +124,20 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(x : &[Real], y : &[Real], noise_cent
         },
         None => {
             // For each labeled region, take the index of the global minimum (argmin of yd2) within the region
-            for pr in slices {
+            ipks = slices.iter().flatten()
+                .map(|(start, end)| {
+                        let mut best_i = *start;
+                        let mut best_v = yd2[*start];
+                        for (i, &yd2) in yd2.iter().enumerate().take(*end + 1).skip(*start) {
+                            if yd2 < best_v {
+                                best_v = yd2;
+                                best_i = i;
+                            }
+                        }
+                        best_i
+                })
+                .collect::<Vec<_>>();
+            /*for pr in slices {
                 if let Some((start, end)) = pr {
                     let mut best_i = start;
                     let mut best_v = yd2[start];
@@ -125,7 +149,7 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(x : &[Real], y : &[Real], noise_cent
                     }
                     ipks.push(best_i as usize);
                 }
-            }
+            }*/
         },
     }
 
@@ -140,28 +164,50 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(x : &[Real], y : &[Real], noise_cent
     }
     return Ok((xpk, ypk));
 }
- 
 
 // Compute Gaussian kernel
 fn gaussian_kernel(sigma: Real) -> Vec<Real> {
     if sigma <= 0.0 {
         return vec![1.0];
     }
-    let radius = i32::max(1, Real::ceil(3.0 * sigma) as i32);
-    let len = 2 * radius + 1;
-    let mut k = vec![0.0; len as usize];
     let s2 = sigma * sigma;
-    let mut sum = 0.0;
-    for i in (-radius)..(radius + 1) {
-        let v = Real::exp(-0.5 * (i as Real).powi(2) / s2);
-        k[i as usize + radius as usize] = v;
-        sum += v;
-    }
-    for v in &mut k {
+    let radius = i32::max(1, Real::ceil(3.0 * sigma) as i32);
+
+    let size = 2 * radius as usize + 1;
+    let mut k = (0..size).map(|i|{
+        let x = i as Real - radius as Real;
+        Real::exp(-0.5 * x.powi(2) / s2)
+    })
+    .collect::<Vec<_>>();
+
+    let sum = k.iter().sum::<Real>();
+    k.iter_mut().for_each(|v| {
         *v /= sum;
-    }
+    });
     return k;
 }
+
+// // Compute Gaussian kernel
+// fn gaussian_kernel(sigma: Real) -> Vec<Real> {
+//     if sigma <= 0.0 {
+//         return vec![1.0];
+//     }
+//     let s2 = sigma * sigma;
+//     let radius = i32::max(1, Real::ceil(3.0 * sigma) as i32);
+
+//     let size = 2 * radius as usize + 1;
+//     let mut k = (0..size).map(|i|{
+//         let x = i as Real - radius as Real;
+//         Real::exp(-0.5 * x.powi(2) / s2)
+//     })
+//     .collect::<Vec<_>>();
+
+//     let sum = k.iter().sum::<Real>();
+//     k.iter_mut().for_each(|v| {
+//         *v /= sum;
+//     });
+//     return k;
+// }
 
 // function to reflect an index
 fn reflect_index(idx: i32, n: usize) -> usize {
@@ -175,22 +221,36 @@ fn reflect_index(idx: i32, n: usize) -> usize {
     return idx as usize;
 }
 
+
+// // Gaussian Laplace filter
+// fn convolve_reflect(data : &[Real], kernel : &[Real]) -> Vec<Real> {
+//     let n = data.len();
+//     let klen = kernel.len();
+//     let radius = klen / 2;
+//     let mut out = vec![0.0; n];
+//     for i in 0..n {
+//         let mut s = 0.0;
+//         for k in 0..klen {
+//             let j = i + (k - radius);
+//             let jj = reflect_index(j as i32, n);
+//             s += kernel[k] * data[jj];
+//         }
+//         out[i] = s;
+//     }
+//     return out;
+// }
+
+
 // Gaussian Laplace filter
 fn convolve_reflect(data : &[Real], kernel : &[Real]) -> Vec<Real> {
-    let n = data.len();
-    let klen = kernel.len();
-    let radius = klen / 2;
-    let mut out = vec![0.0; n];
-    for i in 0..n {
-        let mut s = 0.0;
-        for k in 0..klen {
-            let j = i + (k - radius);
-            let jj = reflect_index(j as i32, n);
-            s += kernel[k] * data[jj];
-        }
-        out[i] = s;
-    }
-    return out;
+    let data_length = data.len();
+    let radius = kernel.len() as i32 / 2;
+    (0..data_length).map(|i|
+        kernel.iter().enumerate().map(|(k, coef)|
+            coef*data[reflect_index((i + k) as i32 - radius, data_length)]
+        ).sum()
+    )
+    .collect()
 }
 
 // Compute percentile
