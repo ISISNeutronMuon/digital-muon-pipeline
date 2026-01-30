@@ -5,6 +5,8 @@
 
 use std::usize;
 
+use tracing::instrument;
+
 use crate::pulse_detection::Real;
 
 /// Second derivative smoothing peak finder
@@ -19,6 +21,7 @@ use crate::pulse_detection::Real;
 /// # Return
 /// (x_peaks, y_peaks) - 1D arrays of peak locations
 ///
+#[instrument(skip_all)]
 pub(crate) fn sec_deriv_smoothing_for_peaks(
     x: &[Real],
     y: &[Real],
@@ -26,7 +29,7 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(
     kernel_sigma: Real,
     nsig_noise: Real,
     min_size: Option<usize>,
-) -> Result<(Vec<Real>, Vec<Real>), String> {
+) -> Result<(Vec<Real>, Vec<Real>), &'static str> {
     if x.len() != y.len() {
         return Err("x and y must have same length".into());
     }
@@ -41,138 +44,26 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(
 
     // 2. second derivative (discrete Laplacian in 1D): d2[i] = y_smooth[i-1] - 2*y_smooth[i] + y_smooth[i+1]
     // use reflect for boundaries
-    let yd2: Vec<f64> = (0..n)
-        .map(|i| {
-            let im = reflect_index(i as i32 - 1, n);
-            let ip = reflect_index(i as i32 + 1, n);
-            y_smooth[im] - 2.0 * y_smooth[i] + y_smooth[ip]
-        })
-        .collect::<Vec<_>>();
+    let yd2: Vec<f64> = second_deriv(&y_smooth);
 
     // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
-    //let x_percentile = percentile(&x, noise_centile)?;
-    /*let noise_samples = Iterator::zip(x.iter(), yd2.iter())
-        .filter_map(|(&x, &yd2)| (x > x_percentile).then_some(yd2))
-        .collect::<Vec<_>>();*/
     let percentile = ((yd2.len() as f64*noise_centile)/100.0) as usize;
-    let noise_std = stddev(&yd2[percentile..yd2.len()]);
+    let noise_std = stddev(&yd2[percentile..yd2.len()])?;
+    println!("noise_std is {noise_std}");
 
     // 4. label contiguous regions where yd2 < -nsig_noise * noise_std
     let threshold = -nsig_noise * noise_std;
-    //let mut current_label = 0;
-    //let mut prev_label = 0;
-    let regions = {
-        match yd2.iter()
-            .enumerate()
-            .fold((Vec::<(usize,usize)>::new(), None::<(usize,usize)>), |(mut acc, existing), (i, &yd2)| {
-                match existing {
-                    Some((start,end)) => {
-                        if yd2 < threshold {
-                            (acc, Some((start, i)))
-                        } else {
-                            acc.push((start,end));
-                            (acc, None)
-                        }
-                    },
-                    None => {
-                        if yd2 < threshold {
-                            (acc, Some((i, i)))
-                        } else {
-                            (acc, None)
-                        }
-                    },
-                }
-            }) {
-                (mut acc, Some(next)) => {
-                    acc.push(next);
-                    acc
-                },
-                (acc, None) => acc
-            }
-        };
-
-    /*let filtered = yd2.iter().enumerate().filter(|&(_, &yd2)|yd2 < threshold).collect::<Vec<_>>();
-    let labels = (0..n)
-        .map(|i| {
-            let this_label = {
-                if yd2[i] < threshold {
-                    if i == 0 || prev_label == 0 {
-                        current_label += 1;
-                    }
-                    current_label
-                } else {
-                    usize::default()
-                }
-            };
-            prev_label = this_label;
-            this_label
-        })
-        .collect::<Vec<_>>();
-    let nlabels = current_label;*/
-
-    // collect slices (start, end inclusive) for each label
-    /*let mut slices = vec![None; regions.len()];
-    if regions.len() > 0 {
-        for (i, label) in regions
-            .into_iter()
-            .enumerate()
-            .filter(|&(_, label)| label > 0)
-        {
-            *slices.get_mut(label - 1).expect("") = Some((i, i));
-        }
-    }*/
+    let regions = find_region_bounds(&yd2, threshold);
+    println!("threshold is {threshold}");
+    println!("number of regions is {}", regions.len());
 
     // 5. pick peaks
     // indices of peaks
     let ipks = match min_size {
-        Some(min_size) => {
-            // Filter labeled regions where region length > min_size,
-            regions
-                .iter()
-                .filter(|&(start, end)| end - start + 1 > min_size)
-                .map(|&(start, end)| {
-                    let length = end - start + 1;
-                    let segment = yd2
-                        .iter()
-                        .skip(start)
-                        .take(length)
-                        .copied()
-                        .collect::<Vec<Real>>();
-
-                    let relmin = argrelmin_segment(&segment);
-                    if relmin.is_empty() {
-                        vec![start] // fallback to first element in region
-                    } else {
-                        relmin.iter().map(|&r| start + r).collect()
-                    }
-                })
-                .flatten()
-                .collect()
-        }
-        None => {
-            // For each labeled region, take the index of the global minimum (argmin of yd2) within the region
-            regions
-                .iter()
-                .map(|(start, end)| {
-                    yd2.iter()
-                        .enumerate()
-                        .take(*end + 1)
-                        .skip(*start)
-                        .fold(
-                            (*start, yd2[*start]),
-                            |(best_i, best_v), (new_i, &new_v)| {
-                                if new_v < best_v {
-                                    (new_i, new_v)
-                                } else {
-                                    (best_i, best_v)
-                                }
-                            },
-                        )
-                        .0
-                })
-                .collect::<Vec<_>>()
-        }
+        Some(min_size) => filter_minsize_and_find_minima(min_size, &yd2, &regions),
+        None => find_minima_no_minsize(&yd2, &regions)
     };
+    println!("number of peaks is {}", ipks.len());
 
     // Produce x and y arrays at peak indices
     let mut xpk = Vec::<Real>::with_capacity(ipks.len());
@@ -186,6 +77,8 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(
     return Ok((xpk, ypk));
 }
 
+
+// 1.
 // Compute Gaussian kernel
 fn gaussian_kernel(sigma: Real) -> Vec<Real> {
     if sigma <= 0.0 {
@@ -234,6 +127,112 @@ fn convolve_reflect(data: &[Real], kernel: &[Real]) -> Vec<Real> {
         .collect()
 }
 
+// 2.
+fn second_deriv(data: &[Real]) -> Vec<Real> {
+    (0..data.len()).map(|i| {
+        let im = reflect_index(i as i32 - 1, data.len());
+        let ip = reflect_index(i as i32 + 1, data.len());
+        data[im] - 2.0 * data[i] + data[ip]
+    })
+    .collect::<Vec<_>>()
+}
+
+// 3.
+// Compute standard deviation
+fn stddev(v: &[Real]) -> Result<Real, &'static str> {
+    if v.is_empty() {
+        Err("Cannot compute standard deviation")
+    } else if v.len() == 1 {
+        Ok(0.0)
+    } else {
+        let mean: Real = v.iter().sum::<Real>() / v.len() as Real;
+        let var = v.iter()
+            .map(|&x: &Real| (x - mean).powi(2))
+            .sum::<Real>()
+            /(v.len() as Real - 1.0);
+        Ok(var.sqrt())
+    }
+}
+
+// 4.
+fn find_region_bounds(yd2: &[Real], threshold: Real) -> Vec<(usize,usize)> {
+    println!("{}, {}", yd2.iter().min_by(|x,y|x.partial_cmp(y).unwrap()).unwrap(), yd2.iter().max_by(|x,y|x.partial_cmp(y).unwrap()).unwrap());
+    let closure = |(mut acc, next): (Vec<(usize, usize)>, Option<_>), (i, &yd2)| -> (Vec<(usize, usize)>, Option<(usize, usize)>) {
+        let new_next = {
+            if yd2 < threshold {
+                Some(next
+                    .map(|(start, _)|(start, i))
+                    .unwrap_or((i, i))
+                )
+            } else {
+                if let Some(next) = next {
+                    acc.push(next);
+                }
+                None
+            }
+        };
+        (acc, new_next)
+    };
+    let (mut acc, next) = yd2.iter()
+        .enumerate()
+        .fold((Vec::new(), None), closure);
+    if let Some(next) = next {
+        acc.push(next);
+    }
+    acc
+}
+
+// 5.
+fn find_minima_no_minsize(yd2: &[Real], regions: &[(usize, usize)]) -> Vec<usize> {
+    // For each labeled region, take the index of the global minimum (argmin of yd2) within the region
+    regions
+        .iter()
+        .map(|&(start, end)| find_global_argmin(&yd2[start..end], start))
+        .flatten()
+        .collect::<Vec<_>>()
+}
+
+fn find_global_argmin(yd2: &[Real], origin: usize) -> Option<usize> {
+    if yd2.is_empty() {
+        return None;
+    }
+    let argmin = yd2.iter()
+        .enumerate()
+        .fold(
+            (0, yd2[0]),
+            |(best_i, best_v), (new_i, &new_v)| {
+                if new_v < best_v {
+                    (new_i, new_v)
+                } else {
+                    (best_i, best_v)
+                }
+            },
+        )
+        .0 + origin;
+    Some(argmin)
+}
+
+fn filter_minsize_and_find_minima(min_size: usize, yd2: &[Real], regions: &[(usize, usize)]) -> Vec<usize> {
+    regions
+        .iter()
+        .filter(|&(start, end)| end - start + 1 > min_size)
+        .map(|&(start, end)|find_argminima(&yd2[start..end], start))
+        .flatten()
+        .collect()
+}
+
+fn find_argminima(yd2: &[Real], start: usize) -> Vec<usize> {
+    let relmin = argrelmin_segment(yd2);
+    if relmin.is_empty() {
+        vec![start] // fallback to first element in region
+    } else {
+        relmin.iter()
+            .map(|&r| start + r)
+            .collect()
+    }
+}
+
+/*
 // Compute percentile
 fn percentile(v: &[Real], p: Real) -> Result<Real, String> {
     if v.is_empty() {
@@ -268,20 +267,9 @@ fn percentile(v: &[Real], p: Real) -> Result<Real, String> {
     let frac = pos - floor;
     return Ok(tmp[floor as usize] * (1.0 - frac) + tmp[ceil as usize] * frac);
 }
+ */
 
-// Compute standard deviation
-fn stddev(v: &[Real]) -> Real {
-    if v.is_empty() {
-        return 0.0;
-    }
-    let mean: Real = v.iter().sum::<Real>() / v.len() as Real;
-    v.iter()
-        .map(|&x: &Real| (x - mean).powi(2))
-        .sum::<Real>()
-        .sqrt()
-        / v.len() as Real // FIXME: Should this not be divide by n - 1?
-}
-
+ 
 /// find indices of relative minima in a vector segment [0..n-1] (returns indices relative to segment start)
 fn argrelmin_segment(seg: &[Real]) -> Vec<usize> {
     (1..(seg.len() - 1))
@@ -296,7 +284,6 @@ mod tests {
 
     // number of data points
     const NX: usize = 85;
-
 
     // data x values
     const X : [f64; NX] = [
@@ -475,9 +462,114 @@ mod tests {
         0.014173228346456734,
         0.010236220472440993,
     ];
+    
+    #[test]
+    fn test_gaussian_kernel() {
+        let kernel = gaussian_kernel(2.0);
+        
+        println!("{:?}", kernel.iter().sum::<Real>());
+        println!("{:?}", kernel.len());
+        println!("{kernel:?}");
+    }
+    
+    #[test]
+    fn test_kernel_convolution() {
+        let kernel = gaussian_kernel(2.0);
+        let y_smooth =  convolve_reflect(&Y, &kernel);
+        
+        println!("{Y:?}");
+
+        println!("{y_smooth:?}");
+    }
+    
+    #[test]
+    fn test_second_deriv() {
+        let kernel = gaussian_kernel(2.0);
+        let y_smooth =  convolve_reflect(&Y, &kernel);
+        let yd2: Vec<f64> = second_deriv(&y_smooth);
+        
+        println!("y1 = {Y:?}");
+        println!("y2 = {y_smooth:?}");
+        println!("y3 = {yd2:?}");
+    }
+    
+    #[test]
+    fn test_region() {
+        let kernel = gaussian_kernel(2.0);
+        let y_smooth =  convolve_reflect(&Y, &kernel);
+        let yd2: Vec<f64> = second_deriv(&y_smooth);
+
+        // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
+        let percentile = ((yd2.len() as f64*90.0)/100.0) as usize;
+        let noise_std = stddev(&yd2[percentile..yd2.len()]).unwrap();
+
+        // 4. label contiguous regions where yd2 < -nsig_noise * noise_std
+        let threshold = -5.0 * noise_std;
+        let regions = find_region_bounds(&yd2, threshold);
+
+        //find_region_bounds
+        
+        println!("y1 = {Y:?}");
+        println!("y2 = {y_smooth:?}");
+        println!("y3 = {yd2:?}");
+        println!("threshold = {threshold}");
+        println!("bounds = {regions:?}");
+    }
+    
+    #[test]
+    fn test_peaks_no_min() {
+        let y = Y.iter().map(|y|y + rand::random::<Real>()/50.0).collect::<Vec<_>>();
+        let kernel = gaussian_kernel(2.0);
+        let y_smooth =  convolve_reflect(&y, &kernel);
+        let yd2: Vec<f64> = second_deriv(&y_smooth);
+
+        // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
+        let percentile = ((yd2.len() as f64*90.0)/100.0) as usize;
+        let noise_std = stddev(&yd2[percentile..yd2.len()]).unwrap();
+
+        // 4. label contiguous regions where yd2 < -nsig_noise * noise_std
+        let threshold = -5.0 * noise_std;
+        let regions = find_region_bounds(&yd2, threshold);
+
+        let minima = find_minima_no_minsize(&yd2, &regions);
+        
+        println!("y1 = {y:?}");
+        println!("y2 = {y_smooth:?}");
+        println!("y3 = {yd2:?}");
+        println!("threshold = {threshold}");
+        println!("bounds = {regions:?}");
+        println!("minima = {minima:?}");
+    }
+    
+    #[test]
+    fn test_peaks_minsize() {
+        let y = Y.iter().map(|y|y + rand::random::<Real>()/50.0).collect::<Vec<_>>();
+        let kernel = gaussian_kernel(2.0);
+        let y_smooth =  convolve_reflect(&y, &kernel);
+        let yd2: Vec<f64> = second_deriv(&y_smooth);
+
+        // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
+        let percentile = ((yd2.len() as f64*90.0)/100.0) as usize;
+        let noise_std = stddev(&yd2[percentile..yd2.len()]).unwrap();
+
+        // 4. label contiguous regions where yd2 < -nsig_noise * noise_std
+        let threshold = -5.0 * noise_std;
+        let regions = find_region_bounds(&yd2, threshold);
+
+        let minima = filter_minsize_and_find_minima(2, &yd2, &regions);
+        
+        println!("y1 = {y:?}");
+        println!("y2 = {y_smooth:?}");
+        println!("y3 = {yd2:?}");
+        println!("threshold = {threshold}");
+        println!("bounds = {regions:?}");
+        println!("minima = {minima:?}");
+    }
+
+    
 
     #[test]
-    fn test_positive_threshold() {
+    fn test_detector() {
         let (x,y) = sec_deriv_smoothing_for_peaks(&X, &Y, 90.0, 2.0, 5.0, Some(2)).unwrap();
         assert_eq!(x.len(), 2);
         assert_eq!(y.len(), 2);
