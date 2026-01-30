@@ -54,7 +54,8 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(
     /*let noise_samples = Iterator::zip(x.iter(), yd2.iter())
         .filter_map(|(&x, &yd2)| (x > x_percentile).then_some(yd2))
         .collect::<Vec<_>>();*/
-    let noise_std = stddev(&yd2[0..((yd2.len() as f64*noise_centile)/100.0) as usize]);
+    let percentile = ((yd2.len() as f64*noise_centile)/100.0) as usize;
+    let noise_std = stddev(&yd2[percentile..yd2.len()]);
 
     // 4. label contiguous regions where yd2 < -nsig_noise * noise_std
     let threshold = -nsig_noise * noise_std;
