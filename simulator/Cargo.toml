@@ -8,6 +8,7 @@ edition.workspace = true
 chrono.workspace = true
 clap.workspace = true
 git-version.workspace = true
+libm.workspace = true
 miette = { workspace = true, features = ["fancy"] }
 num.workspace = true
 rand.workspace = true
