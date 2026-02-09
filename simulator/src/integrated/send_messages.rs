@@ -83,6 +83,7 @@ impl<'a> SendMessageArgs<'a> {
     }
 }
 
+#[tracing::instrument(skip_all)]
 async fn send_message(args: SendMessageArgs<'_>) {
     let span = debug_span!(parent: &args.span, "Send Message Thread");
     let _guard = span.enter();
