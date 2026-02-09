@@ -365,7 +365,10 @@ async fn cache_poll(
     cache: &mut FrameCache<EventData>,
 ) -> Result<(), SendAggregatedFrameError> {
     while let Some(frame) = cache.poll() {
-        let span = info_span!("Frame Completed", send_frame_buffer_size = channel_send.capacity());
+        let span = info_span!(
+            "Frame Completed",
+            send_frame_buffer_size = channel_send.capacity()
+        );
         span.follows_from(
             frame
                 .span()

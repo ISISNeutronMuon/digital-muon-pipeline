@@ -370,7 +370,10 @@ fn process_digitiser_trace_message(
         },
     );
     tracing::Span::current().record("num_total_pulses", num_total_pulses);
-    tracing::Span::current().record("send_digitiser_eventlist_buffer_capcacity", sender.capacity());
+    tracing::Span::current().record(
+        "send_digitiser_eventlist_buffer_capcacity",
+        sender.capacity(),
+    );
 
     let future_record = FutureRecord::to(&args.event_topic)
         .payload(fbb.finished_data())
