@@ -27,8 +27,8 @@ pub(crate) enum PulseTemplate {
         peak_height: FloatRandomDistribution<f64>,
         peak_time: FloatRandomDistribution<f64>,
         spread: FloatRandomDistribution<f64>,
-        decay: FloatRandomDistribution<f64>,
-        rise: FloatRandomDistribution<f64>,
+        falling: FloatRandomDistribution<f64>,
+        rising: FloatRandomDistribution<f64>,
     },
 }
 
@@ -116,11 +116,11 @@ impl PulseEvent {
                 peak_height,
                 peak_time,
                 spread,
-                decay,
-                rise,
+                falling,
+                rising,
             } => {
-                let rising = rise.sample(frame)?;
-                let falling = decay.sample(frame)?;
+                let rising = rising.sample(frame)?;
+                let falling = falling.sample(frame)?;
                 let peak_height = peak_height.sample(frame)?;
                 let spread = spread.sample(frame)?;
                 let peak_time = peak_time.sample(frame)?;
@@ -181,9 +181,7 @@ impl PulseEvent {
             Self::Flat { start, .. } => *start,
             Self::Triangular { peak_time, .. } => *peak_time,
             Self::Gaussian { mean, .. } => *mean,
-            Self::BackToBackExp {
-                start, peak_time, ..
-            } => *start + *peak_time / 2.0,
+            Self::BackToBackExp { peak_time, .. } => *peak_time,
         }) as Time
     }
 
@@ -271,6 +269,42 @@ impl PulseEvent {
                     Default::default()
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::integrated::simulation_elements::NumExpression;
+
+    use super::*;
+    
+    const TEMPLATE : PulseTemplate = PulseTemplate::BackToBackExp {
+        peak_height: FloatRandomDistribution::ConstantFloat { value: NumExpression::Const(2100.0) },
+        peak_time: FloatRandomDistribution::ConstantFloat { value: NumExpression::Const(2200.0) },
+        spread: FloatRandomDistribution::ConstantFloat { value: NumExpression::Const(3.0) },
+        falling: FloatRandomDistribution::ConstantFloat { value: NumExpression::Const(2.5) },
+        rising: FloatRandomDistribution::ConstantFloat { value: NumExpression::Const(1.5) },
+    };
+
+    #[test]
+    fn back_to_back_exp_template() {
+        let pulse = PulseEvent::sample(&TEMPLATE, 0);
+        assert!(pulse.is_ok());
+        let pulse = pulse.unwrap();
+        assert_eq!(pulse.get_start(), 2187);
+        assert_eq!(pulse.get_end(), 2214);
+        assert_eq!(pulse.intensity(), 2100);
+        assert_eq!(pulse.time(), 2200);
+    }
+    
+
+    #[test]
+    fn back_to_back_exp_values() {
+        let pulse = PulseEvent::sample(&TEMPLATE, 0).unwrap();
+        const VALUES : [Intensity; 27] = [0, 1, 5, 16, 41, 95, 199, 379, 651, 1011, 1418, 1793, 2044, 2100, 1942, 1616, 1211, 816, 495, 270, 132, 58, 23, 8, 2, 0, 0];
+        for (t, &v) in VALUES.iter().enumerate() {
+            assert_eq!(pulse.get_value_at((pulse.get_start() + t as Time) as f64) as Intensity, v);
         }
     }
 }
