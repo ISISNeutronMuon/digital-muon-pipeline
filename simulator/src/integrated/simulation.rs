@@ -178,13 +178,13 @@ mod tests {
                 "noises": [
                     {
                         "attributes": { "noise-type" : "gaussian", "mean" : { "const": 0 }, "sd" : { "const": 20 } },
-                        "smoothing-factor" : { "const": 0.975 },
-                        "bounds" : { "min": 0, "max": 30000 }
+                        "smoothing-window-length" : { "const": 1 },
+                        "bounds" : { "min": { "const": 0 }, "max": { "const": 30000 } }
                     },
                     {
                         "attributes": { "noise-type" : "gaussian", "mean" : { "const": 0 }, "sd" : { "num-func": { "scale": 50, "translate": 50 } } },
-                        "smoothing-factor" : { "const": 0.995 },
-                        "bounds" : { "min": 0, "max": 30000 }
+                        "smoothing-window-length" : { "const": 5 },
+                        "bounds" : { "min": { "const": 0 }, "max": { "const": 30000 } }
                     }
                 ],
                 "num-pulses": { "random-type": "constant-int", "value": { "const": 500 } }
