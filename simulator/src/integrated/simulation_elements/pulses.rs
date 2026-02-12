@@ -250,19 +250,19 @@ impl PulseEvent {
                 frac_1_sqrt_2_spread,
                 ..
             } => {
-                let time_shift = time - peak_time;
+                let time_shift = time - peak_time; // -2.9539084192897
 
                 let rising_erfc = libm::erfc((rising_spread + time_shift) * frac_1_sqrt_2_spread);
-                //  Guard against rising_exp being NaN
-                let rising_exp = if rising_erfc != 0.0 {
+                //  Guard against rising_exp being NaN or Inf
+                let rising_exp = if rising_erfc >= f64::EPSILON {
                     f64::exp(rising * (0.5 * rising_spread + time_shift))
                 } else {
                     Default::default()
                 };
 
                 let falling_erfc = libm::erfc((falling_spread - time_shift) * frac_1_sqrt_2_spread);
-                //  Guard against falling_exp being NaN
-                let falling_exp = if falling_erfc != 0.0 {
+                //  Guard against falling_exp being NaN or Inf
+                let falling_exp = if falling_erfc >= f64::EPSILON {
                     f64::exp(falling * (0.5 * falling_spread - time_shift))
                 } else {
                     Default::default()
@@ -313,12 +313,77 @@ mod tests {
     fn back_to_back_exp_values() {
         let pulse = PulseEvent::sample(&TEMPLATE, 0).unwrap();
         const VALUES: [Intensity; 27] = [
-            0, 1, 5, 16, 41, 95, 199, 379, 651, 1011, 1418, 1793, 2044, 2100, 1942, 1616, 1211,
-            816, 495, 270, 132, 58, 23, 8, 2, 0, 0,
+            0, 1, 5, 14, 35, 78, 159, 292, 487, 730, 988, 1793, 2044, 2100, 1942, 1616, 1211, 816,
+            495, 270, 132, 58, 23, 8, 2, 0, 0,
         ];
         for (t, &v) in VALUES.iter().enumerate() {
             assert_eq!(
                 pulse.get_value_at((pulse.get_start() + t as Time) as f64) as Intensity,
+                v
+            );
+        }
+    }
+
+    #[test]
+    fn back_to_back_exp_extreme_rising() {
+        let template = PulseTemplate::BackToBackExp {
+            peak_height: FloatRandomDistribution::ConstantFloat {
+                value: NumExpression::Const(2100.0),
+            },
+            peak_time: FloatRandomDistribution::ConstantFloat {
+                value: NumExpression::Const(2200.0),
+            },
+            spread: FloatRandomDistribution::ConstantFloat {
+                value: NumExpression::Const(3.0),
+            },
+            falling: FloatRandomDistribution::ConstantFloat {
+                value: NumExpression::Const(12.5),
+            },
+            rising: FloatRandomDistribution::ConstantFloat {
+                value: NumExpression::Const(1.5),
+            },
+        };
+        let event = PulseEvent::sample(&template, 0).unwrap();
+        const VALUES1: [Intensity; 27] = [
+            0, 2, 7, 20, 50, 112, 228, 420, 699, 1049, 1419, 1728, 1893, 1866, 1652, 1314, 938,
+            601, 346, 178, 82, 34, 12, 4, 1, 0, 0,
+        ];
+        for (t, &v) in VALUES1.iter().enumerate() {
+            assert_eq!(
+                event.get_value_at(event.get_start() as f64 + t as f64) as Intensity,
+                v
+            );
+        }
+    }
+
+    #[test]
+    fn back_to_back_exp_extreme_falling() {
+
+        let template = PulseTemplate::BackToBackExp {
+            peak_height: FloatRandomDistribution::ConstantFloat {
+                value: NumExpression::Const(2100.0),
+            },
+            peak_time: FloatRandomDistribution::ConstantFloat {
+                value: NumExpression::Const(2200.0),
+            },
+            spread: FloatRandomDistribution::ConstantFloat {
+                value: NumExpression::Const(4.0),
+            },
+            falling: FloatRandomDistribution::ConstantFloat {
+                value: NumExpression::Const(12.5),
+            },
+            rising: FloatRandomDistribution::ConstantFloat {
+                value: NumExpression::Const(1.5),
+            },
+        };
+        let event = PulseEvent::sample(&template, 0).unwrap();
+        const VALUES2: [Intensity; 27] = [
+            0, 0, 0, 1, 4, 10, 21, 43, 83, 151, 258, 414, 626, 892, 1197, 1512, 1798, 2012, 2119,
+            2100, 1957, 1716, 1416, 1098, 801, 550, 355,
+        ];
+        for (t, &v) in VALUES2.iter().enumerate() {
+            assert_eq!(
+                event.get_value_at(event.get_start() as f64 + t as f64) as Intensity,
                 v
             );
         }
