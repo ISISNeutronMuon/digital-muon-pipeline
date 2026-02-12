@@ -130,12 +130,12 @@ impl PulseEvent {
                 let frac_1_sqrt_2_spread = std::f64::consts::FRAC_1_SQRT_2 / spread;
 
                 let normalising_factor = {
-                    let rising_exp = f64::exp(rising * (0.5 * rising_spread));
                     let rising_erfc =
                         libm::erfc(rising_spread * frac_1_sqrt_2_spread);
-                    let falling_exp = f64::exp(falling * (0.5 * falling_spread));
+                    let rising_exp = if rising_erfc == 0.0 { 0.0 } else { f64::exp(0.5*rising*rising_spread) };
                     let falling_erfc =
                         libm::erfc(falling_spread * frac_1_sqrt_2_spread);
+                    let falling_exp = if falling_erfc == 0.0 { 0.0 } else { f64::exp(0.5*falling*falling_spread) };
 
                     peak_height/(rising_exp * rising_erfc + falling_exp * falling_erfc)
                 };
@@ -152,7 +152,7 @@ impl PulseEvent {
                     normalising_factor,
                     rising_spread,
                     falling_spread,
-                    frac_1_sqrt_2_spread: std::f64::consts::FRAC_1_SQRT_2 / spread,
+                    frac_1_sqrt_2_spread,
                 })
             }
         }
@@ -191,61 +191,44 @@ impl PulseEvent {
             Self::Triangular { amplitude, .. } => *amplitude,
             Self::Gaussian { peak_amplitude, .. } => *peak_amplitude,
             Self::BackToBackExp { falling, rising, normalising_factor, rising_spread, falling_spread, frac_1_sqrt_2_spread, .. } => {
-                    let rising_exp = f64::exp(rising * (0.5 * rising_spread));
-                    let rising_erfc =
-                        libm::erfc(rising_spread * frac_1_sqrt_2_spread);
-                    let falling_exp = f64::exp(falling * (0.5 * falling_spread));
-                    let falling_erfc =
-                        libm::erfc(falling_spread * frac_1_sqrt_2_spread);
+                let rising_exp = f64::exp(rising * (0.5 * rising_spread));
+                let rising_erfc =
+                    libm::erfc(rising_spread * frac_1_sqrt_2_spread);
+                let falling_exp = f64::exp(falling * (0.5 * falling_spread));
+                let falling_erfc =
+                    libm::erfc(falling_spread * frac_1_sqrt_2_spread);
 
-                    normalising_factor * (rising_exp * rising_erfc + falling_exp * falling_erfc)
+                normalising_factor * (rising_exp * rising_erfc + falling_exp * falling_erfc)
             },
         }) as Intensity
     }
 
     pub(crate) fn get_value_at(&self, time: f64) -> f64 {
+        if self.get_start() > time as Time || time as Time > self.get_end() {
+            return Default::default();
+        }
+        
         match *self {
-            Self::Flat {
-                start,
-                stop,
-                amplitude,
-            } => {
-                if start <= time && time < stop {
-                    amplitude
-                } else {
-                    f64::default()
-                }
-            }
+            Self::Flat { amplitude, .. } => amplitude,
             Self::Triangular {
                 start,
                 peak_time,
                 stop,
                 amplitude,
             } => {
-                if start <= time && time < peak_time {
+                if time < peak_time {
                     amplitude * (time - start) / (peak_time - start)
-                } else if peak_time <= time && time < stop {
-                    amplitude * (stop - time) / (stop - peak_time)
                 } else {
-                    f64::default()
+                    amplitude * (stop - time) / (stop - peak_time)
                 }
             }
             Self::Gaussian {
                 mean,
                 sd,
                 peak_amplitude,
-                start,
-                stop
-            } => {
-                if start > time || time > stop {
-                    f64::default()
-                } else {
-                    peak_amplitude * f64::exp(-f64::powi(0.5 * (time - mean) / sd, 2))
-                }
-            }
+                ..
+            } => peak_amplitude * f64::exp(-f64::powi(0.5 * (time - mean) / sd, 2)),
             Self::BackToBackExp {
-                start,
-                stop,
                 peak_time,
                 falling,
                 rising,
@@ -253,21 +236,23 @@ impl PulseEvent {
                 rising_spread,
                 falling_spread,
                 frac_1_sqrt_2_spread,
+                ..
             } => {
-                if start < time || time < stop {
-                    let time_shift = time - peak_time;
+                let time_shift = time - peak_time;
 
-                    let rising_exp = f64::exp(rising * (0.5 * rising_spread + time_shift));
-                    let rising_erfc =
-                        libm::erfc((rising_spread + time_shift) * frac_1_sqrt_2_spread);
-                    let falling_exp = f64::exp(falling * (0.5 * falling_spread - time_shift));
-                    let falling_erfc =
-                        libm::erfc((falling_spread - time_shift) * frac_1_sqrt_2_spread);
-                    
-                    normalising_factor * (rising_exp * rising_erfc + falling_exp * falling_erfc)
-                } else {
-                    Default::default()
-                }
+                let rising_erfc =
+                    libm::erfc((rising_spread + time_shift) * frac_1_sqrt_2_spread);
+                let rising_exp = (rising_erfc != 0.0)   //  Guard against NaN
+                    .then_some(f64::exp(rising * (0.5 * rising_spread + time_shift)))
+                    .unwrap_or_default();
+
+                let falling_erfc =
+                    libm::erfc((falling_spread - time_shift) * frac_1_sqrt_2_spread);
+                let falling_exp = (falling_erfc != 0.0)   //  Guard against NaN
+                    .then_some(f64::exp(falling * (0.5 * falling_spread - time_shift)))
+                    .unwrap_or_default();
+
+                normalising_factor * (rising_exp * rising_erfc + falling_exp * falling_erfc)
             }
         }
     }
