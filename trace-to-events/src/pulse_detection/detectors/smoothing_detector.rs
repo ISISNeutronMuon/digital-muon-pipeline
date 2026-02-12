@@ -44,7 +44,7 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(
 
     // 2. second derivative (discrete Laplacian in 1D): d2[i] = y_smooth[i-1] - 2*y_smooth[i] + y_smooth[i+1]
     // use reflect for boundaries
-    let yd2: Vec<f64> = second_deriv(&y_smooth);
+    let yd2: Vec<f64> = second_deriv(&y_smooth, kernel_sigma.powi(2));
 
     // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
     let percentile = ((yd2.len() as f64*noise_centile)/100.0) as usize;
@@ -85,7 +85,7 @@ fn gaussian_kernel(sigma: Real) -> Vec<Real> {
         return vec![1.0];
     }
     let s2 = sigma * sigma;
-    let radius = i32::max(1, Real::ceil(3.0 * sigma) as i32);
+    let radius = i32::max(1, Real::ceil(4.0 * sigma) as i32);
 
     let size = 2 * radius as usize + 1;
     let mut kernel = (0..size)
@@ -128,11 +128,11 @@ fn convolve_reflect(data: &[Real], kernel: &[Real]) -> Vec<Real> {
 }
 
 // 2.
-fn second_deriv(data: &[Real]) -> Vec<Real> {
+fn second_deriv(data: &[Real], kernel_sigma_sqr: Real) -> Vec<Real> {
     (0..data.len()).map(|i| {
         let im = reflect_index(i as i32 - 1, data.len());
         let ip = reflect_index(i as i32 + 1, data.len());
-        data[im] - 2.0 * data[i] + data[ip]
+        (data[im] - 2.0 * data[i] + data[ip])*kernel_sigma_sqr
     })
     .collect::<Vec<_>>()
 }
@@ -465,7 +465,8 @@ mod tests {
     
     #[test]
     fn test_gaussian_kernel() {
-        let kernel = gaussian_kernel(2.0);
+        let kernel_sigma = 2.0;
+        let kernel = gaussian_kernel(kernel_sigma);
         
         println!("{:?}", kernel.iter().sum::<Real>());
         println!("{:?}", kernel.len());
@@ -474,7 +475,8 @@ mod tests {
     
     #[test]
     fn test_kernel_convolution() {
-        let kernel = gaussian_kernel(2.0);
+        let kernel_sigma = 2.0;
+        let kernel = gaussian_kernel(kernel_sigma);
         let y_smooth =  convolve_reflect(&Y, &kernel);
         
         println!("{Y:?}");
@@ -484,9 +486,10 @@ mod tests {
     
     #[test]
     fn test_second_deriv() {
-        let kernel = gaussian_kernel(2.0);
+        let kernel_sigma = 2.0;
+        let kernel = gaussian_kernel(kernel_sigma);
         let y_smooth =  convolve_reflect(&Y, &kernel);
-        let yd2: Vec<f64> = second_deriv(&y_smooth);
+        let yd2: Vec<f64> = second_deriv(&y_smooth, kernel_sigma);
         
         println!("y1 = {Y:?}");
         println!("y2 = {y_smooth:?}");
@@ -495,9 +498,10 @@ mod tests {
     
     #[test]
     fn test_region() {
-        let kernel = gaussian_kernel(2.0);
+        let kernel_sigma = 2.0;
+        let kernel = gaussian_kernel(kernel_sigma);
         let y_smooth =  convolve_reflect(&Y, &kernel);
-        let yd2: Vec<f64> = second_deriv(&y_smooth);
+        let yd2: Vec<f64> = second_deriv(&y_smooth, kernel_sigma);
 
         // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
         let percentile = ((yd2.len() as f64*90.0)/100.0) as usize;
@@ -518,10 +522,11 @@ mod tests {
     
     #[test]
     fn test_peaks_no_min() {
+        let kernel_sigma = 2.0;
         let y = Y.iter().map(|y|y + rand::random::<Real>()/50.0).collect::<Vec<_>>();
-        let kernel = gaussian_kernel(2.0);
+        let kernel = gaussian_kernel(kernel_sigma);
         let y_smooth =  convolve_reflect(&y, &kernel);
-        let yd2: Vec<f64> = second_deriv(&y_smooth);
+        let yd2: Vec<f64> = second_deriv(&y_smooth, kernel_sigma);
 
         // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
         let percentile = ((yd2.len() as f64*90.0)/100.0) as usize;
@@ -543,10 +548,11 @@ mod tests {
     
     #[test]
     fn test_peaks_minsize() {
+        let kernel_sigma = 2.0;
         let y = Y.iter().map(|y|y + rand::random::<Real>()/50.0).collect::<Vec<_>>();
-        let kernel = gaussian_kernel(2.0);
+        let kernel = gaussian_kernel(kernel_sigma);
         let y_smooth =  convolve_reflect(&y, &kernel);
-        let yd2: Vec<f64> = second_deriv(&y_smooth);
+        let yd2: Vec<f64> = second_deriv(&y_smooth, kernel_sigma);
 
         // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
         let percentile = ((yd2.len() as f64*90.0)/100.0) as usize;
