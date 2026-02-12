@@ -358,7 +358,6 @@ mod tests {
 
     #[test]
     fn back_to_back_exp_extreme_falling() {
-
         let template = PulseTemplate::BackToBackExp {
             peak_height: FloatRandomDistribution::ConstantFloat {
                 value: NumExpression::Const(2100.0),
