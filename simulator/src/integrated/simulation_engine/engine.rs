@@ -120,6 +120,7 @@ fn set_timestamp(
 ) -> Result<(), SimulationEngineError> {
     match timestamp {
         Timestamp::Now => engine.state.metadata.timestamp = Utc::now(),
+        Timestamp::To(ts) => engine.state.metadata.timestamp = *ts,
         Timestamp::AdvanceByMs(ms) => {
             engine.state.metadata.timestamp = engine
                 .state
