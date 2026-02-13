@@ -3,6 +3,7 @@ use crate::integrated::simulation_elements::{
     run_messages::{SendAlarm, SendRunLogData, SendRunStart, SendRunStop, SendSampleEnvLog},
     utils::NumConstant,
 };
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -60,6 +61,7 @@ pub(crate) struct Loop<A> {
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Timestamp {
     Now,
+    To(DateTime<Utc>),
     AdvanceByMs(usize),
     RewindByMs(usize),
 }
