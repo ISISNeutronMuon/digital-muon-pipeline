@@ -149,11 +149,12 @@ mod tests {
             }
         },
         "pulses": [{
-                        "pulse-type": "biexp",
-                        "height": { "random-type": "uniform-float", "min": { "const": 30 }, "max": { "const": 70 } },
-                        "start":  { "random-type": "exponential", "lifetime": { "const": 2200 } },
-                        "rise":   { "random-type": "uniform-float", "min": { "const": 20 }, "max": { "const": 30 } },
-                        "decay":  { "random-type": "uniform-float", "min": { "const": 5 }, "max": { "const": 10 } }
+                        "pulse-type": "back-to-back-exp",
+                        "spread":      { "random-type": "constant-float", "value": { "const": 5.5 } },
+                        "rising":      { "random-type": "constant-float", "value": { "const": 3.5 } },
+                        "falling":     { "random-type": "constant-float", "value": { "const": 2.4 } },
+                        "peak_time":   { "random-type": "exponential", "lifetime": { "const": 2200 } },
+                        "peak_height": { "random-type": "uniform-float", "min": { "const": 250 }, "max": { "const": 1100 } }
                     },
                     {
                         "pulse-type": "flat",
