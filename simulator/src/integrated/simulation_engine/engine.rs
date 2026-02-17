@@ -11,7 +11,8 @@ use crate::integrated::{
         utils::JsonValueError,
     },
     simulation_engine::actions::{
-        Action, DigitiserAction, FrameAction, GenerateEventList, GenerateTrace, LogAction, Timestamp, TracingEvent, TracingLevel
+        Action, DigitiserAction, FrameAction, GenerateEventList, GenerateTrace, LogAction,
+        Timestamp, TracingEvent, TracingLevel,
     },
 };
 use chrono::{DateTime, TimeDelta, Utc};
@@ -221,7 +222,7 @@ pub(crate) fn run_schedule(engine: &mut SimulationEngine) -> Result<(), Simulati
                     &engine.state.metadata.timestamp,
                     sample_env_log,
                 )?;
-            },
+            }
             Action::SendAlarm(alarm) => {
                 send_alarm_command(
                     &mut engine.externals,
@@ -257,7 +258,8 @@ pub(crate) fn run_schedule(engine: &mut SimulationEngine) -> Result<(), Simulati
             Action::LogLoop(log_loop) => {
                 for index in log_loop.start.value()?..=log_loop.end.value()? {
                     engine.state.metadata.frame_number = index as FrameNumber;
-                    run_logloop_schedule(engine, log_loop.schedule.as_slice())?;}
+                    run_logloop_schedule(engine, log_loop.schedule.as_slice())?;
+                }
             }
             Action::Comment(_) => (),
         }
@@ -395,8 +397,6 @@ pub(crate) fn run_digitiser(
     }
     Ok(())
 }
-
-
 
 #[tracing::instrument(skip_all, level = "debug"
     fields(

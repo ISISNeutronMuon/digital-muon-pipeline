@@ -89,17 +89,17 @@ where
 
 pub(crate) fn generate_value(
     length: usize,
-    noise_sources: &[NoiseSource]
+    noise_sources: &[NoiseSource],
 ) -> Result<Vec<String>, JsonValueError> {
-    (0..length).map(|time|
-        noise_sources.into_iter()
-            .map(|ns|ns.sample(time as Time, 0))
-            .sum::<Result<f64,_>>()
-    )
-    .map(|val|
-        val.map(|val| val.to_string())
-    )
-    .collect::<Result<Vec<_>,_>>()
+    (0..length)
+        .map(|time| {
+            noise_sources
+                .iter()
+                .map(|ns| ns.sample(time as Time, 0))
+                .sum::<Result<f64, _>>()
+        })
+        .map(|val| val.map(|val| val.to_string()))
+        .collect::<Result<Vec<_>, _>>()
 }
 
 pub(crate) fn make_value(

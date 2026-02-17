@@ -26,10 +26,7 @@ impl NoiseSource {
     pub(crate) fn sample(&self, time: Time, frame_index: usize) -> Result<f64, JsonValueError> {
         if self.bounds.is_in(time, frame_index)? {
             match &self.attributes {
-                NoiseAttributes::Bernoulli {
-                    probability,
-                    value,
-                } => {
+                NoiseAttributes::Bernoulli { probability, value } => {
                     if rand::random_bool(probability.value(frame_index)?) {
                         value.sample(frame_index)
                     } else {
@@ -59,9 +56,9 @@ impl NoiseSource {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "noise-type")]
 pub(crate) enum NoiseAttributes {
-    Bernoulli{
+    Bernoulli {
         probability: NumExpression<f64>,
-        value: FloatRandomDistribution<f64>
+        value: FloatRandomDistribution<f64>,
     },
     Uniform(Interval<NumExpression<f64>>),
     Gaussian {

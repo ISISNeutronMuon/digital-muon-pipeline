@@ -50,8 +50,8 @@ pub(crate) enum SendSampleEnvLogValues {
     Literal(Vec<String>),
     FromNoise {
         length: usize,
-        noise: Vec<NoiseSource>
-    }
+        noise: Vec<NoiseSource>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]

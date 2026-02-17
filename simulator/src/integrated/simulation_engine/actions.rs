@@ -140,8 +140,6 @@ pub(crate) enum DigitiserAction {
     GenerateEventList(GenerateEventList),
 }
 
-
-
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum LogAction {

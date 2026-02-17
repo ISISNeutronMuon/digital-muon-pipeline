@@ -7,7 +7,8 @@ use crate::{
         simulation_elements::{
             EventList, Trace,
             run_messages::{
-                SendAlarm, SendRunLogData, SendRunStart, SendRunStop, SendSampleEnvLog, SendSampleEnvLogValues,
+                SendAlarm, SendRunLogData, SendRunStart, SendRunStop, SendSampleEnvLog,
+                SendSampleEnvLogValues,
             },
             utils::JsonValueError,
         },
@@ -228,9 +229,11 @@ pub(crate) fn send_se_log_command(
 
     let values = match &sample_env.values {
         SendSampleEnvLogValues::Literal(items) => items.clone(),
-        SendSampleEnvLogValues::FromNoise { length, noise } => sample_environment::generate_value(*length, noise)?,
+        SendSampleEnvLogValues::FromNoise { length, noise } => {
+            sample_environment::generate_value(*length, noise)?
+        }
     };
-    
+
     let values = Some(sample_environment::make_value(
         &mut fbb,
         values_type,
