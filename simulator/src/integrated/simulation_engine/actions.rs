@@ -95,6 +95,8 @@ pub(crate) enum Action {
     //
     FrameLoop(Loop<FrameAction>),
     //
+    LogLoop(Loop<LogAction>),
+    //
     SetTimestamp(Timestamp),
     SetVetoFlags(u16),
     SetPeriod(u64),
@@ -136,4 +138,14 @@ pub(crate) enum DigitiserAction {
     //
     GenerateTrace(GenerateTrace),
     GenerateEventList(GenerateEventList),
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum LogAction {
+    Comment(#[allow(unused)] String),
+    SendRunLogData(SendRunLogData),
+    SendSampleEnvLog(SendSampleEnvLog),
+    SendAlarm(SendAlarm),
+    SetTimestamp(Timestamp),
 }

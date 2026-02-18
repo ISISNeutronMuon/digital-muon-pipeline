@@ -11,8 +11,8 @@ use crate::integrated::{
         utils::JsonValueError,
     },
     simulation_engine::actions::{
-        Action, DigitiserAction, FrameAction, GenerateEventList, GenerateTrace, Timestamp,
-        TracingEvent, TracingLevel,
+        Action, DigitiserAction, FrameAction, GenerateEventList, GenerateTrace, LogAction,
+        Timestamp, TracingEvent, TracingLevel,
     },
 };
 use chrono::{DateTime, TimeDelta, Utc};
@@ -255,6 +255,12 @@ pub(crate) fn run_schedule(engine: &mut SimulationEngine) -> Result<(), Simulati
                     run_frame(engine, frame_loop.schedule.as_slice())?;
                 }
             }
+            Action::LogLoop(log_loop) => {
+                for index in log_loop.start.value()?..=log_loop.end.value()? {
+                    engine.state.metadata.frame_number = index as FrameNumber;
+                    run_logloop_schedule(engine, log_loop.schedule.as_slice())?;
+                }
+            }
             Action::Comment(_) => (),
         }
     }
@@ -387,6 +393,43 @@ pub(crate) fn run_digitiser(
                 generate_event_lists_push_to_cache(engine, generate_event)?
             }
             DigitiserAction::Comment(_) => (),
+        }
+    }
+    Ok(())
+}
+
+#[tracing::instrument(skip_all, level = "debug"
+    fields(
+        index = engine.state.metadata.frame_number,
+        num_actions = log_actions.len()
+    )
+    err(level = "error")
+)]
+pub(crate) fn run_logloop_schedule(
+    engine: &mut SimulationEngine,
+    log_actions: &[LogAction],
+) -> Result<(), SimulationEngineError> {
+    for action in log_actions {
+        match action {
+            LogAction::SendRunLogData(run_log_data) => send_run_log_command(
+                &mut engine.externals,
+                &engine.state.metadata.timestamp,
+                run_log_data,
+            )?,
+            LogAction::SendSampleEnvLog(sample_env_log) => send_se_log_command(
+                &mut engine.externals,
+                &engine.state.metadata.timestamp,
+                sample_env_log,
+            )?,
+            LogAction::SendAlarm(alarm) => {
+                send_alarm_command(
+                    &mut engine.externals,
+                    &engine.state.metadata.timestamp,
+                    alarm,
+                )?;
+            }
+            LogAction::SetTimestamp(timestamp) => set_timestamp(engine, timestamp)?,
+            LogAction::Comment(_) => (),
         }
     }
     Ok(())

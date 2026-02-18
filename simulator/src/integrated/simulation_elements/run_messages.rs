@@ -1,5 +1,5 @@
 use crate::{
-    integrated::simulation_elements::utils::TextConstant,
+    integrated::simulation_elements::{noise::NoiseSource, utils::TextConstant},
     runs::{
         alarm::SeverityLevel,
         runlog::ValueType,
@@ -32,7 +32,7 @@ pub(crate) struct SendRunLogData {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "run-command")]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct SendSampleEnvLog {
     pub(crate) name: TextConstant,
     pub(crate) channel: Option<i32>,
@@ -40,8 +40,18 @@ pub(crate) struct SendSampleEnvLog {
     pub(crate) values_type: ValuesType,
     pub(crate) message_counter: Option<i64>,
     pub(crate) location: LocationType,
-    pub(crate) values: Vec<String>,
     pub(crate) timestamps: Option<Vec<DateTime<Utc>>>,
+    pub(crate) values: SendSampleEnvLogValues,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum SendSampleEnvLogValues {
+    Literal(Vec<String>),
+    FromNoise {
+        length: usize,
+        noise: Vec<NoiseSource>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]

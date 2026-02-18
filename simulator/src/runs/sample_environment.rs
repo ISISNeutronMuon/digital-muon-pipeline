@@ -1,4 +1,5 @@
 use clap::ValueEnum;
+use digital_muon_common::Time;
 use digital_muon_streaming_types::{
     ecs_se00_data_generated::{
         DoubleArray, DoubleArrayArgs, FloatArray, FloatArrayArgs, Int8Array, Int8ArrayArgs,
@@ -10,6 +11,8 @@ use digital_muon_streaming_types::{
 };
 use serde::Deserialize;
 use std::str::FromStr;
+
+use crate::integrated::simulation_elements::{noise::NoiseSource, utils::JsonValueError};
 
 #[derive(Clone, Debug, Deserialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
@@ -82,6 +85,21 @@ where
                 .as_slice(),
         ),
     )
+}
+
+pub(crate) fn generate_value(
+    length: usize,
+    noise_sources: &[NoiseSource],
+) -> Result<Vec<String>, JsonValueError> {
+    (0..length)
+        .map(|time| {
+            noise_sources
+                .iter()
+                .map(|ns| ns.sample(time as Time, 0))
+                .sum::<Result<f64, _>>()
+        })
+        .map(|val| val.map(|val| val.to_string()))
+        .collect::<Result<Vec<_>, _>>()
 }
 
 pub(crate) fn make_value(
