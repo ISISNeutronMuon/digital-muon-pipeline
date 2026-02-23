@@ -152,6 +152,6 @@ pub(crate) enum Mode {
     DifferentialThresholdDiscriminator(DifferentialThresholdDiscriminatorParameters),
     /// Detects events using differential discriminators. Event lists consist of time and voltage values.
     AdvancedMuonDetector(AdvancedMuonDetectorParameters),
-    ///
+    /// Detects events using a smoothed second derivative. Event lists consist of time and voltage values.
     SmoothingDetector(SmoothingDetectorParameters),
 }
