@@ -129,16 +129,16 @@ pub(crate) struct AdvancedMuonDetectorParameters {
 /// Encapsulates the parameters specific to the Smoothing detector.
 #[derive(Default, Debug, Clone, Parser)]
 pub(crate) struct SmoothingDetectorParameters {
-    /// FIXME
+    /// Centile of x to use for noise estimation.
     #[clap(long)]
     pub(crate) noise_centile: Real,
-    /// FIXME
+    /// Sigma of the Gaussian kernel for smoothing.
     #[clap(long)]
     pub(crate) kernel_sigma: Real,
-    /// FIXME
+    /// Number of standard deviations above noise to use as threshold.
     #[clap(long)]
     pub(crate) nsig_noise: Real,
-    /// FIXME
+    /// Minimum size of region to consider a peak, if absent all regions are considered.
     #[clap(long)]
     pub(crate) min_size: Option<usize>,
 }

@@ -15,7 +15,7 @@ use tracing::instrument;
 /// - noise_centile: centile of x to use for noise estimation.
 /// - kernel_sigma: sigma of the Gaussian kernel for smoothing.
 /// - nsig_noise: number of standard deviations above noise to use as threshold.
-/// - min_size: minimum size of region to consider a peak, if negative all regions are considered (use negative value to consider all regions).
+/// - min_size: minimum size of region to consider a peak, if absent all regions are considered.
 ///
 /// # Return
 /// (x_peaks, y_peaks) - 1D arrays of peak locations
