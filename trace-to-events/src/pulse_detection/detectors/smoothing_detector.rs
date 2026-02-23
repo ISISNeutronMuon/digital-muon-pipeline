@@ -72,8 +72,13 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(
     Ok((xpk, ypk))
 }
 
-// 1.
-// Compute Gaussian kernel
+/// Computes the standard Gaussian kernel.
+/// # Parameters
+/// - sigma - standard deviation of the Gaussian curve.
+/// # Returns
+/// A vector of length 8*sigma + 1 (or 3, of sigma < 1.4),
+/// with the values of the Gaussian centred on middle element.
+/// This length is deemed sufficient to allow the curve to serve as a convolution window.
 fn gaussian_kernel(sigma: Real) -> Vec<Real> {
     if sigma <= 0.0 {
         return vec![1.0];
@@ -94,7 +99,10 @@ fn gaussian_kernel(sigma: Real) -> Vec<Real> {
     kernel
 }
 
-// function to reflect an index
+/// Reflects the index if it is outside the given boundary `0,n`.
+/// # Parameters
+/// - idx: the index to reflect.
+/// - n: the position of the right-sided boundary.
 fn reflect_index(idx: i32, n: usize) -> usize {
     if n == 0 {
         0
@@ -222,43 +230,6 @@ fn find_argminima(yd2: &[Real], start: usize) -> Vec<usize> {
         relmin.iter().map(|&r| start + r).collect()
     }
 }
-
-/*
-// Compute percentile
-fn percentile(v: &[Real], p: Real) -> Result<Real, String> {
-    if v.is_empty() {
-        return Err("percentile: empty input".into());
-    }
-    let real_cmp = |a: &Real, b: &Real| {
-        a.partial_cmp(b)
-            .expect("Values are numbers, this should never fail")
-    };
-    if p <= 0.0 {
-        return Ok(v
-            .iter()
-            .copied()
-            .min_by(real_cmp)
-            .expect("Min exists, this should never fail"));
-    }
-    if p >= 100.0 {
-        return Ok(v
-            .iter()
-            .copied()
-            .max_by(real_cmp)
-            .expect("Max exists, this should never fail"));
-    }
-    let mut tmp = v.to_vec();
-    tmp.sort_by(real_cmp);
-    let pos = (p / 100.0) * (tmp.len() - 1) as Real;
-    let floor = pos.floor();
-    let ceil = pos.ceil();
-    if floor == ceil {
-        return Ok(tmp[floor as usize]);
-    }
-    let frac = pos - floor;
-    return Ok(tmp[floor as usize] * (1.0 - frac) + tmp[ceil as usize] * frac);
-}
- */
 
 /// find indices of relative minima in a vector segment [0..n-1] (returns indices relative to segment start)
 fn argrelmin_segment(seg: &[Real]) -> Vec<usize> {
