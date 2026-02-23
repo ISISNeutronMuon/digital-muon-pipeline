@@ -48,13 +48,10 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(
     // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
     let percentile = ((yd2.len() as f64 * noise_centile) / 100.0) as usize;
     let noise_std = stddev(&yd2[percentile..yd2.len()])?;
-    println!("noise_std is {noise_std}");
 
     // 4. label contiguous regions where yd2 < -nsig_noise * noise_std
     let threshold = -nsig_noise * noise_std;
     let regions = find_region_bounds(&yd2, threshold);
-    println!("threshold is {threshold}");
-    println!("number of regions is {}", regions.len());
 
     // 5. pick peaks
     // indices of peaks
@@ -62,7 +59,6 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(
         Some(min_size) => filter_minsize_and_find_minima(min_size, &yd2, &regions),
         None => find_minima_no_minsize(&yd2, &regions),
     };
-    println!("number of peaks is {}", ipks.len());
 
     // Produce x and y arrays at peak indices
     let mut xpk = Vec::<Real>::with_capacity(ipks.len());
@@ -156,11 +152,6 @@ fn stddev(v: &[Real]) -> Result<Real, &'static str> {
 
 // 4.
 fn find_region_bounds(yd2: &[Real], threshold: Real) -> Vec<Range<usize>> {
-    println!(
-        "{}, {}",
-        yd2.iter().min_by(|x, y| x.partial_cmp(y).unwrap()).unwrap(),
-        yd2.iter().max_by(|x, y| x.partial_cmp(y).unwrap()).unwrap()
-    );
     let closure = |(mut acc, next): (Vec<Range<usize>>, Option<_>),
                    (i, &yd2)|
      -> (Vec<Range<usize>>, Option<(usize, usize)>) {
