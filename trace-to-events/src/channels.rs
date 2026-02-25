@@ -3,13 +3,16 @@ use crate::{
     parameters::{
         AdvancedMuonDetectorParameters, DetectorSettings,
         DifferentialThresholdDiscriminatorParameters, FixedThresholdDiscriminatorParameters, Mode,
-        PeakHeightBasis, Polarity,
+        PeakHeightBasis, Polarity, SmoothingDetectorParameters,
     },
     pulse_detection::{
         AssembleIterable, EventsIterable, Real, WindowIterable,
         advanced_muon_detector::{AdvancedMuonAssembler, AdvancedMuonDetector},
-        detectors::differential_threshold_detector::{
-            DifferentialThresholdDetector, DifferentialThresholdParameters,
+        detectors::{
+            differential_threshold_detector::{
+                DifferentialThresholdDetector, DifferentialThresholdParameters,
+            },
+            smoothing_detector::sec_deriv_smoothing_for_peaks,
         },
         threshold_detector::{ThresholdDetector, ThresholdDuration},
         window::{Baseline, FiniteDifferences, SmoothingWindow},
@@ -45,6 +48,13 @@ pub(crate) fn find_channel_events(
             parameters,
         ),
         Mode::AdvancedMuonDetector(parameters) => find_advanced_events(
+            trace,
+            sample_time,
+            detector_settings.polarity,
+            detector_settings.baseline as Real,
+            parameters,
+        ),
+        Mode::SmoothingDetector(parameters) => find_smoothing_events(
             trace,
             sample_time,
             detector_settings.polarity,
@@ -217,4 +227,41 @@ fn find_advanced_events(
         voltage.push(pulse.peak.value.unwrap_or_default() as Intensity);
     }
     (time, voltage)
+}
+
+#[tracing::instrument(skip_all, level = "trace")]
+fn find_smoothing_events(
+    trace: &ChannelTrace,
+    sample_time: Real,
+    polarity: &Polarity,
+    baseline: Real,
+    parameters: &SmoothingDetectorParameters,
+) -> (Vec<Time>, Vec<Intensity>) {
+    let sign = match polarity {
+        Polarity::Positive => 1.0,
+        Polarity::Negative => -1.0,
+    };
+    let raw = trace
+        .voltage()
+        .unwrap()
+        .into_iter()
+        .map(|v| sign * (v as Real - baseline))
+        .collect::<Vec<Real>>();
+    let time = (0..raw.len())
+        .map(|t| t as Real * sample_time)
+        .collect::<Vec<Real>>();
+
+    let (time, intensity) = sec_deriv_smoothing_for_peaks(
+        &time,
+        &raw,
+        parameters.noise_centile,
+        parameters.kernel_sigma,
+        parameters.nsig_noise,
+        parameters.min_size,
+    )
+    .unwrap();
+    (
+        time.into_iter().map(|t| t as Time).collect(),
+        intensity.into_iter().map(|v| v as Intensity).collect(),
+    )
 }
