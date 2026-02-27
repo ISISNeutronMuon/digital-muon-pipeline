@@ -411,6 +411,7 @@ pub(crate) fn run_logloop_schedule(
 ) -> Result<(), SimulationEngineError> {
     for action in log_actions {
         match action {
+            LogAction::WaitMs(ms) => wait_ms(*ms),
             LogAction::SendRunLogData(run_log_data) => send_run_log_command(
                 &mut engine.externals,
                 &engine.state.metadata.timestamp,

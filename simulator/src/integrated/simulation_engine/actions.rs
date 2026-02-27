@@ -148,4 +148,5 @@ pub(crate) enum LogAction {
     SendSampleEnvLog(SendSampleEnvLog),
     SendAlarm(SendAlarm),
     SetTimestamp(Timestamp),
+    WaitMs(usize),
 }
