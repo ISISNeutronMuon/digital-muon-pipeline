@@ -115,10 +115,7 @@ pub(crate) fn process<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        Mode, Polarity,
-        parameters::{AdvancedMuonDetectorParameters, FixedThresholdDiscriminatorParameters},
-    };
+    use crate::{Mode, Polarity, parameters::FixedThresholdDiscriminatorParameters};
 
     use super::*;
     use chrono::Utc;
@@ -278,57 +275,6 @@ mod tests {
     }
 
     #[test]
-    fn advanced_positive_zero_baseline() {
-        let mut fbb = FlatBufferBuilder::new();
-
-        let time: GpsTime = Utc::now().into();
-        let channel0: Vec<u16> = vec![0, 1, 2, 1, 0, 1, 2, 1, 8, 0, 2, 8, 3, 1, 2];
-        create_message(&mut fbb, &[channel0.as_slice()], &time);
-        let message = fbb.finished_data().to_vec();
-        let message = root_as_digitizer_analog_trace_message(&message).unwrap();
-
-        let mut fbb = FlatBufferBuilder::new();
-
-        let test_parameters = AdvancedMuonDetectorParameters {
-            muon_onset: 0.5,
-            muon_fall: -0.01,
-            muon_termination: 0.001,
-            duration: 0.0,
-            smoothing_window_size: Some(2),
-            ..Default::default()
-        };
-        process(
-            &mut fbb,
-            &message,
-            &DetectorSettings {
-                mode: &Mode::AdvancedMuonDetector(test_parameters),
-                polarity: &Polarity::Positive,
-                baseline: Intensity::default(),
-            },
-        );
-
-        assert!(digitizer_event_list_message_buffer_has_identifier(
-            fbb.finished_data()
-        ));
-        let event_message = root_as_digitizer_event_list_message(fbb.finished_data()).unwrap();
-
-        assert_eq!(
-            vec![0, 0],
-            event_message.channel().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 7],
-            event_message.time().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 4],
-            event_message.voltage().unwrap().iter().collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
     fn fixed_threshold_discriminator_positive_nonzero_baseline() {
         let mut fbb = FlatBufferBuilder::new();
 
@@ -376,57 +322,6 @@ mod tests {
     }
 
     #[test]
-    fn advanced_positive_nonzero_baseline() {
-        let mut fbb = FlatBufferBuilder::new();
-
-        let time: GpsTime = Utc::now().into();
-        let channel0: Vec<u16> = vec![3, 4, 5, 4, 3, 4, 5, 4, 11, 3, 5, 11, 6, 4, 5];
-        create_message(&mut fbb, &[channel0.as_slice()], &time);
-        let message = fbb.finished_data().to_vec();
-        let message = root_as_digitizer_analog_trace_message(&message).unwrap();
-
-        let mut fbb = FlatBufferBuilder::new();
-
-        let test_parameters = AdvancedMuonDetectorParameters {
-            muon_onset: 0.5,
-            muon_fall: -0.01,
-            muon_termination: 0.001,
-            duration: 0.0,
-            smoothing_window_size: Some(2),
-            ..Default::default()
-        };
-        process(
-            &mut fbb,
-            &message,
-            &DetectorSettings {
-                mode: &Mode::AdvancedMuonDetector(test_parameters),
-                polarity: &Polarity::Positive,
-                baseline: 3,
-            },
-        );
-
-        assert!(digitizer_event_list_message_buffer_has_identifier(
-            fbb.finished_data()
-        ));
-        let event_message = root_as_digitizer_event_list_message(fbb.finished_data()).unwrap();
-
-        assert_eq!(
-            vec![0, 0],
-            event_message.channel().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 7],
-            event_message.time().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 4],
-            event_message.voltage().unwrap().iter().collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
     fn fixed_threshold_discriminator_negative_nonzero_baseline() {
         let mut fbb = FlatBufferBuilder::new();
 
@@ -469,57 +364,6 @@ mod tests {
 
         assert_eq!(
             vec![8, 8],
-            event_message.voltage().unwrap().iter().collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn advanced_negative_nonzero_baseline() {
-        let mut fbb = FlatBufferBuilder::new();
-
-        let time: GpsTime = Utc::now().into();
-        let channel0: Vec<u16> = vec![10, 9, 8, 9, 10, 9, 8, 9, 2, 10, 8, 2, 7, 9, 8];
-        create_message(&mut fbb, &[channel0.as_slice()], &time);
-        let message = fbb.finished_data().to_vec();
-        let message = root_as_digitizer_analog_trace_message(&message).unwrap();
-
-        let mut fbb = FlatBufferBuilder::new();
-
-        let test_parameters = AdvancedMuonDetectorParameters {
-            muon_onset: 0.5,
-            muon_fall: -0.01,
-            muon_termination: 0.001,
-            duration: 0.0,
-            smoothing_window_size: Some(2),
-            ..Default::default()
-        };
-        process(
-            &mut fbb,
-            &message,
-            &DetectorSettings {
-                mode: &Mode::AdvancedMuonDetector(test_parameters),
-                polarity: &Polarity::Negative,
-                baseline: 10,
-            },
-        );
-
-        assert!(digitizer_event_list_message_buffer_has_identifier(
-            fbb.finished_data()
-        ));
-        let event_message = root_as_digitizer_event_list_message(fbb.finished_data()).unwrap();
-
-        assert_eq!(
-            vec![0, 0],
-            event_message.channel().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 7],
-            event_message.time().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 4],
             event_message.voltage().unwrap().iter().collect::<Vec<_>>()
         );
     }

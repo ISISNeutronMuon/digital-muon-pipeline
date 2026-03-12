@@ -71,6 +71,7 @@ impl<const N: usize, T: TraceValue + Copy> TraceValue for TraceArray<N, T> {
 pub(crate) type RealArray<const N: usize> = TraceArray<N, Real>;
 
 /// This type allows contains descriptive statistical data.
+#[allow(unused)] // FIXME
 #[derive(Default, Clone, Debug)]
 pub(crate) struct Stats {
     #[allow(unused)] // FIXME

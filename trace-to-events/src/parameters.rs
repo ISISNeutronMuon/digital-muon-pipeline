@@ -90,42 +90,6 @@ pub(crate) struct DifferentialThresholdDiscriminatorParameters {
     pub(crate) peak_height_basis: PeakHeightBasis,
 }
 
-/// Encapsulates the parameters specific to the Advanced Muon detector.
-#[derive(Default, Debug, Clone, Parser)]
-pub(crate) struct AdvancedMuonDetectorParameters {
-    /// Differential threshold for detecting muon onset. See README.md.
-    #[clap(long)]
-    pub(crate) muon_onset: Real,
-
-    /// Differential threshold for detecting muon peak. See README.md.
-    #[clap(long)]
-    pub(crate) muon_fall: Real,
-
-    /// Differential threshold for detecting muon termination. See README.md.
-    #[clap(long)]
-    pub(crate) muon_termination: Real,
-
-    /// Length of time a threshold must be passed to register. See README.md.
-    #[clap(long)]
-    pub(crate) duration: Real,
-
-    /// Size of initial portion of the trace to use for determining the baseline. Initial portion should be event free.
-    #[clap(long)]
-    pub(crate) baseline_length: Option<usize>,
-
-    /// Size of the moving average window to use for the lopass filter.
-    #[clap(long)]
-    pub(crate) smoothing_window_size: Option<usize>,
-
-    /// If set, filters out events whose peak is greater than the given value.
-    #[clap(long)]
-    pub(crate) max_amplitude: Option<Real>,
-
-    /// If set, filters out events whose peak is less than the given value.
-    #[clap(long)]
-    pub(crate) min_amplitude: Option<Real>,
-}
-
 /// Encapsulates the parameters specific to the Smoothing detector.
 #[derive(Default, Debug, Clone, Parser)]
 pub(crate) struct SmoothingDetectorParameters {
@@ -150,8 +114,6 @@ pub(crate) enum Mode {
     FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters),
     /// Detects events using a differential threshold discriminator. Event lists consist of time and voltage values.
     DifferentialThresholdDiscriminator(DifferentialThresholdDiscriminatorParameters),
-    /// Detects events using differential discriminators. Event lists consist of time and voltage values.
-    AdvancedMuonDetector(AdvancedMuonDetectorParameters),
     /// Detects events using a smoothed second derivative. Event lists consist of time and voltage values.
     SmoothingDetector(SmoothingDetectorParameters),
 }
