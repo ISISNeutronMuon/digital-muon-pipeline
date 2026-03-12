@@ -13,6 +13,7 @@
 use super::{Real, Stats, Window};
 use std::collections::VecDeque;
 
+#[allow(unused)] // FIXME
 #[derive(Default, Clone)]
 pub(crate) struct SmoothingWindow {
     value: Real,
@@ -23,6 +24,7 @@ pub(crate) struct SmoothingWindow {
 }
 
 impl SmoothingWindow {
+    #[allow(unused)] // FIXME
     pub(crate) fn new(size: usize) -> Self {
         if size < 1 {
             panic!("Size must be >= 1");

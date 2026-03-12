@@ -18,9 +18,7 @@ pub(crate) mod finite_differences;
 pub(crate) mod smoothing_window;
 
 use super::{Real, RealArray, Stats, Temporal};
-pub(crate) use baseline::Baseline;
 pub(crate) use finite_differences::FiniteDifferences;
-pub(crate) use smoothing_window::SmoothingWindow;
 
 /// Consumes values from a waveform, and outputs a waveform after processing.
 pub(crate) trait Window: Clone {
