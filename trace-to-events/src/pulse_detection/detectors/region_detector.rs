@@ -12,14 +12,6 @@ impl EventData for Data {}
 impl EventPoint for Data {
     type TimeType = Time;
     type EventType = Self;
-
-    fn get_time(&self) -> Self::TimeType {
-        self.first().map(|&(t, _)| t).unwrap_or_default()
-    }
-
-    fn get_data(&self) -> &Self::EventType {
-        self
-    }
 }
 
 /// (Time, Data) pair defining a pulse detection event.

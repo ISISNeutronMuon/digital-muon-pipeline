@@ -1,6 +1,8 @@
 //! Detectors are applied by [EventIter] iterators to a stream of trace inputs.
 //! They register detections in the form of a stream of events.
 pub mod differential_threshold_detector;
+pub mod local_arg_min_detector;
+pub mod region_detector;
 pub mod smoothing_detector;
 pub mod threshold_detector;
 
