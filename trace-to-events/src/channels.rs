@@ -77,7 +77,7 @@ impl SmoothingDetectorCache {
     }
 
     /// Write to the `time` and `values` fields from an iterator over a pair of the time and trace values.
-    /// 
+    ///
     /// This should not be called unless `Self::ensure_cache_lengths` has been called with the appropriate `size` value.
     /// # Parameters
     /// - raw: iterator from which the `time` and `values` fields are written.
