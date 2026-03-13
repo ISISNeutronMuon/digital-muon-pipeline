@@ -10,14 +10,21 @@
 //!        .window(SmoothingWindow::new(5))
 //!        .map(|(i, stats)| (i, stats.mean));
 //! ```
+//use crate::pulse_detection::window::SliceWindow;
+
+use num::integer::binomial;
+
 use crate::pulse_detection::window::SliceWindow;
 
 use super::{Real, Window};
-use std::collections::VecDeque;
+use std::{collections::VecDeque, ops::Range};
 
+/// Specifies a kernel that resolves to a `Vec<Real>` by calling `Self::generate_kernel`.
 #[derive(Clone)]
 pub(crate) enum KernelType {
     Gaussian { sigma: Real },
+    FiniteDifference { order: usize },
+    Composition { left: Box<KernelType>, right: Box<KernelType> },
 }
 
 impl Default for KernelType {
@@ -47,6 +54,22 @@ impl KernelType {
                     *v /= kernel_sum;
                 });
                 kernel
+            }
+            KernelType::FiniteDifference { order } => {
+                (0..order + 1)
+                    .map(|i| if i & 1 == 1 { -1. } else { 1. } * (binomial(order, i) as Real))
+                    .collect::<Vec<_>>()
+            }
+            KernelType::Composition { left, right } => {
+                let left = left.generate_kernel();
+                let right = right.generate_kernel();
+                (0..left.len()).map(|i|
+                    (0..right.len())
+                        .map(|j| (i >= j)
+                            .then(||left[i - j]*right[j])
+                            .unwrap_or_default()
+                        ).sum()
+                ).collect()
             }
         }
     }
@@ -120,23 +143,26 @@ impl Window for ConvolutionFilter {
         time - (self.size - 1.) / 2.0
     }
 }
-/*
+
 impl SliceWindow for ConvolutionFilter {
     type TimeType = Real;
     type InputType = Real;
     type OutputType = Real;
 
-    fn apply_slice(&self, slice: &[Self::InputType]) -> Self::OutputType {
-        Iterator::zip(self.kernel.iter(), slice.iter())
-            .map(|(x, y)| x * y)
-            .sum()
+    fn apply_to_slice<'a>(&mut self, output: &'a mut[Self::InputType]) -> &'a [Self::InputType] {
+        let output_range = 0..output.len() - self.kernel_size();
+        for i in output_range.clone() {
+            let value = self.apply_slice(&output[i..i + self.kernel_size()]);
+            output[i] = value;
+        }
+        &output[output_range]
     }
 
     fn apply_time_shift(&self, time: Self::TimeType) -> Self::TimeType {
         time - (self.size - 1.) / 2.0
     }
 }
- */
+
 #[cfg(test)]
 mod tests {
     use super::*;
