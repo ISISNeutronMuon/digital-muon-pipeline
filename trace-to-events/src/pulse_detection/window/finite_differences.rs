@@ -39,6 +39,15 @@ impl<const N: usize> FiniteDifferences<N> {
         }
     }
 
+    /// Creates a new `FiniteDifferences` with the coefficients cloned this this instance.
+    pub(crate) fn clone_only_coefficients(&self) -> Self {
+        Self {
+            coefficients: self.coefficients.clone(),
+            values: VecDeque::<Real>::with_capacity(N),
+            diffs: vec![Real::default(); N],
+        }
+    }
+
     fn nth_difference(&self, n: usize) -> Real {
         (0..=n)
             .map(|k| self.coefficients[n][k] * self.values[k])
