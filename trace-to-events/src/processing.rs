@@ -139,7 +139,6 @@ impl DigitiserMessageProcessor {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use crate::{Mode, Polarity, parameters::FixedThresholdDiscriminatorParameters};
@@ -220,15 +219,15 @@ mod tests {
             cool_off: 0,
         };
         let mut fbb = FlatBufferBuilder::new();
-        process(
-            &mut fbb,
-            &message,
+        DigitiserMessageProcessor::new(
+            1,
             &DetectorSettings {
                 mode: &Mode::FixedThresholdDiscriminator(test_parameters),
                 polarity: &Polarity::Positive,
                 baseline: Intensity::default(),
             },
-        );
+        )
+        .process(&mut fbb, &message);
 
         assert!(digitizer_event_list_message_buffer_has_identifier(
             fbb.finished_data()
@@ -270,15 +269,15 @@ mod tests {
             cool_off: 0,
         };
         let mut fbb = FlatBufferBuilder::new();
-        process(
-            &mut fbb,
-            &message,
+        DigitiserMessageProcessor::new(
+            2,
             &DetectorSettings {
                 mode: &Mode::FixedThresholdDiscriminator(test_parameters),
                 polarity: &Polarity::Positive,
                 baseline: Intensity::default(),
             },
-        );
+        )
+        .process(&mut fbb, &message);
 
         assert!(digitizer_event_list_message_buffer_has_identifier(
             fbb.finished_data()
@@ -317,15 +316,15 @@ mod tests {
             cool_off: 0,
         };
         let mut fbb = FlatBufferBuilder::new();
-        process(
-            &mut fbb,
-            &message,
+        DigitiserMessageProcessor::new(
+            1,
             &DetectorSettings {
                 mode: &Mode::FixedThresholdDiscriminator(test_parameters),
                 polarity: &Polarity::Positive,
                 baseline: 3,
             },
-        );
+        )
+        .process(&mut fbb, &message);
 
         assert!(digitizer_event_list_message_buffer_has_identifier(
             fbb.finished_data()
@@ -364,15 +363,15 @@ mod tests {
             cool_off: 0,
         };
         let mut fbb = FlatBufferBuilder::new();
-        process(
-            &mut fbb,
-            &message,
+        DigitiserMessageProcessor::new(
+            1,
             &DetectorSettings {
                 mode: &Mode::FixedThresholdDiscriminator(test_parameters),
                 polarity: &Polarity::Negative,
                 baseline: 10,
             },
-        );
+        )
+        .process(&mut fbb, &message);
 
         assert!(digitizer_event_list_message_buffer_has_identifier(
             fbb.finished_data()
@@ -395,4 +394,3 @@ mod tests {
         );
     }
 }
- */
