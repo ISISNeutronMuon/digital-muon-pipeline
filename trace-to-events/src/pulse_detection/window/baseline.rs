@@ -1,6 +1,7 @@
 //! [TODO]
 use super::{Real, Window};
 
+#[allow(unused)] // FIXME
 #[derive(Default, Clone)]
 pub(crate) struct Baseline {
     baseline: Real,
@@ -11,6 +12,7 @@ pub(crate) struct Baseline {
 }
 
 impl Baseline {
+    #[allow(unused)] // FIXME
     pub(crate) fn new(warm_up: usize, smoothing_factor: Real) -> Self {
         Baseline {
             warm_up,

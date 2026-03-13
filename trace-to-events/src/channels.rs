@@ -1,13 +1,12 @@
 //! Provides functions which extract and return lists of muon events using specified detectors and settings.
 use crate::{
     parameters::{
-        AdvancedMuonDetectorParameters, DetectorSettings,
-        DifferentialThresholdDiscriminatorParameters, FixedThresholdDiscriminatorParameters, Mode,
-        PeakHeightBasis, Polarity, SmoothingDetectorParameters,
+        DetectorSettings, DifferentialThresholdDiscriminatorParameters,
+        FixedThresholdDiscriminatorParameters, Mode, PeakHeightBasis, Polarity,
+        SmoothingDetectorParameters,
     },
     pulse_detection::{
-        AssembleIterable, EventsIterable, Real, WindowIterable,
-        advanced_muon_detector::{AdvancedMuonAssembler, AdvancedMuonDetector},
+        EventsIterable, Real, WindowIterable,
         detectors::{
             differential_threshold_detector::{
                 DifferentialThresholdDetector, DifferentialThresholdParameters,
@@ -15,7 +14,7 @@ use crate::{
             smoothing_detector::sec_deriv_smoothing_for_peaks,
         },
         threshold_detector::{ThresholdDetector, ThresholdDuration},
-        window::{Baseline, FiniteDifferences, SmoothingWindow},
+        window::FiniteDifferences,
     },
 };
 use digital_muon_common::{Intensity, Time};
@@ -41,13 +40,6 @@ pub(crate) fn find_channel_events(
             parameters,
         ),
         Mode::DifferentialThresholdDiscriminator(parameters) => find_differential_threshold_events(
-            trace,
-            sample_time,
-            detector_settings.polarity,
-            detector_settings.baseline as Real,
-            parameters,
-        ),
-        Mode::AdvancedMuonDetector(parameters) => find_advanced_events(
             trace,
             sample_time,
             detector_settings.polarity,
@@ -158,73 +150,6 @@ fn find_differential_threshold_events(
                 (pulse.1.peak_height - pulse.1.base_height) as Intensity
             }
         });
-    }
-    (time, voltage)
-}
-
-/// Extract muon events from the given trace, using the advanced muon detector and the given settings.
-/// # Parameters
-/// - trace: raw trace data.
-/// - sample_time: sample time in ns.
-/// - polarity: the polarity of the trace signal.
-/// - baseline: the baseline of the trace signal.
-/// - parameters: settings to use for the advanced muon detector.
-#[tracing::instrument(skip_all, level = "trace")]
-fn find_advanced_events(
-    trace: &ChannelTrace,
-    sample_time: Real,
-    polarity: &Polarity,
-    baseline: Real,
-    parameters: &AdvancedMuonDetectorParameters,
-) -> (Vec<Time>, Vec<Intensity>) {
-    let sign = match polarity {
-        Polarity::Positive => 1.0,
-        Polarity::Negative => -1.0,
-    };
-    let raw = trace
-        .voltage()
-        .unwrap()
-        .into_iter()
-        .enumerate()
-        .map(|(i, v)| (i as Real * sample_time, sign * (v as Real - baseline)));
-
-    let smoothed = raw
-        .clone()
-        .window(Baseline::new(parameters.baseline_length.unwrap_or(0), 0.1))
-        .window(SmoothingWindow::new(
-            parameters.smoothing_window_size.unwrap_or(1),
-        ))
-        .map(|(i, stats)| (i, stats.mean));
-
-    let events = smoothed
-        .clone()
-        .window(FiniteDifferences::<2>::new())
-        .events(AdvancedMuonDetector::new(
-            parameters.muon_onset,
-            parameters.muon_fall,
-            parameters.muon_termination,
-            parameters.duration,
-        ));
-
-    let pulses = events
-        .clone()
-        .assemble(AdvancedMuonAssembler::default())
-        .filter(|pulse| {
-            Option::zip(parameters.min_amplitude, pulse.peak.value)
-                .map(|(min, val)| min <= val)
-                .unwrap_or(true)
-        })
-        .filter(|pulse| {
-            Option::zip(parameters.max_amplitude, pulse.peak.value)
-                .map(|(max, val)| max >= val)
-                .unwrap_or(true)
-        });
-
-    let mut time = Vec::<Time>::new();
-    let mut voltage = Vec::<Intensity>::new();
-    for pulse in pulses {
-        time.push(pulse.steepest_rise.time.unwrap_or_default() as Time);
-        voltage.push(pulse.peak.value.unwrap_or_default() as Intensity);
     }
     (time, voltage)
 }

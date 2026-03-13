@@ -16,17 +16,13 @@
 //! ```
 
 pub(crate) mod datatype;
-pub(crate) mod pulse;
-
 pub(crate) mod detectors;
 pub(crate) mod iterators;
 pub(crate) mod window;
 
 pub(crate) use datatype::{EventData, EventPoint, RealArray, Stats, Temporal, TracePoint};
-pub(crate) use detectors::{Assembler, Detector, advanced_muon_detector, threshold_detector};
-pub(crate) use iterators::{AssembleIterable, EventsIterable, WindowIterable};
-
-pub(crate) use pulse::Pulse;
+pub(crate) use detectors::{Detector, threshold_detector};
+pub(crate) use iterators::{EventsIterable, WindowIterable};
 
 /// Standard type to use for real numbers.
 pub(crate) type Real = f64;
