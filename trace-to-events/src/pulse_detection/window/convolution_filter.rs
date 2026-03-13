@@ -143,7 +143,6 @@ impl Window for ConvolutionFilter {
         time - (self.size - 1.) / 2.0
     }
 }
-
 impl SliceWindow for ConvolutionFilter {
     type TimeType = Real;
     type InputType = Real;
@@ -162,7 +161,6 @@ impl SliceWindow for ConvolutionFilter {
         time - (self.size - 1.) / 2.0
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
