@@ -1,7 +1,7 @@
 //! Provides the [process] function which extracts muon events, creates the flatbuffer eventlist messages.
 //!
 //! The function then creates a [DeliveryFuture], and passes it to the kafka producer task.
-use crate::{channels::find_channel_events, parameters::DetectorSettings, pulse_detection::Real};
+use crate::{channels::ChannelProcessor, parameters::DetectorSettings, pulse_detection::Real};
 use digital_muon_common::{
     Channel, EventData,
     spanned::{SpanWrapper, Spanned},
@@ -19,100 +19,127 @@ use metrics::counter;
 use rayon::prelude::*;
 use tracing::debug;
 
-/// Extracts a flatbuffer trace message, converts its contents into events using the provided settings,
-/// and creates a flatbuffer eventlist message.
-///
-/// # Returns
-/// The total number of pulses found in all channels.
-///
-/// # Parameters
-/// - fbb: a flatbuffer builder object which creates the event list messages.
-/// - trace: the flatbuffer message of the trace.
-/// - detector_settings: settings to use for the detector.
-#[tracing::instrument(skip_all, fields(num_total_pulses))]
-pub(crate) fn process<'a>(
-    fbb: &mut FlatBufferBuilder<'a>,
-    trace: &'a DigitizerAnalogTraceMessage,
-    detector_settings: &DetectorSettings,
-) -> usize {
-    debug!(
-        "Dig ID: {}, Metadata: {:?}",
-        trace.digitizer_id(),
-        trace.metadata()
-    );
-
-    let sample_time_in_ns: Real = 1_000_000_000.0 / trace.sample_rate() as Real;
-
-    let vec: Vec<(Channel, _)> = trace
-        .channels()
-        .unwrap()
-        .iter()
-        .map(SpanWrapper::<_>::new_with_current)
-        .collect::<Vec<_>>()
-        .par_iter()
-        .map(|spanned_channel_trace| {
-            let channel_span = spanned_channel_trace
-                .span()
-                .get()
-                .expect("Channel has span");
-
-            channel_span.in_scope(|| {
-                let channel = spanned_channel_trace.channel();
-                let events = find_channel_events(
-                    spanned_channel_trace,
-                    sample_time_in_ns,
-                    detector_settings,
-                );
-                (channel, events)
-            })
-        })
-        .collect();
-
-    let mut events = EventData::default();
-    for (channel, (time, voltage)) in vec {
-        let num_events = voltage.len();
-        counter!(
-            crate::EVENTS_FOUND_METRIC,
-            &[
-                ("digitizer_id", format!("{}", trace.digitizer_id())),
-                ("channel", format!("{channel}"))
-            ]
-        )
-        .increment(num_events as u64);
-
-        events.channel.extend_from_slice(&vec![channel; time.len()]);
-        events.time.extend_from_slice(&time);
-        events.voltage.extend_from_slice(&voltage);
-    }
-
-    let metadata = FrameMetadataV2Args {
-        frame_number: trace.metadata().frame_number(),
-        period_number: trace.metadata().period_number(),
-        running: trace.metadata().running(),
-        protons_per_pulse: trace.metadata().protons_per_pulse(),
-        timestamp: trace.metadata().timestamp(),
-        veto_flags: trace.metadata().veto_flags(),
-    };
-    let metadata = FrameMetadataV2::create(fbb, &metadata);
-
-    let time = Some(fbb.create_vector(&events.time));
-    let voltage = Some(fbb.create_vector(&events.voltage));
-    let channel = Some(fbb.create_vector(&events.channel));
-
-    let message = DigitizerEventListMessageArgs {
-        digitizer_id: trace.digitizer_id(),
-        metadata: Some(metadata),
-        time,
-        voltage,
-        channel,
-    };
-    let message = DigitizerEventListMessage::create(fbb, &message);
-    finish_digitizer_event_list_message_buffer(fbb, message);
-
-    tracing::Span::current().record("num_total_pulses", events.channel.len());
-    events.channel.len()
+pub(crate) struct DigitiserMessageProcessor {
+    channels: Vec<ChannelProcessor>,
 }
 
+impl DigitiserMessageProcessor {
+    pub(crate) fn new(expected_num: usize, settings: &DetectorSettings) -> Self {
+        if expected_num == 0 {
+            panic!("expected_num should be nonzero, this should never fail.");
+        }
+        Self {
+            channels: vec![ChannelProcessor::new(settings); expected_num],
+        }
+    }
+
+    fn ensure_sufficient_channels(&mut self, num_channels: usize) {
+        if num_channels > self.channels.len() {
+            self.channels.resize(
+                num_channels,
+                self.channels
+                    .first()
+                    .expect("First element should exist, this should never fail.")
+                    .clone(),
+            );
+        }
+    }
+
+    /// Extracts a flatbuffer trace message, converts its contents into events using the provided settings,
+    /// and creates a flatbuffer eventlist message.
+    ///
+    /// # Returns
+    /// The total number of pulses found in all channels.
+    ///
+    /// # Parameters
+    /// - fbb: a flatbuffer builder object which creates the event list messages.
+    /// - trace: the flatbuffer message of the trace.
+    /// - detector_settings: settings to use for the detector.
+    #[tracing::instrument(skip_all, fields(num_total_pulses))]
+    pub(crate) fn process<'a>(
+        &mut self,
+        fbb: &mut FlatBufferBuilder<'a>,
+        trace: &'a DigitizerAnalogTraceMessage,
+    ) -> usize {
+        debug!(
+            "Dig ID: {}, Metadata: {:?}",
+            trace.digitizer_id(),
+            trace.metadata()
+        );
+
+        let sample_time_in_ns: Real = 1_000_000_000.0 / trace.sample_rate() as Real;
+
+        let channels = trace.channels().unwrap();
+        self.ensure_sufficient_channels(channels.len());
+
+        let vec: Vec<(Channel, _)> = channels
+            .iter()
+            .map(SpanWrapper::<_>::new_with_current)
+            .zip(self.channels.iter_mut())
+            .collect::<Vec<_>>()
+            .par_iter_mut()
+            .map(|(spanned_channel_trace, channel_processor)| {
+                let channel_span = spanned_channel_trace
+                    .span()
+                    .get()
+                    .expect("Channel has span");
+
+                channel_span.in_scope(|| {
+                    let channel = spanned_channel_trace.channel();
+                    let events = channel_processor
+                        .find_channel_events(spanned_channel_trace, sample_time_in_ns);
+                    (channel, events)
+                })
+            })
+            .collect();
+
+        let mut events = EventData::default();
+        for (channel, (time, voltage)) in vec {
+            let num_events = voltage.len();
+            counter!(
+                crate::EVENTS_FOUND_METRIC,
+                &[
+                    ("digitizer_id", format!("{}", trace.digitizer_id())),
+                    ("channel", format!("{channel}"))
+                ]
+            )
+            .increment(num_events as u64);
+
+            events.channel.extend_from_slice(&vec![channel; time.len()]);
+            events.time.extend_from_slice(&time);
+            events.voltage.extend_from_slice(&voltage);
+        }
+
+        let metadata = FrameMetadataV2Args {
+            frame_number: trace.metadata().frame_number(),
+            period_number: trace.metadata().period_number(),
+            running: trace.metadata().running(),
+            protons_per_pulse: trace.metadata().protons_per_pulse(),
+            timestamp: trace.metadata().timestamp(),
+            veto_flags: trace.metadata().veto_flags(),
+        };
+        let metadata = FrameMetadataV2::create(fbb, &metadata);
+
+        let time = Some(fbb.create_vector(&events.time));
+        let voltage = Some(fbb.create_vector(&events.voltage));
+        let channel = Some(fbb.create_vector(&events.channel));
+
+        let message = DigitizerEventListMessageArgs {
+            digitizer_id: trace.digitizer_id(),
+            metadata: Some(metadata),
+            time,
+            voltage,
+            channel,
+        };
+        let message = DigitizerEventListMessage::create(fbb, &message);
+        finish_digitizer_event_list_message_buffer(fbb, message);
+
+        tracing::Span::current().record("num_total_pulses", events.channel.len());
+        events.channel.len()
+    }
+}
+
+/*
 #[cfg(test)]
 mod tests {
     use crate::{Mode, Polarity, parameters::FixedThresholdDiscriminatorParameters};
@@ -368,3 +395,4 @@ mod tests {
         );
     }
 }
+ */

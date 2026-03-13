@@ -11,6 +11,7 @@ mod parameters;
 mod processing;
 mod pulse_detection;
 
+use crate::processing::DigitiserMessageProcessor;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use const_format::concatcp;
@@ -60,6 +61,12 @@ type DigitiserEventListToBufferSender = Sender<InstrumentedDeliveryFuture>;
 type TrySendDigitiserEventListError = TrySendError<InstrumentedDeliveryFuture>;
 
 const EVENTS_FOUND_METRIC: &str = concatcp!(METRIC_NAME_PREFIX, "events_found");
+
+struct SenderParameters<'a> {
+    event_topic: &'a str,
+    sender: &'a DigitiserEventListToBufferSender,
+    producer: &'a FutureProducer,
+}
 
 /// [clap] derived struct to handle command line parameters.
 #[derive(Debug, Parser)]
@@ -181,15 +188,27 @@ async fn main() -> miette::Result<()> {
 
     component_info_metric("trace-to-events");
 
+    let mut message_processor = DigitiserMessageProcessor::new(
+        8,
+        &DetectorSettings {
+            polarity: &args.polarity,
+            baseline: args.baseline,
+            mode: &args.mode,
+        },
+    );
+    let sender_parameters = SenderParameters {
+        event_topic: &args.event_topic,
+        sender: &sender,
+        producer: &producer,
+    };
     loop {
         tokio::select! {
             msg = consumer.recv() => match msg {
                 Ok(m) => {
                     process_kafka_message(
                         &tracer,
-                        &args,
-                        &sender,
-                        &producer,
+                        &sender_parameters,
+                        &mut message_processor,
                         &m,
                     ).into_diagnostic()?;
                     consumer.commit_message(&m, CommitMode::Async).unwrap();
@@ -226,33 +245,31 @@ fn spanned_root_as_digitizer_analog_trace_message(
 #[instrument(skip_all, level = "debug", err(level = "warn"))]
 fn process_kafka_message(
     tracer: &TracerEngine,
-    args: &Cli,
-    sender: &DigitiserEventListToBufferSender,
-    producer: &FutureProducer,
-    m: &BorrowedMessage,
+    sender_parameters: &SenderParameters,
+    message_processor: &mut DigitiserMessageProcessor,
+    message: &BorrowedMessage,
 ) -> Result<(), TrySendDigitiserEventListError> {
     debug!(
         "key: '{:?}', topic: {}, partition: {}, offset: {}, timestamp: {:?}",
-        m.key(),
-        m.topic(),
-        m.partition(),
-        m.offset(),
-        m.timestamp()
+        message.key(),
+        message.topic(),
+        message.partition(),
+        message.offset(),
+        message.timestamp()
     );
 
-    if let Some(payload) = m.payload() {
+    if let Some(payload) = message.payload() {
         if digitizer_analog_trace_message_buffer_has_identifier(payload) {
             match spanned_root_as_digitizer_analog_trace_message(payload) {
-                Ok(data) => {
-                    let kafka_timestamp_ms = m.timestamp().to_millis().unwrap_or(-1);
+                Ok(trace_message) => {
+                    let kafka_timestamp_ms = message.timestamp().to_millis().unwrap_or(-1);
                     process_digitiser_trace_message(
                         tracer,
-                        m.headers(),
-                        args,
-                        sender,
-                        producer,
                         kafka_timestamp_ms,
-                        data,
+                        message.headers(),
+                        sender_parameters,
+                        message_processor,
+                        trace_message,
                     )?
                 }
                 Err(e) => {
@@ -265,7 +282,7 @@ fn process_kafka_message(
                 }
             }
         } else {
-            warn!("Unexpected message type on topic \"{}\"", m.topic());
+            warn!("Unexpected message type on topic \"{}\"", message.topic());
             counter!(
                 MESSAGES_RECEIVED,
                 &[messages_received::get_label(MessageKind::Unexpected)]
@@ -301,11 +318,10 @@ fn process_kafka_message(
 )]
 fn process_digitiser_trace_message(
     tracer: &TracerEngine,
-    headers: Option<&BorrowedHeaders>,
-    args: &Cli,
-    sender: &DigitiserEventListToBufferSender,
-    producer: &FutureProducer,
     kafka_timestamp_ms: i64,
+    headers: Option<&BorrowedHeaders>,
+    sender_parameters: &SenderParameters,
+    message_processor: &mut DigitiserMessageProcessor,
     message: DigitizerAnalogTraceMessage,
 ) -> Result<(), TrySendDigitiserEventListError> {
     let did = format!("{}", message.digitizer_id());
@@ -360,32 +376,30 @@ fn process_digitiser_trace_message(
 
     headers.conditional_extract_to_current_span(tracer.use_otel());
     let mut fbb = FlatBufferBuilder::new();
-    let num_total_pulses = processing::process(
-        &mut fbb,
-        &message,
-        &DetectorSettings {
-            polarity: &args.polarity,
-            baseline: args.baseline,
-            mode: &args.mode,
-        },
-    );
+    let num_total_pulses = message_processor.process(&mut fbb, &message);
     tracing::Span::current().record("num_total_pulses", num_total_pulses);
     tracing::Span::current().record(
         "send_digitiser_eventlist_buffer_capcacity",
-        sender.capacity(),
+        sender_parameters.sender.capacity(),
     );
 
-    let future_record = FutureRecord::to(&args.event_topic)
+    let future_record = FutureRecord::to(sender_parameters.event_topic)
         .payload(fbb.finished_data())
         .conditional_inject_current_span_into_headers(tracer.use_otel())
         .key("Digitiser Events List");
 
-    let future = producer.send_result(future_record).expect("Producer sends");
+    let future = sender_parameters
+        .producer
+        .send_result(future_record)
+        .expect("Producer sends");
 
-    if let Err(e) = sender.try_send(tracing::Instrument::instrument(
-        future,
-        tracing::Span::current(),
-    )) {
+    if let Err(e) = sender_parameters
+        .sender
+        .try_send(tracing::Instrument::instrument(
+            future,
+            tracing::Span::current(),
+        ))
+    {
         match &e {
             TrySendError::Closed(_) => {
                 error!("Send-Frame Channel Closed");
