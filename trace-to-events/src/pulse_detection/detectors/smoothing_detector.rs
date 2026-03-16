@@ -8,6 +8,14 @@ use std::ops::Range;
 use crate::pulse_detection::Real;
 use tracing::instrument;
 
+pub(crate) struct SmoothingSlices<'a> {
+    pub(crate) time: &'a [Real],
+    pub(crate) values: &'a [Real],
+    pub(crate) kernel: &'a [Real],
+    pub(crate) smooth: &'a mut [Real],
+    pub(crate) second_deriv: &'a mut [Real],
+}
+
 /// Second derivative smoothing peak finder
 /// # Parameters
 /// - x: x data.
@@ -22,42 +30,41 @@ use tracing::instrument;
 ///
 #[instrument(skip_all)]
 pub(crate) fn sec_deriv_smoothing_for_peaks(
-    x: &[Real],
-    y: &[Real],
+    cache: &mut SmoothingSlices,
     noise_centile: Real,
     kernel_sigma: Real,
     nsig_noise: Real,
     min_size: Option<usize>,
 ) -> Result<(Vec<Real>, Vec<Real>), &'static str> {
-    if x.len() != y.len() {
+    if cache.time.len() != cache.values.len() {
         return Err("x and y must have same length");
     }
-    let n = x.len();
+    let n = cache.time.len();
     if n == 0 {
         return Ok(Default::default());
     }
 
     // 1. Smooth y with Gaussian kernel
-    let kernel = gaussian_kernel(kernel_sigma);
-    let y_smooth = convolve_reflect(y, &kernel);
+    //let kernel = gaussian_kernel(kernel_sigma);
+    convolve_reflect(cache.values, cache.kernel, cache.smooth);
 
     // 2. second derivative (discrete Laplacian in 1D): d2[i] = y_smooth[i-1] - 2*y_smooth[i] + y_smooth[i+1]
     // use reflect for boundaries
-    let yd2: Vec<f64> = second_deriv(&y_smooth, kernel_sigma.powi(2));
+    second_deriv(cache.smooth, kernel_sigma.powi(2), cache.second_deriv);
 
     // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
-    let percentile = ((yd2.len() as f64 * noise_centile) / 100.0) as usize;
-    let noise_std = stddev(&yd2[percentile..yd2.len()])?;
+    let percentile = ((cache.second_deriv.len() as f64 * noise_centile) / 100.0) as usize;
+    let noise_std = stddev(&cache.second_deriv[percentile..cache.second_deriv.len()])?;
 
     // 4. label contiguous regions where yd2 < -nsig_noise * noise_std
     let threshold = -nsig_noise * noise_std;
-    let regions = find_region_bounds(&yd2, threshold);
+    let regions = find_region_bounds(cache.second_deriv, threshold);
 
     // 5. pick peaks
     // indices of peaks
     let ipks = match min_size {
-        Some(min_size) => filter_minsize_and_find_minima(min_size, &yd2, &regions),
-        None => find_minima_no_minsize(&yd2, &regions),
+        Some(min_size) => filter_minsize_and_find_minima(min_size, cache.second_deriv, &regions),
+        None => find_minima_no_minsize(cache.second_deriv, &regions),
     };
 
     // Produce x and y arrays at peak indices
@@ -65,8 +72,8 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(
     let mut ypk = Vec::<Real>::with_capacity(ipks.len());
     for idx in ipks {
         if idx < n {
-            xpk.push(x[idx]);
-            ypk.push(y[idx]);
+            xpk.push(cache.time[idx]);
+            ypk.push(cache.values[idx]);
         }
     }
     Ok((xpk, ypk))
@@ -79,7 +86,7 @@ pub(crate) fn sec_deriv_smoothing_for_peaks(
 /// A vector of length 8*sigma + 1 (or 3, of sigma < 1.4),
 /// with the values of the Gaussian centred on middle element.
 /// This length is deemed sufficient to allow the curve to serve as a convolution window.
-fn gaussian_kernel(sigma: Real) -> Vec<Real> {
+pub(crate) fn gaussian_kernel(sigma: Real) -> Vec<Real> {
     if sigma <= 0.0 {
         return vec![1.0];
     }
@@ -116,31 +123,27 @@ fn reflect_index(idx: i32, n: usize) -> usize {
 }
 
 // Gaussian Laplace filter
-fn convolve_reflect(data: &[Real], kernel: &[Real]) -> Vec<Real> {
+fn convolve_reflect(data: &[Real], kernel: &[Real], output: &mut [Real]) {
     let data_length = data.len();
     let radius = kernel.len() as i32 / 2;
-    (0..data_length as i32)
-        .map(|idx| {
-            kernel
-                .iter()
-                .enumerate()
-                .map(|(kernel_idx, &coef)| {
-                    coef * data[reflect_index(idx + (kernel_idx as i32 - radius), data_length)]
-                })
-                .sum()
-        })
-        .collect()
+    for idx in 0..data_length {
+        output[idx] = kernel
+            .iter()
+            .enumerate()
+            .map(|(kernel_idx, &coef)| {
+                coef * data[reflect_index(idx as i32 + (kernel_idx as i32 - radius), data_length)]
+            })
+            .sum()
+    }
 }
 
 // 2.
-fn second_deriv(data: &[Real], kernel_sigma_sqr: Real) -> Vec<Real> {
-    (0..data.len())
-        .map(|i| {
-            let im = reflect_index(i as i32 - 1, data.len());
-            let ip = reflect_index(i as i32 + 1, data.len());
-            (data[im] - 2.0 * data[i] + data[ip]) * kernel_sigma_sqr
-        })
-        .collect::<Vec<_>>()
+fn second_deriv(data: &[Real], kernel_sigma_sqr: Real, output: &mut [Real]) {
+    for i in 0..data.len() {
+        let im = reflect_index(i as i32 - 1, data.len());
+        let ip = reflect_index(i as i32 + 1, data.len());
+        output[i] = (data[im] - 2.0 * data[i] + data[ip]) * kernel_sigma_sqr
+    }
 }
 
 // 3.
@@ -457,7 +460,8 @@ mod tests {
     fn test_kernel_convolution() {
         let kernel_sigma = 2.0;
         let kernel = gaussian_kernel(kernel_sigma);
-        let y_smooth = convolve_reflect(&Y, &kernel);
+        let mut y_smooth = vec![Default::default(); Y.len()];
+        convolve_reflect(&Y, &kernel, y_smooth.as_mut_slice());
 
         const SMOOTH: [f64; NX] = [
             0.031268130092906694,
@@ -557,8 +561,10 @@ mod tests {
     fn test_second_deriv() {
         let kernel_sigma = 2.0;
         let kernel = gaussian_kernel(kernel_sigma);
-        let y_smooth = convolve_reflect(&Y, &kernel);
-        let yd2: Vec<f64> = second_deriv(&y_smooth, kernel_sigma);
+        let mut y_smooth = vec![Default::default(); Y.len()];
+        convolve_reflect(&Y, &kernel, y_smooth.as_mut_slice());
+        let mut yd2 = vec![Default::default(); Y.len()];
+        second_deriv(&y_smooth, kernel_sigma, yd2.as_mut_slice());
 
         const SECOND_DERIV: [f64; NX] = [
             0.003933263371568241,
@@ -658,8 +664,10 @@ mod tests {
     fn test_region() {
         let kernel_sigma = 2.0;
         let kernel = gaussian_kernel(kernel_sigma);
-        let y_smooth = convolve_reflect(&Y, &kernel);
-        let yd2: Vec<f64> = second_deriv(&y_smooth, kernel_sigma);
+        let mut y_smooth = vec![Default::default(); Y.len()];
+        convolve_reflect(&Y, &kernel, y_smooth.as_mut_slice());
+        let mut yd2 = vec![Default::default(); Y.len()];
+        second_deriv(&y_smooth, kernel_sigma, yd2.as_mut_slice());
 
         // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
         let percentile = ((yd2.len() as f64 * 90.0) / 100.0) as usize;
@@ -678,8 +686,10 @@ mod tests {
     fn test_peaks_no_min() {
         let kernel_sigma = 2.0;
         let kernel = gaussian_kernel(kernel_sigma);
-        let y_smooth = convolve_reflect(&Y, &kernel);
-        let yd2: Vec<f64> = second_deriv(&y_smooth, kernel_sigma);
+        let mut y_smooth = vec![Default::default(); Y.len()];
+        convolve_reflect(&Y, &kernel, y_smooth.as_mut_slice());
+        let mut yd2 = vec![Default::default(); Y.len()];
+        second_deriv(&y_smooth, kernel_sigma, yd2.as_mut_slice());
 
         // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
         let percentile = ((yd2.len() as f64 * 90.0) / 100.0) as usize;
@@ -698,8 +708,10 @@ mod tests {
     fn test_peaks_minsize() {
         let kernel_sigma = 2.0;
         let kernel = gaussian_kernel(kernel_sigma);
-        let y_smooth = convolve_reflect(&Y, &kernel);
-        let yd2: Vec<f64> = second_deriv(&y_smooth, kernel_sigma);
+        let mut y_smooth = vec![Default::default(); Y.len()];
+        convolve_reflect(&Y, &kernel, y_smooth.as_mut_slice());
+        let mut yd2 = vec![Default::default(); Y.len()];
+        second_deriv(&y_smooth, kernel_sigma, yd2.as_mut_slice());
 
         // 3. estimate noise from last portion of x (x > percentile(x, noise_centile))
         let percentile = ((yd2.len() as f64 * 90.0) / 100.0) as usize;
@@ -716,7 +728,17 @@ mod tests {
 
     #[test]
     fn test_detector() {
-        let (x, y) = sec_deriv_smoothing_for_peaks(&X, &Y, 90.0, 2.0, 5.0, Some(2)).unwrap();
+        let kernel = gaussian_kernel(2.0);
+        let mut smooth = vec![Default::default(); Y.len()];
+        let mut second_deriv = vec![Default::default(); Y.len()];
+        let mut slices = SmoothingSlices {
+            time: X.as_slice(),
+            values: Y.as_slice(),
+            kernel: kernel.as_slice(),
+            smooth: smooth.as_mut_slice(),
+            second_deriv: second_deriv.as_mut_slice(),
+        };
+        let (x, y) = sec_deriv_smoothing_for_peaks(&mut slices, 90.0, 2.0, 5.0, Some(2)).unwrap();
         assert_eq!(x.len(), 2);
         assert_eq!(y.len(), 2);
         assert_approx_eq!(x[0], 3.6112);
