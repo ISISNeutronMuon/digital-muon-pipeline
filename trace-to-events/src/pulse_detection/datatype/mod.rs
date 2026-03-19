@@ -12,5 +12,6 @@ pub(crate) use trace::{RealArray, Stats, TraceArray, TracePoint};
 /// This trait abstracts any type used as a time variable.
 pub(crate) trait Temporal: Default + Copy + Debug + PartialEq {}
 
+impl Temporal for usize {}
 impl Temporal for Time {}
 impl Temporal for Real {}

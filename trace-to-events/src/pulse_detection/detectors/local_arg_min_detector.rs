@@ -1,6 +1,5 @@
 //! This detector registers an event whenever the input stream achieves a local minima.
 use super::{Detector, EventData, Real};
-use digital_muon_common::Time;
 
 /// The time-independnt data of the detector's event.
 pub(crate) type Data = (); //TraceArray<3, Real>;
@@ -15,7 +14,7 @@ pub(crate) struct LocalArgMinDetector {
 }
 
 /// The time-dependent event of the local minima detector.
-pub(crate) type LocalArgMinEvent = (Time, Data);
+pub(crate) type LocalArgMinEvent = usize;
 
 #[derive(Default, Clone)]
 struct CyclingCache {
@@ -52,17 +51,17 @@ impl CyclingCache {
 }
 
 impl Detector for LocalArgMinDetector {
-    type TracePointType = (Time, Real);
+    type TracePointType = (usize, Real);
     type EventPointType = LocalArgMinEvent;
 
-    fn signal(&mut self, time: Time, value: Real) -> Option<LocalArgMinEvent> {
+    fn signal(&mut self, time: usize, value: Real) -> Option<LocalArgMinEvent> {
         if self.cache.is_empty() {
-            self.default = Some((time, ()));
+            self.default = Some(time);
         }
 
         let event = self.cache
             .cycle_in_new_and_test_for_minimum(value)
-            .then(||(time - 1, ()));
+            .then(||time - 1);
 
         if self.default.is_some() && event.is_some() {
             self.default = None
@@ -87,7 +86,7 @@ mod tests {
         let mut iter = data
             .into_iter()
             .enumerate()
-            .map(|(i, v)| (i as Time, v as Real))
+            .map(|(i, v)| (i, v as Real))
             .events(detector);
         assert_eq!(iter.next(), None);
     }
@@ -99,11 +98,11 @@ mod tests {
         let mut iter = data
             .into_iter()
             .enumerate()
-            .map(|(i, v)| (i as Time, v as Real))
+            .map(|(i, v)| (i, v as Real))
             .events(detector);
-        assert_eq!(iter.next(), Some((2, ())));
-        assert_eq!(iter.next(), Some((5, ())));
-        assert_eq!(iter.next(), Some((8, ())));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), Some(5));
+        assert_eq!(iter.next(), Some(8));
         assert_eq!(iter.next(), None);
     }
 
@@ -114,9 +113,9 @@ mod tests {
         let mut iter = data
             .into_iter()
             .enumerate()
-            .map(|(i, v)| (i as Time, v as Real))
+            .map(|(i, v)| (i, v as Real))
             .events(detector);
-        assert_eq!(iter.next(), Some((0, ())));
+        assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), None);
     }
 }

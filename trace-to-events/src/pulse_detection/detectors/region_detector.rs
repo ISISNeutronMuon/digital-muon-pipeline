@@ -1,21 +1,18 @@
 //! This detector breaks the stream into regions whose second derivative is greater or equal to a given threshold.
-use std::mem::take;
-
-use crate::pulse_detection::{Detector, EventData, EventPoint, Real, datatype::TraceArray};
-use digital_muon_common::Time;
+use crate::pulse_detection::{Detector, EventData, EventPoint, Real};
 
 /// Represents a region of the trace.
-pub(crate) type Data = Vec<(Time, Real)>;
+pub(crate) type Data = usize;
 
 impl EventData for Data {}
 
 impl EventPoint for Data {
-    type TimeType = Time;
+    type TimeType = usize;
     type EventType = Self;
 }
 
 /// (Time, Data) pair defining a pulse detection event.
-pub(crate) type RegionEvent = Data;
+pub(crate) type RegionEvent = (usize, Data);
 
 /// Detects pulses in a trace by analysing the differential of the trace.
 #[derive(Default, Clone)]
@@ -25,7 +22,7 @@ pub(crate) struct RegionDetector {
     min_size: Option<usize>,
 
     /// The current state of the detector.
-    partial_region: RegionEvent,
+    partial_region: Option<RegionEvent>,
 }
 
 impl RegionDetector {
@@ -39,7 +36,11 @@ impl RegionDetector {
     }
 
     fn filter_partial_region(&mut self) -> Option<RegionEvent> {
-        if self.partial_region.is_empty() {
+        self.partial_region.take().and_then(|partial_region|
+            self.min_size
+                .is_none_or(|min_size| partial_region.1 >= min_size + partial_region.0)
+                .then_some(partial_region))
+/*        if self.partial_region.is_none() {
             // If there is no partial region, then do nothing and return None.
             None
         } else {
@@ -48,23 +49,23 @@ impl RegionDetector {
             self.min_size
                 .is_none_or(|min_size| partial_region.len() >= min_size)
                 .then_some(partial_region)
-        }
+        } */
     }
 }
 
 impl Detector for RegionDetector {
-    type TracePointType = (Time, TraceArray<3, Real>);
+    type TracePointType = (usize,Real);
     type EventPointType = RegionEvent;
 
-    fn signal(&mut self, time: Time, value: TraceArray<3, Real>) -> Option<RegionEvent> {
-        if value[2] > self.threshold {
+    fn signal(&mut self, time: usize, value: Real) -> Option<RegionEvent> {
+        if value > self.threshold {
             // If the second derivative is above the threshold value,
             // filter and return any partial region.
             self.filter_partial_region()
         } else {
-            // Otherwise, append the current value to the current partial region,
-            // and return None.
-            self.partial_region.push((time, value[2]));
+            // Otherwise, set the current partial region's right-bound, to the current time
+            // (inserting a new one if necessary), and return None.
+            self.partial_region.get_or_insert_with(||(time,Default::default())).1 = time;
             None
         }
     }
@@ -183,15 +184,17 @@ mod tests {
         let pulses = SECOND_DERIV
             .iter()
             .enumerate()
-            .map(|(i, v)| (i as Time, TraceArray::new([*v; 3])))
+            .map(|(i, v)| (i, *v))
             .events(RegionDetector::new(-noise_std * 5.0, None))
             .flat_map(|region| {
-                region
-                    .into_iter()
+                SECOND_DERIV.iter()
+                    .cloned()
+                    .enumerate()
+                    .take(region.1)
+                    .skip(region.0)
                     .events(LocalArgMinDetector::default())
                     .collect::<Vec<_>>()
             })
-            .map(|(t, _)| t)
             .collect::<Vec<_>>();
         assert_eq!(pulses, vec![8, 38]);
     }
@@ -208,15 +211,17 @@ mod tests {
         let pulses = SECOND_DERIV
             .iter()
             .enumerate()
-            .map(|(i, v)| (i as Time, TraceArray::new([*v; 3])))
-            .events(RegionDetector::new(-noise_std * 5.0, Some(6)))
+            .map(|(i, v)| (i, *v))
+            .events(RegionDetector::new(-noise_std * 5.0, Some(5)))
             .flat_map(|region| {
-                region
-                    .into_iter()
+                SECOND_DERIV.iter()
+                    .cloned()
+                    .enumerate()
+                    .take(region.1)
+                    .skip(region.0)
                     .events(LocalArgMinDetector::default())
                     .collect::<Vec<_>>()
             })
-            .map(|(t, _)| t)
             .collect::<Vec<_>>();
         assert_eq!(pulses, vec![38]);
     }
