@@ -12,12 +12,12 @@
 //! ```
 //use crate::pulse_detection::window::SliceWindow;
 
-use num::integer::binomial;
+use num::{Integer, integer::binomial};
 
 use crate::pulse_detection::window::SliceWindow;
 
 use super::{Real, Window};
-use std::{collections::VecDeque, ops::Range};
+use std::collections::VecDeque;
 
 /// Specifies a kernel that resolves to a `Vec<Real>` by calling `Self::generate_kernel`.
 #[derive(Clone)]
@@ -57,15 +57,15 @@ impl KernelType {
             }
             KernelType::FiniteDifference { order } => {
                 (0..order + 1)
-                    .map(|i| if i & 1 == 1 { -1. } else { 1. } * (binomial(order, i) as Real))
+                    .map(|i| if (i + order).is_even() { 1. } else { -1. } * (binomial(order, i) as Real))
                     .collect::<Vec<_>>()
             }
             KernelType::Composition { left, right } => {
                 let left = left.generate_kernel();
                 let right = right.generate_kernel();
-                (0..left.len()).map(|i|
+                (0..left.len() + right.len()).map(|i|
                     (0..right.len())
-                        .map(|j| (i >= j)
+                        .map(|j| (i < left.len() + j && i >= j)
                             .then(||left[i - j]*right[j])
                             .unwrap_or_default()
                         ).sum()
@@ -127,7 +127,9 @@ impl Window for ConvolutionFilter {
             self.window.pop_front().unwrap_or_default();
         }
         self.window.push_back(value);
-        self.value = self.apply_slice(self.kernel.as_slice());
+        self.value = Iterator::zip(self.kernel.iter(), self.window.iter())
+            .map(|(x, y)| x * y)
+            .sum();
         self.is_full()
     }
 
@@ -149,8 +151,8 @@ impl SliceWindow for ConvolutionFilter {
     type InputType = Real;
     type OutputType = Real;
 
-    fn apply_to_slice<'a>(&mut self, output: &'a mut[Self::InputType]) -> &'a [Self::InputType] {
-        let output_range = 0..output.len() - self.kernel_size();
+    fn apply_to_slice<'a>(&self, output: &'a mut[Self::InputType]) -> &'a [Self::InputType] {
+        let output_range = 0..output.len() - self.kernel_size() + 1;
         for i in output_range.clone() {
             let value = self.apply_slice(&output[i..i + self.kernel_size()]);
             output[i] = value;
@@ -168,6 +170,7 @@ mod tests {
     use super::*;
     use crate::pulse_detection::iterators::{PaddingIterable, WindowIterable};
     use assert_approx_eq::assert_approx_eq;
+    use digital_muon_common::Intensity;
 
     #[test]
     fn test_gaussian_kernel_sigma_zero() {
@@ -520,6 +523,82 @@ mod tests {
 
         for ((_, y1), y2) in smooth.iter().zip(SMOOTH.iter()) {
             assert_eq!(y1, y2);
+        }
+    }
+
+    #[test]
+    fn test_finite_differnece() {
+        let kernel = KernelType::FiniteDifference { order: 1 };
+        assert_eq!(kernel.generate_kernel(), [-1.0, 1.0]);
+        let kernel = KernelType::FiniteDifference { order: 2 };
+        assert_eq!(kernel.generate_kernel(), [1.0, -2.0, 1.0]);
+        let kernel = KernelType::FiniteDifference { order: 3 };
+        assert_eq!(kernel.generate_kernel(), [-1.0, 3.0, -3.0, 1.0]);
+        let kernel = KernelType::FiniteDifference { order: 4 };
+        assert_eq!(kernel.generate_kernel(), [1.0, -4.0, 6.0, -4.0, 1.0]);
+    }
+
+    #[test]
+    fn test_finite_differnece_one_sample_data() {
+        let input: Vec<Intensity> = vec![0, 6, 2, 1, 3, 1, 0];
+        let kernel = KernelType::FiniteDifference { order: 1 };
+        let conv = ConvolutionFilter::new(kernel);
+        assert_eq!(conv.kernel_size(), 2);
+
+        let mut slice_output = input.iter().cloned().map(|x|x as Real).collect::<Vec<_>>();
+        conv.apply_to_slice(slice_output.as_mut_slice());
+
+        let mut output = input
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as Real, v as Real))
+            .window(conv);
+
+
+        let expected = [6., -4., -1., 2., -2., -1.];
+        for i in 0..6{
+            let next = output.next();
+            assert_eq!(next, Some((i as Real + 0.5, expected[i])));
+            assert_eq!(expected[i], slice_output[i]);
+        }
+        assert!(output.next().is_none());
+    }
+
+    #[test]
+    fn test_finite_differnece_two_sample_data() {
+        let input: Vec<Intensity> = vec![0, 6, 2, 1, 3, 1, 0];
+
+        let kernel = KernelType::FiniteDifference { order: 2 };
+        let conv = ConvolutionFilter::new(kernel);
+        assert_eq!(conv.kernel_size(), 3);
+
+        let mut slice_output = input.iter().cloned().map(|x|x as Real).collect::<Vec<_>>();
+        conv.apply_to_slice(slice_output.as_mut_slice());
+
+        let mut output = input
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (i as Real, *v as Real))
+            .window(conv);
+
+        let expected = [-10., 3., 3., -4., 1.];
+        for i in 0..5 {
+            assert_eq!(output.next(), Some((i as Real + 1.0, expected[i])));
+            assert_eq!(expected[i], slice_output[i]);
+        }
+        assert!(output.next().is_none());
+    }
+
+    #[test]
+    fn test_convolution_composition_commutativity() {
+        let kernel_1 = KernelType::Gaussian { sigma: 2.0 };
+        let kernel_2 = KernelType::FiniteDifference { order: 2 };
+        let kernel_12 = KernelType::Composition { left: Box::new(kernel_1.clone()), right: Box::new(kernel_2.clone()) };
+        let kernel_21 = KernelType::Composition { left: Box::new(kernel_2), right: Box::new(kernel_1) };
+        let conv_12 = ConvolutionFilter::new(kernel_12);
+        let conv_21 = ConvolutionFilter::new(kernel_21);
+        for (a,b) in Iterator::zip(conv_12.kernel.into_iter(),conv_21.kernel.into_iter()) {
+            assert_approx_eq!(a,b);
         }
     }
 }
