@@ -53,10 +53,9 @@ struct SmoothingAlgorithmParameters {
 /// to avoid repeated memory reallocation.
 #[derive(Default, Clone)]
 struct SmoothingDetectorCache {
-    smooth: Vec<Real>,
-    second_deriv: Vec<Real>,
     time: Vec<Real>,
-    values: Vec<Real>,
+    input_values: Vec<Real>,
+    output_values: Vec<Real>,
 }
 
 impl SmoothingDetectorCache {
@@ -64,13 +63,15 @@ impl SmoothingDetectorCache {
     /// If the fields are too small, they are resized.
     /// # Parameters
     /// - size: the minimum length of the cache's vectors.
-    fn ensure_cache_lengths(&mut self, size: usize) {
+    fn ensure_cache_lengths(&mut self, input_size: usize, output_size: usize) {
         // FIXME: Should there be some sort of check for absurdly big trace sizes?
-        if size > self.values.len() {
-            self.time.resize(size, Default::default());
-            self.values.resize(size, Default::default());
-            self.smooth.resize(size, Default::default());
-            self.second_deriv.resize(size, Default::default());
+        if input_size > self.time.len() {
+            self.time.resize(input_size, Default::default());
+            self.input_values.resize(input_size, Default::default());
+        }
+            
+        if output_size > self.output_values.len() {
+            self.output_values.resize(output_size, Default::default());
         }
     }
 
@@ -83,7 +84,7 @@ impl SmoothingDetectorCache {
         for ((t, _), x) in raw.clone().zip(self.time.iter_mut()) {
             *x = t;
         }
-        for ((_, v), y) in raw.zip(self.values.iter_mut()) {
+        for ((_, v), y) in raw.zip(self.input_values.iter_mut()) {
             *y = v;
         }
     }
@@ -316,26 +317,29 @@ fn find_smoothing_events(
         )
         .enumerate()
         .map(|(t, v)| (t as Real * sample_time, v));
-    cache.ensure_cache_lengths(raw.len() + 2*(fin_diff_gaussian.kernel_size() / 2));
+    cache.ensure_cache_lengths(raw.len() + 2*(fin_diff_gaussian.kernel_size() / 2), raw.len());
     cache.write_raw_data(enumerated);
 
-    fin_diff_gaussian.apply_to_slice(cache.values.as_slice(), cache.second_deriv.as_mut_slice());
+    fin_diff_gaussian.apply_to_slice(cache.input_values.as_slice(), cache.output_values.as_mut_slice());
 
     let percentile = ((raw.len() as f64 * parameters.noise_centile) / 100.0) as usize;
-    let noise_std = stddev(cache.values.iter().take(raw.len()).skip(percentile).cloned())
+    let noise_std = stddev(cache.output_values.iter().take(raw.len()).skip(percentile).cloned())
         .expect("StdDev should exist, this should never fail.");
 
-    let regions = cache.values.iter().take(raw.len())
+    let regions = cache.output_values.iter()
         .enumerate()
-        .map(|(t, v)| (t as Time * sample_time as Time, TraceArray::new([*v; 3])))
+        .map(|(t, v)| (t, *v))
         .events(RegionDetector::new(
             -noise_std * parameters.nsig_noise,
             parameters.min_size,
         ));
     let pulses = regions
         .flat_map(|region| {
-            region
-                .into_iter()
+            cache.output_values.iter()
+                .cloned()
+                .enumerate()
+                .take(region.1)
+                .skip(region.0)
                 .events(LocalArgMinDetector::default())
                 .collect::<Vec<_>>()
         })
@@ -344,9 +348,9 @@ fn find_smoothing_events(
 
     let mut times = Vec::<Time>::new();
     let mut voltages = Vec::<Intensity>::new();
-    for (time, _) in pulses {
-        times.push(time);
-        voltages.push(*cache.values.get(time as usize + fin_diff_gaussian.kernel_size()/2).unwrap() as Intensity);
+    for time in pulses {
+        times.push(time as Time);
+        voltages.push(*cache.input_values.get(time as usize + fin_diff_gaussian.kernel_size()/2).unwrap() as Intensity);
     }
     (times,voltages)
 }

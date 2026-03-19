@@ -160,8 +160,7 @@ impl SliceWindow for ConvolutionFilter {
     }
  */
     fn apply_to_slice<'a>(&self, input: &'a [Self::InputType], output: &'a mut[Self::OutputType]) {
-        let output_range = 0..input.len() - self.kernel_size() + 1;
-        for i in output_range.clone() {
+        for i in 0..output.len() {
             let value = self.apply_slice(&input[i..i + self.kernel_size()]);
             output[i] = value;
         }
