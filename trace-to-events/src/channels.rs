@@ -5,19 +5,15 @@ use crate::{
         SmoothingDetectorParameters,
     },
     pulse_detection::{
-        EventsIterable, Real, WindowIterable,
-        detectors::{
+        EventsIterable, Real, WindowIterable, datatype::TraceArray, detectors::{
             differential_threshold_detector::{
                 DifferentialThresholdDetector, DifferentialThresholdParameters,
-            },
-            smoothing_detector::{SmoothingSlices, gaussian_kernel, sec_deriv_smoothing_for_peaks},
-        },
-        threshold_detector::{ThresholdDetector, ThresholdDuration},
-        window::FiniteDifferences,
+            }, local_arg_min_detector::LocalArgMinDetector, region_detector::RegionDetector, smoothing_detector::{SmoothingSlices, gaussian_kernel, sec_deriv_smoothing_for_peaks}
+        }, iterators::PaddingIterable, threshold_detector::{ThresholdDetector, ThresholdDuration}, utils::stddev, window::{FiniteDifferences, SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}}
     },
 };
 use digital_muon_common::{Intensity, Time};
-use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
+use digital_muon_streaming_types::{dat2_digitizer_analog_trace_v2_generated::ChannelTrace, ecs_f144_logdata_generated::Int};
 
 /// Encapsulates settings to determine how peak heights should be calculated.
 #[derive(Clone)]
@@ -46,6 +42,8 @@ struct SmoothingAlgorithmParameters {
     parameters: SmoothingDetectorParameters,
     /// Gaussian Kernel.
     kernel: Vec<Real>,
+    /// Gaussian Kernel.
+    fin_diff_gaussian: ConvolutionFilter,
     /// This cache is persisted to avoid reallocations on every channel trace.
     cache: SmoothingDetectorCache,
 }
@@ -128,6 +126,10 @@ impl ChannelAlgorithm {
             Mode::SmoothingDetector(parameters) => Self::Smoothing(SmoothingAlgorithmParameters {
                 parameters: parameters.clone(),
                 kernel: gaussian_kernel(parameters.kernel_sigma),
+                fin_diff_gaussian: ConvolutionFilter::new(KernelType::Composition {
+                    left: Box::new(KernelType::FiniteDifference { order: 2 }),
+                    right: Box::new(KernelType::Gaussian { sigma: parameters.kernel_sigma })
+                }),
                 cache: Default::default(),
             }),
         }
@@ -188,6 +190,7 @@ impl ChannelProcessor {
             ChannelAlgorithm::Smoothing(parameters) => find_smoothing_events(
                 trace,
                 parameters.kernel.as_slice(),
+                &parameters.fin_diff_gaussian,
                 &mut parameters.cache,
                 sample_time,
                 self.polarity_sign,
@@ -293,6 +296,7 @@ fn find_differential_threshold_events(
 fn find_smoothing_events(
     trace: &ChannelTrace,
     kernel: &[Real],
+    fin_diff_gaussian: &ConvolutionFilter,
     cache: &mut SmoothingDetectorCache,
     sample_time: Real,
     polarity_sign: Real,
@@ -301,34 +305,48 @@ fn find_smoothing_events(
 ) -> (Vec<Time>, Vec<Intensity>) {
     let raw = trace
         .voltage()
-        .unwrap()
-        .into_iter()
+        .expect("Trace voltage should be Some, this should never fail.")
+        .into_iter();
+    
+    let enumerated = raw.clone()
+        .map(|v|polarity_sign * (v as Real - baseline))
+        .pad_reflect(
+            fin_diff_gaussian.kernel_size() / 2,
+            fin_diff_gaussian.kernel_size() / 2,
+        )
         .enumerate()
-        .map(|(t, v)| {
-            (
-                t as Real * sample_time,
-                polarity_sign * (v as Real - baseline),
-            )
-        });
-    cache.ensure_cache_lengths(raw.len());
-    cache.write_raw_data(raw);
+        .map(|(t, v)| (t as Real * sample_time, v));
+    cache.ensure_cache_lengths(raw.len() + 2*(fin_diff_gaussian.kernel_size() / 2));
+    cache.write_raw_data(enumerated);
 
-    let (time, intensity) = sec_deriv_smoothing_for_peaks(
-        &mut SmoothingSlices {
-            time: cache.time.as_slice(),
-            values: cache.values.as_slice(),
-            kernel,
-            smooth: cache.smooth.as_mut_slice(),
-            second_deriv: cache.second_deriv.as_mut_slice(),
-        },
-        parameters.noise_centile,
-        parameters.kernel_sigma,
-        parameters.nsig_noise,
-        parameters.min_size,
-    )
-    .unwrap();
-    (
-        time.into_iter().map(|t| t as Time).collect(),
-        intensity.into_iter().map(|v| v as Intensity).collect(),
-    )
+    fin_diff_gaussian.apply_to_slice(cache.values.as_slice(), cache.second_deriv.as_mut_slice());
+
+    let percentile = ((raw.len() as f64 * parameters.noise_centile) / 100.0) as usize;
+    let noise_std = stddev(cache.values.iter().take(raw.len()).skip(percentile).cloned())
+        .expect("StdDev should exist, this should never fail.");
+
+    let regions = cache.values.iter().take(raw.len())
+        .enumerate()
+        .map(|(t, v)| (t as Time * sample_time as Time, TraceArray::new([*v; 3])))
+        .events(RegionDetector::new(
+            -noise_std * parameters.nsig_noise,
+            parameters.min_size,
+        ));
+    let pulses = regions
+        .flat_map(|region| {
+            region
+                .into_iter()
+                .events(LocalArgMinDetector::default())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+
+    let mut times = Vec::<Time>::new();
+    let mut voltages = Vec::<Intensity>::new();
+    for (time, _) in pulses {
+        times.push(time);
+        voltages.push(*cache.values.get(time as usize + fin_diff_gaussian.kernel_size()/2).unwrap() as Intensity);
+    }
+    (times,voltages)
 }

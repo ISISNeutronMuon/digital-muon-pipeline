@@ -40,39 +40,7 @@ where
         left_padding.chain(self.clone()).chain(right_padding)
     }
 }
-/*
-impl<I> PaddingIterable for I
-where
-    I: Iterator<Item = (Real, Real)> + Clone + ExactSizeIterator + DoubleEndedIterator,
-{
-    /// Create an [EventIter] iterator, which applies a detector to a trace source as it is consumed.
-    ///
-    /// # Parameters
-    /// - detector: A detector which is to be applied as the iterator is consumed.
-    fn pad_reflect(
-        self,
-        left_padding: usize,
-        right_padding: usize,
-    ) -> impl Iterator<Item = (Real, Real)> + Clone {
-        assert!(left_padding < self.len());
-        assert!(right_padding < self.len());
-        let left_padding = self
-            .clone()
-            .map(|(t, v)| (-1.0 - t, v))
-            .take(left_padding)
-            .rev();
 
-        let len = self.len() as Real;
-        let right_padding = self
-            .clone()
-            .rev()
-            .map(move |(t, v)| (2.0 * len - 1.0 - t, v))
-            .take(right_padding);
-
-        left_padding.chain(self.clone()).chain(right_padding)
-    }
-}
- */
 #[cfg(test)]
 mod tests {
     use super::*;

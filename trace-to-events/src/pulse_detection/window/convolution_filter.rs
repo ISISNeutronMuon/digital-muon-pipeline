@@ -149,7 +149,7 @@ impl SliceWindow for ConvolutionFilter {
     type TimeType = Real;
     type InputType = Real;
     type OutputType = Real;
-
+/*
     fn apply_to_slice<'a>(&self, output: &'a mut[Self::InputType]) -> &'a [Self::InputType] {
         let output_range = 0..output.len() - self.kernel_size() + 1;
         for i in output_range.clone() {
@@ -157,6 +157,14 @@ impl SliceWindow for ConvolutionFilter {
             output[i] = value;
         }
         &output[output_range]
+    }
+ */
+    fn apply_to_slice<'a>(&self, input: &'a [Self::InputType], output: &'a mut[Self::OutputType]) {
+        let output_range = 0..input.len() - self.kernel_size() + 1;
+        for i in output_range.clone() {
+            let value = self.apply_slice(&input[i..i + self.kernel_size()]);
+            output[i] = value;
+        }
     }
 
     fn apply_time_shift(&self, time: Self::TimeType) -> Self::TimeType {
@@ -543,8 +551,9 @@ mod tests {
         let conv = ConvolutionFilter::new(kernel);
         assert_eq!(conv.kernel_size(), 2);
 
-        let mut slice_output = input.iter().cloned().map(|x|x as Real).collect::<Vec<_>>();
-        conv.apply_to_slice(slice_output.as_mut_slice());
+        let slice_input = input.iter().cloned().map(|x|x as Real).collect::<Vec<_>>();
+        let mut slice_output = vec![0.0; 6];
+        conv.apply_to_slice(slice_input.as_slice(), slice_output.as_mut_slice());
 
         let mut output = input
             .into_iter()
@@ -570,8 +579,9 @@ mod tests {
         let conv = ConvolutionFilter::new(kernel);
         assert_eq!(conv.kernel_size(), 3);
 
-        let mut slice_output = input.iter().cloned().map(|x|x as Real).collect::<Vec<_>>();
-        conv.apply_to_slice(slice_output.as_mut_slice());
+        let slice_input = input.iter().cloned().map(|x|x as Real).collect::<Vec<_>>();
+        let mut slice_output = vec![0.0; 6];
+        conv.apply_to_slice(slice_input.as_slice(), slice_output.as_mut_slice());
 
         let mut output = input
             .iter()
