@@ -8,12 +8,12 @@ use crate::{
         EventsIterable, Real, WindowIterable, detectors::{
             differential_threshold_detector::{
                 DifferentialThresholdDetector, DifferentialThresholdParameters,
-            }, local_arg_min_detector::LocalArgMinDetector, region_detector::RegionDetector, smoothing_detector::{SmoothingSlices, gaussian_kernel, sec_deriv_smoothing_for_peaks}
-        }, iterators::PaddingIterable, threshold_detector::{ThresholdDetector, ThresholdDuration}, utils::{stddev, stddev_from_slice}, window::{FiniteDifferences, SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}}
+            }, local_arg_min_detector::LocalArgMinDetector, region_detector::RegionDetector
+        }, iterators::PaddingIterable, threshold_detector::{ThresholdDetector, ThresholdDuration}, utils::stddev_from_slice, window::{FiniteDifferences, SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}}
     },
 };
 use digital_muon_common::{Intensity, Time};
-use digital_muon_streaming_types::{dat2_digitizer_analog_trace_v2_generated::ChannelTrace, ecs_f144_logdata_generated::Int};
+use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
 
 /// Encapsulates settings to determine how peak heights should be calculated.
 #[derive(Clone)]
@@ -41,13 +41,7 @@ struct SmoothingAlgorithmParameters {
     /// Parameters for the smoothing detector.
     parameters: SmoothingDetectorParameters,
     /// Gaussian Kernel.
-    kernel: Vec<Real>,
-    /// Gaussian Kernel.
     fin_diff_gaussian: ConvolutionFilter,
-    /// Gaussian Kernel.
-    fin_diff: ConvolutionFilter,
-    /// Gaussian Kernel.
-    gaussian: ConvolutionFilter,
     /// This cache is persisted to avoid reallocations on every channel trace.
     cache: SmoothingDetectorCache,
 }
@@ -85,7 +79,7 @@ impl SmoothingDetectorCache {
     /// This should not be called unless `Self::ensure_cache_lengths` has been called with the appropriate `size` value.
     /// # Parameters
     /// - raw: iterator from which the `time` and `values` fields are written.
-    fn ensure_time_data_written(&mut self, time: impl Iterator<Item = Real> + Clone + ExactSizeIterator) {
+    fn ensure_time_data_written(&mut self, time: impl Clone + ExactSizeIterator<Item = Real>) {
         if time.len() != self.time.len() {
             self.time = time.collect();
         }
@@ -139,13 +133,10 @@ impl ChannelAlgorithm {
             }
             Mode::SmoothingDetector(parameters) => Self::Smoothing(SmoothingAlgorithmParameters {
                 parameters: parameters.clone(),
-                kernel: gaussian_kernel(parameters.kernel_sigma),
                 fin_diff_gaussian: ConvolutionFilter::new(KernelType::Composition {
                     left: Box::new(KernelType::FiniteDifference { order: 2 }),
                     right: Box::new(KernelType::Gaussian { sigma: parameters.kernel_sigma })
                 }),
-                fin_diff: ConvolutionFilter::new(KernelType::FiniteDifference { order: 2 }),
-                gaussian: ConvolutionFilter::new(KernelType::Gaussian { sigma: parameters.kernel_sigma }),
                 cache: Default::default(),
             }),
         }
@@ -206,8 +197,6 @@ impl ChannelProcessor {
             ChannelAlgorithm::Smoothing(parameters) => find_smoothing_events(
                 trace,
                 &parameters.fin_diff_gaussian,
-                &parameters.fin_diff,
-                &parameters.gaussian,
                 &mut parameters.cache,
                 sample_time,
                 self.polarity_sign,
@@ -313,8 +302,6 @@ fn find_differential_threshold_events(
 fn find_smoothing_events(
     trace: &ChannelTrace,
     fin_diff_gaussian: &ConvolutionFilter,
-    fin_diff: &ConvolutionFilter,
-    gaussian: &ConvolutionFilter,
     cache: &mut SmoothingDetectorCache,
     sample_time: Real,
     polarity_sign: Real,
@@ -325,11 +312,11 @@ fn find_smoothing_events(
         .voltage()
         .expect("Trace voltage should be Some, this should never fail.");
 
-    let kernel_radius = fin_diff_gaussian.kernel_size() >> 1;
     cache.ensure_time_data_written(
         (0..raw_voltages.len())
             .map(|t| (t as Real) * sample_time)
     );
+    let kernel_radius = fin_diff_gaussian.kernel_size() >> 1;
     let padded = raw_voltages.iter()
         .map(|v|polarity_sign * (v as Real - baseline))
         .pad_reflect(kernel_radius, kernel_radius);
@@ -365,12 +352,11 @@ fn find_smoothing_events(
         })
         .collect::<Vec<_>>();
 
-
     let mut times = Vec::<Time>::new();
     let mut voltages = Vec::<Intensity>::new();
     for time in pulses {
         times.push(time as Time);
-        voltages.push(raw_voltages.get(time as usize));
+        voltages.push(raw_voltages.get(time));
     }
     (times,voltages)
 }

@@ -3,7 +3,6 @@
 pub mod differential_threshold_detector;
 pub mod local_arg_min_detector;
 pub mod region_detector;
-pub mod smoothing_detector;
 pub mod threshold_detector;
 
 use super::{EventData, EventPoint, Real, TracePoint};

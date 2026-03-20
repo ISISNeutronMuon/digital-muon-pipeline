@@ -45,7 +45,4 @@ pub(crate) trait SliceWindow: Clone {
 
     /// TODO.
     fn apply_to_slice<'a>(&self, input: &'a[Self::InputType], output: &'a mut[Self::OutputType]);
-
-    /// Shifts the time value by half the window's size.
-    fn apply_time_shift(&self, time: Self::TimeType) -> Self::TimeType;
 }

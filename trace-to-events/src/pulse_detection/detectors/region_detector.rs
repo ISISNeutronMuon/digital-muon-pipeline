@@ -74,7 +74,7 @@ impl Detector for RegionDetector {
 mod tests {
     use super::*;
     use crate::pulse_detection::{
-        EventsIterable, Real, detectors::local_arg_min_detector::LocalArgMinDetector, utils::stddev
+        EventsIterable, Real, detectors::local_arg_min_detector::LocalArgMinDetector, utils::stddev_from_slice
     };
 
     const NX: usize = 85;
@@ -169,11 +169,8 @@ mod tests {
 
     #[test]
     fn detect_regions_no_minsize() {
-        let noise_std = stddev(
-            SECOND_DERIV
-                .iter()
-                .skip((0.9 * SECOND_DERIV.len() as Real) as usize)
-                .cloned(),
+        let noise_std = stddev_from_slice(
+            &SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..],
         )
         .unwrap();
         let pulses = SECOND_DERIV
@@ -196,11 +193,8 @@ mod tests {
 
     #[test]
     fn detect_regions_minsize_two() {
-        let noise_std = stddev(
-            SECOND_DERIV
-                .iter()
-                .skip((0.9 * SECOND_DERIV.len() as Real) as usize)
-                .cloned(),
+        let noise_std = stddev_from_slice(
+            &SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..],
         )
         .unwrap();
         let pulses = SECOND_DERIV
