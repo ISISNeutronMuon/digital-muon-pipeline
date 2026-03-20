@@ -19,20 +19,28 @@ use metrics::counter;
 use rayon::prelude::*;
 use tracing::debug;
 
+/// Encapsulates the state objects for multiple channels, and the methods for processing digitiser messages.
 pub(crate) struct DigitiserMessageProcessor {
+    /// Vector of channel states that can be assigned to different cores to be run in parallel.
     channels: Vec<ChannelState>,
 }
 
 impl DigitiserMessageProcessor {
-    pub(crate) fn new(expected_num: usize, settings: &DetectorSettings) -> Self {
-        if expected_num == 0 {
-            panic!("expected_num should be nonzero, this should never fail.");
+    /// Creates a new `DigitiserMessageProcessor` object, from the given `settings`, and expected number of channels.
+    /// # Parameters
+    /// - expected_num_channels: the expected number of channels.
+    pub(crate) fn new(expected_num_channels: usize, settings: &DetectorSettings) -> Self {
+        if expected_num_channels == 0 {
+            panic!("expected_num_channels should be nonzero, this should never fail.");
         }
         Self {
-            channels: vec![ChannelState::new(settings); expected_num],
+            channels: vec![ChannelState::new(settings); expected_num_channels],
         }
     }
 
+    /// Checks whether the number of channel states is sufficient and resizes if necessary.
+    /// # Parameters
+    /// - num_channels: the number of channels in the digitiser message. In normal operation, this value is never different from number specified at initialisation.
     fn ensure_sufficient_channels(&mut self, num_channels: usize) {
         if num_channels > self.channels.len() {
             self.channels.resize(
@@ -139,7 +147,6 @@ impl DigitiserMessageProcessor {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use crate::{Mode, Polarity, parameters::FixedThresholdDiscriminatorParameters};
@@ -395,4 +402,3 @@ mod tests {
         );
     }
 }
- */
