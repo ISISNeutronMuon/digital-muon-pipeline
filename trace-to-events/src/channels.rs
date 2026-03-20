@@ -5,11 +5,11 @@ use crate::{
         SmoothingDetectorParameters,
     },
     pulse_detection::{
-        EventsIterable, Real, WindowIterable, datatype::TraceArray, detectors::{
+        EventsIterable, Real, WindowIterable, detectors::{
             differential_threshold_detector::{
                 DifferentialThresholdDetector, DifferentialThresholdParameters,
             }, local_arg_min_detector::LocalArgMinDetector, region_detector::RegionDetector, smoothing_detector::{SmoothingSlices, gaussian_kernel, sec_deriv_smoothing_for_peaks}
-        }, iterators::PaddingIterable, threshold_detector::{ThresholdDetector, ThresholdDuration}, utils::stddev, window::{FiniteDifferences, SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}}
+        }, iterators::PaddingIterable, threshold_detector::{ThresholdDetector, ThresholdDuration}, utils::{stddev, stddev_from_slice}, window::{FiniteDifferences, SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}}
     },
 };
 use digital_muon_common::{Intensity, Time};
@@ -44,6 +44,10 @@ struct SmoothingAlgorithmParameters {
     kernel: Vec<Real>,
     /// Gaussian Kernel.
     fin_diff_gaussian: ConvolutionFilter,
+    /// Gaussian Kernel.
+    fin_diff: ConvolutionFilter,
+    /// Gaussian Kernel.
+    gaussian: ConvolutionFilter,
     /// This cache is persisted to avoid reallocations on every channel trace.
     cache: SmoothingDetectorCache,
 }
@@ -55,19 +59,20 @@ struct SmoothingAlgorithmParameters {
 struct SmoothingDetectorCache {
     time: Vec<Real>,
     input_values: Vec<Real>,
+    input_values2: Vec<Real>,
     output_values: Vec<Real>,
 }
 
 impl SmoothingDetectorCache {
-    /// Ensures the caches are of sufficient length for the message.
+    /// Ensures the value caches are of sufficient length for the message.
     /// If the fields are too small, they are resized.
     /// # Parameters
     /// - size: the minimum length of the cache's vectors.
     fn ensure_cache_lengths(&mut self, input_size: usize, output_size: usize) {
         // FIXME: Should there be some sort of check for absurdly big trace sizes?
-        if input_size > self.time.len() {
-            self.time.resize(input_size, Default::default());
+        if input_size > self.input_values.len() {
             self.input_values.resize(input_size, Default::default());
+            self.input_values2.resize(input_size, Default::default());
         }
             
         if output_size > self.output_values.len() {
@@ -80,12 +85,20 @@ impl SmoothingDetectorCache {
     /// This should not be called unless `Self::ensure_cache_lengths` has been called with the appropriate `size` value.
     /// # Parameters
     /// - raw: iterator from which the `time` and `values` fields are written.
-    fn write_raw_data(&mut self, raw: impl Iterator<Item = (Real, Real)> + Clone) {
-        for ((t, _), x) in raw.clone().zip(self.time.iter_mut()) {
-            *x = t;
+    fn ensure_time_data_written(&mut self, time: impl Iterator<Item = Real> + Clone + ExactSizeIterator) {
+        if time.len() != self.time.len() {
+            self.time = time.collect();
         }
-        for ((_, v), y) in raw.zip(self.input_values.iter_mut()) {
-            *y = v;
+    }
+
+    /// Write to the `time` and `values` fields from an iterator over a pair of the time and trace values.
+    ///
+    /// This should not be called unless `Self::ensure_cache_lengths` has been called with the appropriate `size` value.
+    /// # Parameters
+    /// - raw: iterator from which the `time` and `values` fields are written.
+    fn write_input_values(&mut self, raw: impl Iterator<Item = Real> + Clone) {
+        for (i, v) in raw.enumerate() {
+            self.input_values[i] = v;
         }
     }
 }
@@ -131,6 +144,8 @@ impl ChannelAlgorithm {
                     left: Box::new(KernelType::FiniteDifference { order: 2 }),
                     right: Box::new(KernelType::Gaussian { sigma: parameters.kernel_sigma })
                 }),
+                fin_diff: ConvolutionFilter::new(KernelType::FiniteDifference { order: 2 }),
+                gaussian: ConvolutionFilter::new(KernelType::Gaussian { sigma: parameters.kernel_sigma }),
                 cache: Default::default(),
             }),
         }
@@ -190,8 +205,9 @@ impl ChannelProcessor {
             }
             ChannelAlgorithm::Smoothing(parameters) => find_smoothing_events(
                 trace,
-                parameters.kernel.as_slice(),
                 &parameters.fin_diff_gaussian,
+                &parameters.fin_diff,
+                &parameters.gaussian,
                 &mut parameters.cache,
                 sample_time,
                 self.polarity_sign,
@@ -296,48 +312,52 @@ fn find_differential_threshold_events(
 #[tracing::instrument(skip_all, level = "trace")]
 fn find_smoothing_events(
     trace: &ChannelTrace,
-    kernel: &[Real],
     fin_diff_gaussian: &ConvolutionFilter,
+    fin_diff: &ConvolutionFilter,
+    gaussian: &ConvolutionFilter,
     cache: &mut SmoothingDetectorCache,
     sample_time: Real,
     polarity_sign: Real,
     baseline: Real,
     parameters: &SmoothingDetectorParameters,
 ) -> (Vec<Time>, Vec<Intensity>) {
-    let raw = trace
+    let raw_voltages = trace
         .voltage()
-        .expect("Trace voltage should be Some, this should never fail.")
-        .into_iter();
-    
-    let enumerated = raw.clone()
+        .expect("Trace voltage should be Some, this should never fail.");
+
+    let kernel_radius = fin_diff_gaussian.kernel_size() >> 1;
+    cache.ensure_time_data_written(
+        (0..raw_voltages.len())
+            .map(|t| (t as Real) * sample_time)
+    );
+    let padded = raw_voltages.iter()
         .map(|v|polarity_sign * (v as Real - baseline))
-        .pad_reflect(
-            fin_diff_gaussian.kernel_size() / 2,
-            fin_diff_gaussian.kernel_size() / 2,
-        )
-        .enumerate()
-        .map(|(t, v)| (t as Real * sample_time, v));
-    cache.ensure_cache_lengths(raw.len() + 2*(fin_diff_gaussian.kernel_size() / 2), raw.len());
-    cache.write_raw_data(enumerated);
+        .pad_reflect(kernel_radius, kernel_radius);
+    cache.ensure_cache_lengths(raw_voltages.len() + fin_diff_gaussian.kernel_size(), raw_voltages.len());
+    cache.write_input_values(padded);
 
     fin_diff_gaussian.apply_to_slice(cache.input_values.as_slice(), cache.output_values.as_mut_slice());
+    //let mid_slice = &mut cache.input_values2[0..cache.input_values.len() - fin_diff.kernel_size()];
+    //fin_diff.apply_to_slice(cache.input_values.as_slice(), mid_slice);
+    //gaussian.apply_to_slice(mid_slice, cache.output_values.as_mut_slice());
 
-    let percentile = ((raw.len() as f64 * parameters.noise_centile) / 100.0) as usize;
-    let noise_std = stddev(cache.output_values.iter().take(raw.len()).skip(percentile).cloned())
+    let percentile = ((raw_voltages.len() as f64 * parameters.noise_centile) / 100.0) as usize;
+    let noise_std = stddev_from_slice(&cache.output_values[percentile..])
         .expect("StdDev should exist, this should never fail.");
 
-    let regions = cache.output_values.iter()
-        .enumerate()
-        .map(|(t, v)| (t, *v))
+    let output_iter = cache.output_values
+        .iter()
+        .cloned()
+        .enumerate();
+
+    let regions = output_iter.clone()
         .events(RegionDetector::new(
             -noise_std * parameters.nsig_noise,
             parameters.min_size,
         ));
     let pulses = regions
         .flat_map(|region| {
-            cache.output_values.iter()
-                .cloned()
-                .enumerate()
+            output_iter.clone()
                 .take(region.1)
                 .skip(region.0)
                 .events(LocalArgMinDetector::default())
@@ -350,7 +370,7 @@ fn find_smoothing_events(
     let mut voltages = Vec::<Intensity>::new();
     for time in pulses {
         times.push(time as Time);
-        voltages.push(*cache.input_values.get(time as usize + fin_diff_gaussian.kernel_size()/2).unwrap() as Intensity);
+        voltages.push(raw_voltages.get(time as usize));
     }
     (times,voltages)
 }

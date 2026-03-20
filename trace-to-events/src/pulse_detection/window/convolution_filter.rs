@@ -111,9 +111,11 @@ impl ConvolutionFilter {
     }
 
     pub(crate) fn apply_slice(&self, slice: &[Real]) -> Real {
-        Iterator::zip(self.kernel.iter(), slice.iter())
-            .map(|(x, y)| x * y)
-            .sum()
+        let mut sum = 0.0;
+        for i in 0..self.kernel.len() {
+            sum += self.kernel[i]*slice[i];
+        }
+        sum
     }
 }
 
@@ -212,7 +214,6 @@ mod tests {
             filter.kernel[0..(filter.size as usize / 2 + 1)],
             vec![1.2664165549093855e-14, 0.9999999999999747]
         );
-        println!("{}", filter.kernel.iter().map(|g| g * g).sum::<Real>());
     }
 
     #[test]
@@ -239,7 +240,6 @@ mod tests {
                 0.39894346935609776
             ]
         );
-        println!("{}", filter.kernel.iter().map(|g| g * g).sum::<Real>());
     }
 
     #[test]
@@ -270,7 +270,6 @@ mod tests {
                 0.199474647864745
             ]
         );
-        println!("{}", filter.kernel.iter().map(|g| g * g).sum::<Real>());
     }
 
     #[test]
@@ -544,7 +543,7 @@ mod tests {
     }
 
     #[test]
-    fn test_finite_differnece_one_sample_data() {
+    fn test_first_finite_differnece_sample_data() {
         let input: Vec<Intensity> = vec![0, 6, 2, 1, 3, 1, 0];
         let kernel = KernelType::FiniteDifference { order: 1 };
         let conv = ConvolutionFilter::new(kernel);
@@ -571,7 +570,7 @@ mod tests {
     }
 
     #[test]
-    fn test_finite_differnece_two_sample_data() {
+    fn test_second_finite_differnece_sample_data() {
         let input: Vec<Intensity> = vec![0, 6, 2, 1, 3, 1, 0];
 
         let kernel = KernelType::FiniteDifference { order: 2 };
@@ -579,8 +578,8 @@ mod tests {
         assert_eq!(conv.kernel_size(), 3);
 
         let slice_input = input.iter().cloned().map(|x|x as Real).collect::<Vec<_>>();
-        let mut slice_output = vec![0.0; 6];
-        conv.apply_to_slice(slice_input.as_slice(), slice_output.as_mut_slice());
+        let mut slice_output = vec![0.0; 5];
+        conv.apply_to_slice(slice_input.as_slice(), &mut slice_output);
 
         let mut output = input
             .iter()
@@ -601,9 +600,13 @@ mod tests {
         let kernel_1 = KernelType::Gaussian { sigma: 2.0 };
         let kernel_2 = KernelType::FiniteDifference { order: 2 };
         let kernel_12 = KernelType::Composition { left: Box::new(kernel_1.clone()), right: Box::new(kernel_2.clone()) };
-        let kernel_21 = KernelType::Composition { left: Box::new(kernel_2), right: Box::new(kernel_1) };
+        let kernel_21 = KernelType::Composition { left: Box::new(kernel_2.clone()), right: Box::new(kernel_1.clone()) };
         let conv_12 = ConvolutionFilter::new(kernel_12);
         let conv_21 = ConvolutionFilter::new(kernel_21);
+        
+        let sum_of_sizes = kernel_1.generate_kernel().len() + kernel_2.generate_kernel().len();
+        assert_eq!(conv_12.kernel_size(), sum_of_sizes);
+        assert_eq!(conv_21.kernel_size(), sum_of_sizes);
         for (a,b) in Iterator::zip(conv_12.kernel.into_iter(),conv_21.kernel.into_iter()) {
             assert_approx_eq!(a,b);
         }
