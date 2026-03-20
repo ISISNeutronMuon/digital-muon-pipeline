@@ -65,9 +65,11 @@ impl KernelType {
                 let right = right.generate_kernel();
                 (0..left.len() + right.len()).map(|i|
                     (0..right.len())
-                        .map(|j| (i < left.len() + j && i >= j)
-                            .then(||left[i - j]*right[j])
-                            .unwrap_or_default()
+                        .map(|j| if i < left.len() + j && i >= j {
+                                left[i - j]*right[j]
+                            } else {
+                                Default::default()
+                            }
                         ).sum()
                 ).collect()
             }
@@ -78,7 +80,6 @@ impl KernelType {
 #[derive(Default, Clone)]
 pub(crate) struct ConvolutionFilter {
     value: Real,
-    sqrt_kernel_sum_of_squares: Real,
     size: Real,
     kernel: Vec<Real>,
     window: VecDeque<Real>,
@@ -87,13 +88,11 @@ pub(crate) struct ConvolutionFilter {
 impl ConvolutionFilter {
     pub(crate) fn new(kernel_type: KernelType) -> Self {
         let kernel = kernel_type.generate_kernel();
-        let sqrt_kernel_sum_of_squares = kernel.iter().map(|v| v.powi(2)).sum::<Real>().sqrt();
         let size = kernel.len() as Real;
         ConvolutionFilter {
             window: VecDeque::<Real>::with_capacity(kernel.len()),
             kernel,
             size,
-            sqrt_kernel_sum_of_squares,
             ..Default::default()
         }
     }
@@ -102,18 +101,14 @@ impl ConvolutionFilter {
         self.window.len() == self.size as usize
     }
 
-    pub(crate) fn sqrt_kernel_sum_of_abs_squares(&self) -> Real {
-        self.sqrt_kernel_sum_of_squares
-    }
-
     pub(crate) fn kernel_size(&self) -> usize {
         self.kernel.len()
     }
 
     pub(crate) fn apply_slice(&self, slice: &[Real]) -> Real {
         let mut sum = 0.0;
-        for i in 0..self.kernel.len() {
-            sum += self.kernel[i]*slice[i];
+        for (i, value) in slice.iter().enumerate().take(self.kernel.len()) {
+            sum += self.kernel[i]*value;
         }
         sum
     }
@@ -152,25 +147,12 @@ impl SliceWindow for ConvolutionFilter {
     type TimeType = Real;
     type InputType = Real;
     type OutputType = Real;
-/*
-    fn apply_to_slice<'a>(&self, output: &'a mut[Self::InputType]) -> &'a [Self::InputType] {
-        let output_range = 0..output.len() - self.kernel_size() + 1;
-        for i in output_range.clone() {
-            let value = self.apply_slice(&output[i..i + self.kernel_size()]);
-            output[i] = value;
-        }
-        &output[output_range]
-    }
- */
+
     fn apply_to_slice<'a>(&self, input: &'a [Self::InputType], output: &'a mut[Self::OutputType]) {
         for i in 0..output.len() {
             let value = self.apply_slice(&input[i..i + self.kernel_size()]);
             output[i] = value;
         }
-    }
-
-    fn apply_time_shift(&self, time: Self::TimeType) -> Self::TimeType {
-        time - (self.size - 1.) / 2.0
     }
 }
 
