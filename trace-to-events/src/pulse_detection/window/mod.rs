@@ -18,8 +18,6 @@ pub(crate) mod convolution_filter;
 pub(crate) mod finite_differences;
 pub(crate) mod smoothing_window;
 
-use std::ops::Range;
-
 use super::{Real, RealArray, Stats, Temporal};
 pub(crate) use finite_differences::FiniteDifferences;
 

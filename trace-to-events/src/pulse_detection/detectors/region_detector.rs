@@ -36,20 +36,12 @@ impl RegionDetector {
     }
 
     fn filter_partial_region(&mut self) -> Option<RegionEvent> {
-        self.partial_region.take().and_then(|partial_region|
-            self.min_size
-                .is_none_or(|min_size| partial_region.1 >= min_size + partial_region.0)
-                .then_some(partial_region))
-/*        if self.partial_region.is_none() {
-            // If there is no partial region, then do nothing and return None.
-            None
-        } else {
-            // Otherwise, take ownership, filter by min_size (if set), and return as Some.
-            let partial_region = take(&mut self.partial_region);
-            self.min_size
-                .is_none_or(|min_size| partial_region.len() >= min_size)
-                .then_some(partial_region)
-        } */
+        self.partial_region.take()
+            .and_then(|partial_region|
+                self.min_size
+                    .is_none_or(|min_size| partial_region.1 >= min_size + partial_region.0)
+                    .then_some(partial_region)
+            )
     }
 }
 
@@ -65,7 +57,10 @@ impl Detector for RegionDetector {
         } else {
             // Otherwise, set the current partial region's right-bound, to the current time
             // (inserting a new one if necessary), and return None.
-            self.partial_region.get_or_insert_with(||(time,Default::default())).1 = time;
+            self.partial_region.get_or_insert_with(||{
+                println!("Insert new region with {value} <= {}", self.threshold);
+                (time,Default::default())
+            }).1 = time;
             None
         }
     }
