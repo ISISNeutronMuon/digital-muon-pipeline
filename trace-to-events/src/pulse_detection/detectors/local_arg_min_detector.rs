@@ -27,7 +27,7 @@ impl CyclingCache {
     fn is_empty(&self) -> bool {
         self.len == 0
     }
-    
+
     fn cycle_in_new(&mut self, front: Real) {
         self.back = self.middle;
         self.middle = front;
@@ -59,9 +59,10 @@ impl Detector for LocalArgMinDetector {
             self.default = Some(time);
         }
 
-        let event = self.cache
+        let event = self
+            .cache
             .cycle_in_new_and_test_for_minimum(value)
-            .then(||time - 1);
+            .then(|| time - 1);
 
         if self.default.is_some() && event.is_some() {
             self.default = None

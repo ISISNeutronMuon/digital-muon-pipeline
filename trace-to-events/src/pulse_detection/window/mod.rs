@@ -44,5 +44,5 @@ pub(crate) trait SliceWindow: Clone {
     type OutputType;
 
     /// TODO.
-    fn apply_to_slice<'a>(&self, input: &'a[Self::InputType], output: &'a mut[Self::OutputType]);
+    fn apply_to_slice<'a>(&self, input: &'a [Self::InputType], output: &'a mut [Self::OutputType]);
 }
