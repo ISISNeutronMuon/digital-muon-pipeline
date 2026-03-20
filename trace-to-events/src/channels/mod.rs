@@ -5,8 +5,8 @@ use crate::{
         find_differential_threshold_events, find_fixed_threshold_events, find_smoothing_events,
     },
     parameters::{
-        DetectorSettings, Mode, PeakHeightBasis, PeakHeightMode, Polarity,
-        SmoothingDetectorParameters,
+        DetectorSettings, DifferentialThresholdDiscriminatorParameters, Mode, PeakHeightBasis,
+        PeakHeightMode, Polarity, SmoothingDetectorParameters,
     },
     pulse_detection::{
         Real,
@@ -32,7 +32,7 @@ struct PeakHeightParameters {
 
 /// Encapsulates all settings and objects in the differential threshold algorithm which persist across digitiser messages.
 #[derive(Clone)]
-struct DifferentialThresholdAlgorithmParameters {
+struct DifferentialThresholdDiscriminatorState {
     /// First Finite Difference Window.
     finite_differences: FiniteDifferences<2>,
     /// Parameters for the threshold detector.
@@ -41,15 +41,49 @@ struct DifferentialThresholdAlgorithmParameters {
     peak_height: PeakHeightParameters,
 }
 
+impl DifferentialThresholdDiscriminatorState {
+    fn new(parameters: &DifferentialThresholdDiscriminatorParameters) -> Self {
+        Self {
+            finite_differences: FiniteDifferences::<2>::new(),
+            parameters: DifferentialThresholdParameters {
+                begin_threshold: parameters.begin_threshold,
+                begin_duration: parameters.begin_duration.into(),
+                end_threshold: parameters.end_threshold,
+                end_duration: parameters.end_duration.into(),
+                cool_off: parameters.cool_off.into(),
+            },
+            peak_height: PeakHeightParameters {
+                mode: parameters.peak_height_mode.clone(),
+                basis: parameters.peak_height_basis.clone(),
+            },
+        }
+    }
+}
+
 /// Encapsulates all settings and objects in the smoothing algorithm which persist across digitiser messages.
 #[derive(Clone)]
-struct SmoothingAlgorithmParameters {
+struct SmoothingDetectorState {
     /// Parameters for the smoothing detector.
     parameters: SmoothingDetectorParameters,
-    /// Gaussian Kernel.
+    /// Composite Kernel uses to smooth the trace and take the second derivative.
     fin_diff_gaussian: ConvolutionFilter,
     /// This cache is persisted to avoid reallocations on every channel trace.
     cache: SmoothingDetectorCache,
+}
+
+impl SmoothingDetectorState {
+    fn new(parameters: &SmoothingDetectorParameters) -> Self {
+        Self {
+            parameters: parameters.clone(),
+            fin_diff_gaussian: ConvolutionFilter::new(KernelType::Composition {
+                left: Box::new(KernelType::FiniteDifference { order: 2 }),
+                right: Box::new(KernelType::Gaussian {
+                    sigma: parameters.kernel_sigma,
+                }),
+            }),
+            cache: Default::default(),
+        }
+    }
 }
 
 /// Memory which is used in the smoothing algorithm.
@@ -57,12 +91,32 @@ struct SmoothingAlgorithmParameters {
 /// to avoid repeated memory reallocation.
 #[derive(Default, Clone)]
 struct SmoothingDetectorCache {
+    /// Value of `sample_time`
+    expected_sample_time: Option<Real>,
+    /// Memory in which to write the time bin values.
     time: Vec<Real>,
+    /// Memory in which to write the pre-convolution trace data.
     input_values: Vec<Real>,
+    /// Memory in which the convolution window should write its output.
     output_values: Vec<Real>,
 }
 
 impl SmoothingDetectorCache {
+    /// Refreshes the `time` vector if and only if the size of the vector changes, or the `sample_time` field.
+    /// # Parameters
+    /// - size: the intended size of the `time` vector.
+    /// - sample_time: the intended `sample_time`, defining the scale of the time-series.
+    fn ensure_time_data_written(&mut self, size: usize, sample_time: Real) {
+        if size != self.time.len()
+            || self
+                .expected_sample_time
+                .is_some_and(|current_sample_time| current_sample_time != sample_time)
+        {
+            self.time = (0..size).map(|t| t as Real * sample_time).collect();
+            self.expected_sample_time = Some(sample_time);
+        }
+    }
+
     /// Ensures the value caches are of sufficient length for the message.
     /// If the fields are too small, they are resized.
     /// # Parameters
@@ -78,38 +132,33 @@ impl SmoothingDetectorCache {
         }
     }
 
-    /// Write to the `time` and `values` fields from an iterator over a pair of the time and trace values.
+    /// Write to the `input_values` field from an iterator over the appropriately padded trace values.
     ///
     /// This should not be called unless `Self::ensure_cache_lengths` has been called with the appropriate `size` value.
     /// # Parameters
-    /// - raw: iterator from which the `time` and `values` fields are written.
-    fn ensure_time_data_written(&mut self, time: impl Clone + ExactSizeIterator<Item = Real>) {
-        if time.len() != self.time.len() {
-            self.time = time.collect();
-        }
-    }
-
-    /// Write to the `time` and `values` fields from an iterator over a pair of the time and trace values.
-    ///
-    /// This should not be called unless `Self::ensure_cache_lengths` has been called with the appropriate `size` value.
-    /// # Parameters
-    /// - raw: iterator from which the `time` and `values` fields are written.
-    fn write_input_values(&mut self, raw: impl Iterator<Item = Real> + Clone) {
-        for (i, v) in raw.enumerate() {
+    /// - input: iterator from which the `input_values` field is written.
+    fn write_input_values(&mut self, input: impl Iterator<Item = Real> + Clone) {
+        for (i, v) in input.enumerate() {
             self.input_values[i] = v;
         }
     }
 }
 
-/// Encapsulates settings and objects for the appropriate algorithm.
+/// Encapsulates settings and objects specific to an algorithm.
 #[derive(Clone)]
-enum ChannelAlgorithm {
+enum ChannelAlgorithmState {
+    /// Encapsulates channel state used by the Fixed Threshold algorithm.
     FixedThreshold { parameters: ThresholdDuration },
-    DifferentialThreshold(DifferentialThresholdAlgorithmParameters),
-    Smoothing(SmoothingAlgorithmParameters),
+    /// Encapsulates channel state used by the Differential Threshold algorithm.
+    DifferentialThreshold(DifferentialThresholdDiscriminatorState),
+    /// Encapsulates channel state used by the Smoothing algorithm.
+    Smoothing(SmoothingDetectorState),
 }
 
-impl ChannelAlgorithm {
+impl ChannelAlgorithmState {
+    /// Creates a new `ChannelAlgorithmState` object defined from `mode`. The state object is specific to the detector chosen.
+    /// # Parameters
+    /// - mode: the `Mode` enum to create the state object from.
     pub(crate) fn new(mode: &Mode) -> Self {
         match mode {
             Mode::FixedThresholdDiscriminator(parameters) => Self::FixedThreshold {
@@ -119,45 +168,31 @@ impl ChannelAlgorithm {
                     cool_off: parameters.cool_off,
                 },
             },
-            Mode::DifferentialThresholdDiscriminator(parameters) => {
-                Self::DifferentialThreshold(DifferentialThresholdAlgorithmParameters {
-                    finite_differences: FiniteDifferences::<2>::new(),
-                    parameters: DifferentialThresholdParameters {
-                        begin_threshold: parameters.begin_threshold,
-                        begin_duration: parameters.begin_duration.into(),
-                        end_threshold: parameters.end_threshold,
-                        end_duration: parameters.end_duration.into(),
-                        cool_off: parameters.cool_off.into(),
-                    },
-                    peak_height: PeakHeightParameters {
-                        mode: parameters.peak_height_mode.clone(),
-                        basis: parameters.peak_height_basis.clone(),
-                    },
-                })
+            Mode::DifferentialThresholdDiscriminator(parameters) => Self::DifferentialThreshold(
+                DifferentialThresholdDiscriminatorState::new(parameters),
+            ),
+            Mode::SmoothingDetector(parameters) => {
+                Self::Smoothing(SmoothingDetectorState::new(parameters))
             }
-            Mode::SmoothingDetector(parameters) => Self::Smoothing(SmoothingAlgorithmParameters {
-                parameters: parameters.clone(),
-                fin_diff_gaussian: ConvolutionFilter::new(KernelType::Composition {
-                    left: Box::new(KernelType::FiniteDifference { order: 2 }),
-                    right: Box::new(KernelType::Gaussian {
-                        sigma: parameters.kernel_sigma,
-                    }),
-                }),
-                cache: Default::default(),
-            }),
         }
     }
 }
 
 /// Encapsulates settings and objects for a channel which can be applied to each channel trace.
 #[derive(Clone)]
-pub(crate) struct ChannelProcessor {
+pub(crate) struct ChannelState {
+    /// The sign of the trace's polarity.
     polarity_sign: Real,
+    /// The baseline of the trace signal.
     baseline: Real,
-    algorithm: ChannelAlgorithm,
+    /// The settings and objects specific to the algorithm used.
+    algorithm: ChannelAlgorithmState,
 }
 
-impl ChannelProcessor {
+impl ChannelState {
+    /// Creates a new `ChannelState` object defined from `settings`.
+    /// # Parameters
+    /// - settings: the `DetectorSettings` to create the state object from.
     pub(crate) fn new(settings: &DetectorSettings) -> Self {
         let polarity_sign = match settings.polarity {
             Polarity::Positive => 1.0,
@@ -166,7 +201,7 @@ impl ChannelProcessor {
         Self {
             polarity_sign,
             baseline: settings.baseline as Real,
-            algorithm: ChannelAlgorithm::new(settings.mode),
+            algorithm: ChannelAlgorithmState::new(settings.mode),
         }
     }
 
@@ -182,14 +217,14 @@ impl ChannelProcessor {
         sample_time: Real,
     ) -> (Vec<Time>, Vec<Intensity>) {
         let result = match &mut self.algorithm {
-            ChannelAlgorithm::FixedThreshold { parameters } => find_fixed_threshold_events(
+            ChannelAlgorithmState::FixedThreshold { parameters } => find_fixed_threshold_events(
                 trace,
                 sample_time,
                 self.polarity_sign,
                 self.baseline,
                 parameters,
             ),
-            ChannelAlgorithm::DifferentialThreshold(parameters) => {
+            ChannelAlgorithmState::DifferentialThreshold(parameters) => {
                 find_differential_threshold_events(
                     trace,
                     sample_time,
@@ -200,7 +235,7 @@ impl ChannelProcessor {
                     &parameters.peak_height,
                 )
             }
-            ChannelAlgorithm::Smoothing(parameters) => find_smoothing_events(
+            ChannelAlgorithmState::Smoothing(parameters) => find_smoothing_events(
                 trace,
                 &parameters.fin_diff_gaussian,
                 &mut parameters.cache,

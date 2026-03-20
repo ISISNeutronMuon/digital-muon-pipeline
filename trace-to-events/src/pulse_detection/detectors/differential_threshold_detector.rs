@@ -6,6 +6,7 @@ use super::{Detector, EventData, Real};
 use crate::{parameters::PeakHeightMode, pulse_detection::datatype::TraceArray};
 use num::Zero;
 
+/// Encapsulates the properties used by the `DifferentialThresholdDetector` object.
 #[derive(Default, Debug, Clone)]
 pub(crate) struct DifferentialThresholdParameters {
     /// The differential threshold the trace must exceed to trigger the detector.
