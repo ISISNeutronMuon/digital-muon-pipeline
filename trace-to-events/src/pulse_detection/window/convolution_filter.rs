@@ -22,9 +22,16 @@ use std::collections::VecDeque;
 /// Specifies a kernel that resolves to a `Vec<Real>` by calling `Self::generate_kernel`.
 #[derive(Clone)]
 pub(crate) enum KernelType {
-    Gaussian { sigma: Real },
-    FiniteDifference { order: usize },
-    Composition { left: Box<KernelType>, right: Box<KernelType> },
+    Gaussian {
+        sigma: Real,
+    },
+    FiniteDifference {
+        order: usize,
+    },
+    Composition {
+        left: Box<KernelType>,
+        right: Box<KernelType>,
+    },
 }
 
 impl Default for KernelType {
@@ -55,23 +62,27 @@ impl KernelType {
                 });
                 kernel
             }
-            KernelType::FiniteDifference { order } => {
-                (0..order + 1)
-                    .map(|i| if (i + order).is_even() { 1. } else { -1. } * (binomial(order, i) as Real))
-                    .collect::<Vec<_>>()
-            }
+            KernelType::FiniteDifference { order } => (0..order + 1)
+                .map(
+                    |i| if (i + order).is_even() { 1. } else { -1. } * (binomial(order, i) as Real),
+                )
+                .collect::<Vec<_>>(),
             KernelType::Composition { left, right } => {
                 let left = left.generate_kernel();
                 let right = right.generate_kernel();
-                (0..left.len() + right.len()).map(|i|
-                    (0..right.len())
-                        .map(|j| if i < left.len() + j && i >= j {
-                                left[i - j]*right[j]
-                            } else {
-                                Default::default()
-                            }
-                        ).sum()
-                ).collect()
+                (0..left.len() + right.len())
+                    .map(|i| {
+                        (0..right.len())
+                            .map(|j| {
+                                if i < left.len() + j && i >= j {
+                                    left[i - j] * right[j]
+                                } else {
+                                    Default::default()
+                                }
+                            })
+                            .sum()
+                    })
+                    .collect()
             }
         }
     }
@@ -108,7 +119,7 @@ impl ConvolutionFilter {
     pub(crate) fn apply_slice(&self, slice: &[Real]) -> Real {
         let mut sum = 0.0;
         for (i, value) in slice.iter().enumerate().take(self.kernel.len()) {
-            sum += self.kernel[i]*value;
+            sum += self.kernel[i] * value;
         }
         sum
     }
@@ -148,7 +159,7 @@ impl SliceWindow for ConvolutionFilter {
     type InputType = Real;
     type OutputType = Real;
 
-    fn apply_to_slice<'a>(&self, input: &'a [Self::InputType], output: &'a mut[Self::OutputType]) {
+    fn apply_to_slice<'a>(&self, input: &'a [Self::InputType], output: &'a mut [Self::OutputType]) {
         for i in 0..output.len() {
             let value = self.apply_slice(&input[i..i + self.kernel_size()]);
             output[i] = value;
@@ -533,7 +544,7 @@ mod tests {
         let conv = ConvolutionFilter::new(kernel);
         assert_eq!(conv.kernel_size(), 2);
 
-        let slice_input = input.iter().cloned().map(|x|x as Real).collect::<Vec<_>>();
+        let slice_input = input.iter().cloned().map(|x| x as Real).collect::<Vec<_>>();
         let mut slice_output = vec![0.0; 6];
         conv.apply_to_slice(slice_input.as_slice(), slice_output.as_mut_slice());
 
@@ -543,9 +554,8 @@ mod tests {
             .map(|(i, v)| (i as Real, v as Real))
             .window(conv);
 
-
         let expected = [6., -4., -1., 2., -2., -1.];
-        for i in 0..6{
+        for i in 0..6 {
             let next = output.next();
             assert_eq!(next, Some((i as Real + 0.5, expected[i])));
             assert_eq!(expected[i], slice_output[i]);
@@ -561,7 +571,7 @@ mod tests {
         let conv = ConvolutionFilter::new(kernel);
         assert_eq!(conv.kernel_size(), 3);
 
-        let slice_input = input.iter().cloned().map(|x|x as Real).collect::<Vec<_>>();
+        let slice_input = input.iter().cloned().map(|x| x as Real).collect::<Vec<_>>();
         let mut slice_output = vec![0.0; 5];
         conv.apply_to_slice(slice_input.as_slice(), &mut slice_output);
 
@@ -583,16 +593,22 @@ mod tests {
     fn test_convolution_composition_commutativity() {
         let kernel_1 = KernelType::Gaussian { sigma: 2.0 };
         let kernel_2 = KernelType::FiniteDifference { order: 2 };
-        let kernel_12 = KernelType::Composition { left: Box::new(kernel_1.clone()), right: Box::new(kernel_2.clone()) };
-        let kernel_21 = KernelType::Composition { left: Box::new(kernel_2.clone()), right: Box::new(kernel_1.clone()) };
+        let kernel_12 = KernelType::Composition {
+            left: Box::new(kernel_1.clone()),
+            right: Box::new(kernel_2.clone()),
+        };
+        let kernel_21 = KernelType::Composition {
+            left: Box::new(kernel_2.clone()),
+            right: Box::new(kernel_1.clone()),
+        };
         let conv_12 = ConvolutionFilter::new(kernel_12);
         let conv_21 = ConvolutionFilter::new(kernel_21);
-        
+
         let sum_of_sizes = kernel_1.generate_kernel().len() + kernel_2.generate_kernel().len();
         assert_eq!(conv_12.kernel_size(), sum_of_sizes);
         assert_eq!(conv_21.kernel_size(), sum_of_sizes);
-        for (a,b) in Iterator::zip(conv_12.kernel.into_iter(),conv_21.kernel.into_iter()) {
-            assert_approx_eq!(a,b);
+        for (a, b) in Iterator::zip(conv_12.kernel.into_iter(), conv_21.kernel.into_iter()) {
+            assert_approx_eq!(a, b);
         }
     }
 }

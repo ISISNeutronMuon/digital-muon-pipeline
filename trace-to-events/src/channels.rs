@@ -5,11 +5,21 @@ use crate::{
         SmoothingDetectorParameters,
     },
     pulse_detection::{
-        EventsIterable, Real, WindowIterable, detectors::{
+        EventsIterable, Real, WindowIterable,
+        detectors::{
             differential_threshold_detector::{
                 DifferentialThresholdDetector, DifferentialThresholdParameters,
-            }, local_arg_min_detector::LocalArgMinDetector, region_detector::RegionDetector
-        }, iterators::PaddingIterable, threshold_detector::{ThresholdDetector, ThresholdDuration}, utils::stddev_from_slice, window::{FiniteDifferences, SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}}
+            },
+            local_arg_min_detector::LocalArgMinDetector,
+            region_detector::RegionDetector,
+        },
+        iterators::PaddingIterable,
+        threshold_detector::{ThresholdDetector, ThresholdDuration},
+        utils::stddev_from_slice,
+        window::{
+            FiniteDifferences, SliceWindow,
+            convolution_filter::{ConvolutionFilter, KernelType},
+        },
     },
 };
 use digital_muon_common::{Intensity, Time};
@@ -68,7 +78,7 @@ impl SmoothingDetectorCache {
             self.input_values.resize(input_size, Default::default());
             self.input_values2.resize(input_size, Default::default());
         }
-            
+
         if output_size > self.output_values.len() {
             self.output_values.resize(output_size, Default::default());
         }
@@ -135,7 +145,9 @@ impl ChannelAlgorithm {
                 parameters: parameters.clone(),
                 fin_diff_gaussian: ConvolutionFilter::new(KernelType::Composition {
                     left: Box::new(KernelType::FiniteDifference { order: 2 }),
-                    right: Box::new(KernelType::Gaussian { sigma: parameters.kernel_sigma })
+                    right: Box::new(KernelType::Gaussian {
+                        sigma: parameters.kernel_sigma,
+                    }),
                 }),
                 cache: Default::default(),
             }),
@@ -312,18 +324,22 @@ fn find_smoothing_events(
         .voltage()
         .expect("Trace voltage should be Some, this should never fail.");
 
-    cache.ensure_time_data_written(
-        (0..raw_voltages.len())
-            .map(|t| (t as Real) * sample_time)
-    );
+    cache.ensure_time_data_written((0..raw_voltages.len()).map(|t| (t as Real) * sample_time));
     let kernel_radius = fin_diff_gaussian.kernel_size() >> 1;
-    let padded = raw_voltages.iter()
-        .map(|v|polarity_sign * (v as Real - baseline))
+    let padded = raw_voltages
+        .iter()
+        .map(|v| polarity_sign * (v as Real - baseline))
         .pad_reflect(kernel_radius, kernel_radius);
-    cache.ensure_cache_lengths(raw_voltages.len() + fin_diff_gaussian.kernel_size(), raw_voltages.len());
+    cache.ensure_cache_lengths(
+        raw_voltages.len() + fin_diff_gaussian.kernel_size(),
+        raw_voltages.len(),
+    );
     cache.write_input_values(padded);
 
-    fin_diff_gaussian.apply_to_slice(cache.input_values.as_slice(), cache.output_values.as_mut_slice());
+    fin_diff_gaussian.apply_to_slice(
+        cache.input_values.as_slice(),
+        cache.output_values.as_mut_slice(),
+    );
     //let mid_slice = &mut cache.input_values2[0..cache.input_values.len() - fin_diff.kernel_size()];
     //fin_diff.apply_to_slice(cache.input_values.as_slice(), mid_slice);
     //gaussian.apply_to_slice(mid_slice, cache.output_values.as_mut_slice());
@@ -332,19 +348,16 @@ fn find_smoothing_events(
     let noise_std = stddev_from_slice(&cache.output_values[percentile..])
         .expect("StdDev should exist, this should never fail.");
 
-    let output_iter = cache.output_values
-        .iter()
-        .cloned()
-        .enumerate();
+    let output_iter = cache.output_values.iter().cloned().enumerate();
 
-    let regions = output_iter.clone()
-        .events(RegionDetector::new(
-            -noise_std * parameters.nsig_noise,
-            parameters.min_size,
-        ));
+    let regions = output_iter.clone().events(RegionDetector::new(
+        -noise_std * parameters.nsig_noise,
+        parameters.min_size,
+    ));
     let pulses = regions
         .flat_map(|region| {
-            output_iter.clone()
+            output_iter
+                .clone()
                 .take(region.1)
                 .skip(region.0)
                 .events(LocalArgMinDetector::default())
@@ -358,5 +371,5 @@ fn find_smoothing_events(
         times.push(time as Time);
         voltages.push(raw_voltages.get(time));
     }
-    (times,voltages)
+    (times, voltages)
 }

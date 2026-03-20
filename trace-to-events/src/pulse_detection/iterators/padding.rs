@@ -27,15 +27,9 @@ where
     ) -> impl Iterator<Item = Real> + Clone {
         assert!(left_padding < self.len());
         assert!(right_padding < self.len());
-        let left_padding = self
-            .clone()
-            .take(left_padding)
-            .rev();
+        let left_padding = self.clone().take(left_padding).rev();
 
-        let right_padding = self
-            .clone()
-            .rev()
-            .take(right_padding);
+        let right_padding = self.clone().rev().take(right_padding);
 
         left_padding.chain(self.clone()).chain(right_padding)
     }

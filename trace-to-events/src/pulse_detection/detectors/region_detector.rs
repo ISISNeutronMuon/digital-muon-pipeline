@@ -36,17 +36,16 @@ impl RegionDetector {
     }
 
     fn filter_partial_region(&mut self) -> Option<RegionEvent> {
-        self.partial_region.take()
-            .and_then(|partial_region|
-                self.min_size
-                    .is_none_or(|min_size| partial_region.1 >= min_size + partial_region.0)
-                    .then_some(partial_region)
-            )
+        self.partial_region.take().and_then(|partial_region| {
+            self.min_size
+                .is_none_or(|min_size| partial_region.1 >= min_size + partial_region.0)
+                .then_some(partial_region)
+        })
     }
 }
 
 impl Detector for RegionDetector {
-    type TracePointType = (usize,Real);
+    type TracePointType = (usize, Real);
     type EventPointType = RegionEvent;
 
     fn signal(&mut self, time: usize, value: Real) -> Option<RegionEvent> {
@@ -57,10 +56,12 @@ impl Detector for RegionDetector {
         } else {
             // Otherwise, set the current partial region's right-bound, to the current time
             // (inserting a new one if necessary), and return None.
-            self.partial_region.get_or_insert_with(||{
-                println!("Insert new region with {value} <= {}", self.threshold);
-                (time,Default::default())
-            }).1 = time;
+            self.partial_region
+                .get_or_insert_with(|| {
+                    println!("Insert new region with {value} <= {}", self.threshold);
+                    (time, Default::default())
+                })
+                .1 = time;
             None
         }
     }
@@ -74,7 +75,8 @@ impl Detector for RegionDetector {
 mod tests {
     use super::*;
     use crate::pulse_detection::{
-        EventsIterable, Real, detectors::local_arg_min_detector::LocalArgMinDetector, utils::stddev_from_slice
+        EventsIterable, Real, detectors::local_arg_min_detector::LocalArgMinDetector,
+        utils::stddev_from_slice,
     };
 
     const NX: usize = 85;
@@ -169,17 +171,17 @@ mod tests {
 
     #[test]
     fn detect_regions_no_minsize() {
-        let noise_std = stddev_from_slice(
-            &SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..],
-        )
-        .unwrap();
+        let noise_std =
+            stddev_from_slice(&SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..])
+                .unwrap();
         let pulses = SECOND_DERIV
             .iter()
             .enumerate()
             .map(|(i, v)| (i, *v))
             .events(RegionDetector::new(-noise_std * 5.0, None))
             .flat_map(|region| {
-                SECOND_DERIV.iter()
+                SECOND_DERIV
+                    .iter()
                     .cloned()
                     .enumerate()
                     .take(region.1)
@@ -193,17 +195,17 @@ mod tests {
 
     #[test]
     fn detect_regions_minsize_two() {
-        let noise_std = stddev_from_slice(
-            &SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..],
-        )
-        .unwrap();
+        let noise_std =
+            stddev_from_slice(&SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..])
+                .unwrap();
         let pulses = SECOND_DERIV
             .iter()
             .enumerate()
             .map(|(i, v)| (i, *v))
             .events(RegionDetector::new(-noise_std * 5.0, Some(5)))
             .flat_map(|region| {
-                SECOND_DERIV.iter()
+                SECOND_DERIV
+                    .iter()
                     .cloned()
                     .enumerate()
                     .take(region.1)

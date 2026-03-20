@@ -18,8 +18,8 @@
 pub(crate) mod datatype;
 pub(crate) mod detectors;
 pub(crate) mod iterators;
-pub(crate) mod window;
 pub(crate) mod utils;
+pub(crate) mod window;
 
 pub(crate) use datatype::{EventData, EventPoint, RealArray, Stats, Temporal, TracePoint};
 pub(crate) use detectors::{Detector, threshold_detector};
