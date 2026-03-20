@@ -1,7 +1,7 @@
 //! Provides the [process] function which extracts muon events, creates the flatbuffer eventlist messages.
 //!
 //! The function then creates a [DeliveryFuture], and passes it to the kafka producer task.
-use crate::{channels::ChannelProcessor, parameters::DetectorSettings, pulse_detection::Real};
+use crate::{channels::ChannelState, parameters::DetectorSettings, pulse_detection::Real};
 use digital_muon_common::{
     Channel, EventData,
     spanned::{SpanWrapper, Spanned},
@@ -20,7 +20,7 @@ use rayon::prelude::*;
 use tracing::debug;
 
 pub(crate) struct DigitiserMessageProcessor {
-    channels: Vec<ChannelProcessor>,
+    channels: Vec<ChannelState>,
 }
 
 impl DigitiserMessageProcessor {
@@ -29,7 +29,7 @@ impl DigitiserMessageProcessor {
             panic!("expected_num should be nonzero, this should never fail.");
         }
         Self {
-            channels: vec![ChannelProcessor::new(settings); expected_num],
+            channels: vec![ChannelState::new(settings); expected_num],
         }
     }
 

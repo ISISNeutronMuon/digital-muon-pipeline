@@ -1,4 +1,4 @@
-//! Provides functions and structs which extract and return lists of muon events using specified detectors and settings.
+//! Provides algorithm-specific functions and which extract and return lists of muon events using specified settings.
 use crate::{
     channels::{PeakHeightParameters, SmoothingDetectorCache},
     parameters::{PeakHeightBasis, SmoothingDetectorParameters},
@@ -13,7 +13,7 @@ use crate::{
         },
         iterators::PaddingIterable,
         threshold_detector::{ThresholdDetector, ThresholdDuration},
-        utils::stddev_from_slice,
+        utils::std_dev,
         window::{FiniteDifferences, SliceWindow, convolution_filter::ConvolutionFilter},
     },
 };
@@ -24,7 +24,7 @@ use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::Chan
 /// # Parameters
 /// - trace: raw trace data.
 /// - sample_time: sample time in ns.
-/// - polarity: the polarity of the trace signal.
+/// - polarity_sign: the polarity of the trace signal.
 /// - baseline: the baseline of the trace signal.
 /// - parameters: settings to use for the fixed threshold discriminator.
 #[tracing::instrument(skip_all, level = "trace")]
@@ -62,9 +62,11 @@ pub(super) fn find_fixed_threshold_events(
 /// # Parameters
 /// - trace: raw trace data.
 /// - sample_time: sample time in ns.
-/// - polarity: the polarity of the trace signal.
+/// - polarity_sign: the polarity of the trace signal.
 /// - baseline: the baseline of the trace signal.
+/// - finite_differences: template `FiniteDifferences<2>` from which to efficiently clone.
 /// - parameters: settings to use for the differential threshold detector.
+/// - peak_height: settings determining how peak heights are calculated.
 #[tracing::instrument(skip_all, level = "trace")]
 pub(super) fn find_differential_threshold_events(
     trace: &ChannelTrace,
@@ -109,6 +111,17 @@ pub(super) fn find_differential_threshold_events(
     (time, voltage)
 }
 
+/// Extract muon events from the given trace, by first applying a smoothing filter,
+/// taking the second derivative, and applying the `RegionDetector` and `LocalArgMinDetector`
+/// in succession.
+/// # Parameters
+/// - trace: raw trace data.
+/// - fin_diff_gaussian: the composite convolution filter applying the smoothing filer and taking the second derivative.
+/// - cache: provides `Vec` objects which are used to write intermediate calculations.
+/// - sample_time: sample time in ns.
+/// - polarity_sign: the polarity of the trace signal.
+/// - baseline: the baseline of the trace signal.
+/// - parameters: settings to use for the smoothing detector.
 #[tracing::instrument(skip_all, level = "trace")]
 pub(super) fn find_smoothing_events(
     trace: &ChannelTrace,
@@ -123,7 +136,9 @@ pub(super) fn find_smoothing_events(
         .voltage()
         .expect("Trace voltage should be Some, this should never fail.");
 
-    cache.ensure_time_data_written((0..raw_voltages.len()).map(|t| (t as Real) * sample_time));
+    cache.ensure_time_data_written(raw_voltages.len(), sample_time);
+    // Get the radius of the kernel by right-bitshifting the size by one
+    // i.e. divide by 2, and round-down.
     let kernel_radius = fin_diff_gaussian.kernel_size() >> 1;
     let padded = raw_voltages
         .iter()
@@ -141,7 +156,7 @@ pub(super) fn find_smoothing_events(
     );
 
     let percentile = ((raw_voltages.len() as f64 * parameters.noise_centile) / 100.0) as usize;
-    let noise_std = stddev_from_slice(&cache.output_values[percentile..])
+    let noise_std = std_dev(&cache.output_values[percentile..])
         .expect("StdDev should exist, this should never fail.");
 
     let output_iter = cache.output_values.iter().cloned().enumerate();

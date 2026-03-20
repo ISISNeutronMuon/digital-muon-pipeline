@@ -73,7 +73,7 @@ mod tests {
     use super::*;
     use crate::pulse_detection::{
         EventsIterable, Real, detectors::local_arg_min_detector::LocalArgMinDetector,
-        utils::stddev_from_slice,
+        utils::std_dev,
     };
 
     const NX: usize = 85;
@@ -169,8 +169,7 @@ mod tests {
     #[test]
     fn detect_regions_no_minsize() {
         let noise_std =
-            stddev_from_slice(&SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..])
-                .unwrap();
+            std_dev(&SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..]).unwrap();
         let pulses = SECOND_DERIV
             .iter()
             .enumerate()
@@ -193,8 +192,7 @@ mod tests {
     #[test]
     fn detect_regions_minsize_two() {
         let noise_std =
-            stddev_from_slice(&SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..])
-                .unwrap();
+            std_dev(&SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..]).unwrap();
         let pulses = SECOND_DERIV
             .iter()
             .enumerate()
