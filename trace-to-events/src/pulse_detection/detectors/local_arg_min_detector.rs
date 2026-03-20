@@ -1,53 +1,66 @@
 //! This detector registers an event whenever the input stream achieves a local minima.
-use super::{Detector, EventData, Real};
+use super::{Detector, Real};
+use crate::pulse_detection::EventPoint;
 
-/// The time-independnt data of the detector's event.
-pub(crate) type Data = (); //TraceArray<3, Real>;
-
-impl EventData for Data {}
-
-/// This detector triggers an event when the trace exceeds the threshold.
-#[derive(Default, Clone)]
-pub(crate) struct LocalArgMinDetector {
-    default: Option<LocalArgMinEvent>,
-    cache: CyclingCache,
+impl EventPoint for usize {
+    type TimeType = usize;
+    type EventType = usize;
 }
 
 /// The time-dependent event of the local minima detector.
 pub(crate) type LocalArgMinEvent = usize;
 
+/// A FIFO buffer with an effective size of 3 (through only 2 values are stored at a time).
 #[derive(Default, Clone)]
-struct CyclingCache {
+struct FifoBuffer {
+    /// Size of the buffer, can be 0, 1, or 2.
     len: usize,
-    back: Real,
+    /// Oldest value stored in the buffer.
+    oldest: Real,
+    /// Second oldest value stored in the buffer.
     middle: Real,
 }
 
-impl CyclingCache {
+impl FifoBuffer {
+    /// Tests whether any values have been pushed yet.
     fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    fn cycle_in_new(&mut self, front: Real) {
-        self.back = self.middle;
-        self.middle = front;
+    /// Push the newest value into the buffer and displace the oldest value.
+    fn push(&mut self, newest: Real) {
+        self.oldest = self.middle;
+        self.middle = newest;
         if self.len != 2 {
             self.len += 1;
         }
     }
 
-    fn test_for_minimum(&self, front: Real) -> bool {
+    /// Tests whether the middle value is a minimum.
+    /// This requires the user to provide the `newest` value.
+    fn test_middle_for_minimum(&self, newest: Real) -> bool {
         if self.len != 2 {
             return false;
         }
-        self.back > self.middle && self.middle < front
+        self.oldest > self.middle && self.middle < newest
     }
 
-    fn cycle_in_new_and_test_for_minimum(&mut self, front: Real) -> bool {
-        let result = self.test_for_minimum(front);
-        self.cycle_in_new(front);
+    /// Tests whether the middle value is a minimum and push the newest value into the buffer.
+    /// This requires the user to provide the `newest` value.
+    fn push_and_test_middle_for_minimum(&mut self, newest: Real) -> bool {
+        let result = self.test_middle_for_minimum(newest);
+        self.push(newest);
         result
     }
+}
+
+/// This detector triggers an event when the trace exceeds the threshold.
+#[derive(Default, Clone)]
+pub(crate) struct LocalArgMinDetector {
+    /// Value to return if no local minima are found.
+    default: Option<LocalArgMinEvent>,
+    /// Buffer for storing trace values.
+    cache: FifoBuffer,
 }
 
 impl Detector for LocalArgMinDetector {
@@ -61,7 +74,7 @@ impl Detector for LocalArgMinDetector {
 
         let event = self
             .cache
-            .cycle_in_new_and_test_for_minimum(value)
+            .push_and_test_middle_for_minimum(value)
             .then(|| time - 1);
 
         if self.default.is_some() && event.is_some() {
