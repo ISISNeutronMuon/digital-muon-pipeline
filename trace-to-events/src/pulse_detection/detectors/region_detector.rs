@@ -57,10 +57,7 @@ impl Detector for RegionDetector {
             // Otherwise, set the current partial region's right-bound, to the current time
             // (inserting a new one if necessary), and return None.
             self.partial_region
-                .get_or_insert_with(|| {
-                    println!("Insert new region with {value} <= {}", self.threshold);
-                    (time, Default::default())
-                })
+                .get_or_insert_with(|| (time, Default::default()))
                 .1 = time;
             None
         }
