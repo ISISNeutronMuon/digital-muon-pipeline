@@ -1,24 +1,17 @@
 //! This detector breaks the stream into regions whose second derivative is greater or equal to a given threshold.
-use crate::pulse_detection::{Detector, EventData, EventPoint, Real};
+use crate::pulse_detection::{Detector, EventData, Real};
 
-/// Represents a region of the trace.
-pub(crate) type Data = usize;
+impl EventData for usize {}
 
-impl EventData for Data {}
-
-impl EventPoint for Data {
-    type TimeType = usize;
-    type EventType = Self;
-}
-
-/// (Time, Data) pair defining a pulse detection event.
-pub(crate) type RegionEvent = (usize, Data);
+/// (start, end) pair defining a region.
+pub(crate) type RegionEvent = (usize, usize);
 
 /// Detects pulses in a trace by analysing the differential of the trace.
 #[derive(Default, Clone)]
 pub(crate) struct RegionDetector {
-    /// The detection parameters.
+    /// The detection parameters, a region is detected whenever the trace goes below this value.
     threshold: Real,
+    /// If specified, only detect regions of at least this size.
     min_size: Option<usize>,
 
     /// The current state of the detector.
@@ -35,6 +28,7 @@ impl RegionDetector {
         }
     }
 
+    /// If a partial region exists, then return it if and only if it is of sufficient size, otherwise return `None`.
     fn filter_partial_region(&mut self) -> Option<RegionEvent> {
         self.partial_region.take().and_then(|partial_region| {
             self.min_size
