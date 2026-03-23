@@ -3,7 +3,7 @@ use rdkafka::{
     message::{BorrowedHeaders, Headers, OwnedHeaders},
     producer::FutureRecord,
 };
-use tracing::{Span, debug};
+use tracing::{Span, debug, warn};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 struct HeaderInjector<'a>(pub &'a mut OwnedHeaders);
@@ -101,9 +101,11 @@ impl OptionalHeaderTracerExt for Option<&BorrowedHeaders> {
             && use_otel
         {
             debug!("Kafka Header Found");
-            span.set_parent(opentelemetry::global::get_text_map_propagator(
+            if let Err(e) = span.set_parent(opentelemetry::global::get_text_map_propagator(
                 |propagator| propagator.extract(&HeaderExtractor(headers)),
-            ));
+            )) {
+                warn!("{e}");
+            }
         }
     }
 }
