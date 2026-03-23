@@ -8,6 +8,8 @@
 mod entry;
 mod logs;
 
+use std::{path::PathBuf, str::FromStr};
+
 use crate::{
     hdf5_handlers::{HasAttributesExt, NexusHDF5Result},
     nexus::{NexusClass, NexusGroup, NexusMessageHandler, NexusSchematic},
@@ -52,6 +54,13 @@ impl NexusSchematic for Root {
     type Settings = ChunkSizeSettings;
 
     fn build_group_structure(group: &Group, settings: &ChunkSizeSettings) -> NexusHDF5Result<Self> {
+        let file_path = PathBuf::from_str(&group.filename())
+            .expect("Group should have filepath, this should never fail.");
+        let file_name = file_path.file_name()
+            .expect("File path should have file name, this should never fail.")
+            .to_str()
+            .expect("File name should be representable as str, this should never fail.");
+
         Ok(Self {
             _hdf5_version: group.add_constant_string_attribute(
                 labels::HDF5_VERSION,
@@ -64,7 +73,7 @@ impl NexusSchematic for Root {
             )?,
             _nexus_version: group.add_constant_string_attribute(labels::NEXUS_VERSION, "")?, // Where does this come from?
             _file_name: group
-                .add_constant_string_attribute(labels::FILE_NAME, &group.filename())?,
+                .add_constant_string_attribute(labels::FILE_NAME, file_name)?,
             _file_time: group.add_constant_string_attribute(
                 labels::FILE_TIME,
                 Utc::now()
