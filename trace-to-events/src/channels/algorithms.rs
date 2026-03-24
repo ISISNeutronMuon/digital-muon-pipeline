@@ -1,4 +1,6 @@
 //! Provides algorithm-specific functions and which extract and return lists of muon events using specified settings.
+use core::f64;
+
 use crate::{
     channels::{PeakHeightParameters, SmoothingDetectorCache},
     parameters::{PeakHeightBasis, SmoothingDetectorParameters},
@@ -13,7 +15,7 @@ use crate::{
         },
         iterators::PaddingIterable,
         threshold_detector::{ThresholdDetector, ThresholdDuration},
-        utils::std_dev,
+        utils::{global_arg_min, std_dev},
         window::{FiniteDifferences, SliceWindow, convolution_filter::ConvolutionFilter},
     },
 };
@@ -122,7 +124,7 @@ pub(super) fn find_differential_threshold_events(
 /// - polarity_sign: the polarity of the trace signal.
 /// - baseline: the baseline of the trace signal.
 /// - parameters: settings to use for the smoothing detector.
-#[tracing::instrument(skip_all, level = "trace")]
+#[tracing::instrument(skip_all, level = "trace", fields(std_dev, num_regions))]
 pub(super) fn find_smoothing_events(
     trace: &ChannelTrace,
     fin_diff_gaussian: &ConvolutionFilter,
@@ -157,22 +159,33 @@ pub(super) fn find_smoothing_events(
 
     let percentile = ((raw_voltages.len() as f64 * parameters.noise_centile) / 100.0) as usize;
     let noise_std = std_dev(&cache.output_values[percentile..])
-        .expect("StdDev should exist, this should never fail.");
+        .expect("std_dev should exist, this should never fail.");
+    tracing::Span::current().record("std_dev", noise_std);
 
     let output_iter = cache.output_values.iter().cloned().enumerate();
 
-    let regions = output_iter.clone().events(RegionDetector::new(
-        -noise_std * parameters.nsig_noise,
-        parameters.min_size,
-    ));
+    let regions = output_iter
+        .clone()
+        .events(RegionDetector::new(
+            -noise_std * parameters.nsig_noise,
+            parameters.min_size,
+        ))
+        .collect::<Vec<_>>();
+    tracing::Span::current().record("num_regions", regions.len());
+
     let pulses = regions
+        .into_iter()
         .flat_map(|region| {
-            output_iter
-                .clone()
-                .take(region.1)
-                .skip(region.0)
-                .events(LocalArgMinDetector::default())
-                .collect::<Vec<_>>()
+            let region_iter = output_iter.clone().take(region.1).skip(region.0);
+            if let Some(use_local_for_sizes_ge) = parameters.use_local_for_sizes_ge
+                && region_iter.len() >= use_local_for_sizes_ge
+            {
+                region_iter
+                    .events(LocalArgMinDetector::default())
+                    .collect::<Vec<_>>()
+            } else {
+                vec![global_arg_min(region_iter)]
+            }
         })
         .collect::<Vec<_>>();
 

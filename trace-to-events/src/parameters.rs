@@ -105,6 +105,9 @@ pub(crate) struct SmoothingDetectorParameters {
     /// Minimum size of region to consider a peak, if absent all regions are considered.
     #[clap(long)]
     pub(crate) min_size: Option<usize>,
+    /// If set, then any region at or above this size will be converted to a list of local arg minima, rather than the global arg minimum.
+    #[clap(long)]
+    pub(crate) use_local_for_sizes_ge: Option<usize>,
 }
 
 /// Specifies which detector is to be used, and wraps the detector-specific options in each variant.
