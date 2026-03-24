@@ -8,8 +8,6 @@
 mod entry;
 mod logs;
 
-use std::{path::PathBuf, str::FromStr};
-
 use crate::{
     hdf5_handlers::{HasAttributesExt, NexusHDF5Result},
     nexus::{NexusClass, NexusGroup, NexusMessageHandler, NexusSchematic},
@@ -18,6 +16,7 @@ use crate::{
 use chrono::{SecondsFormat, Utc};
 use entry::Entry;
 use hdf5::{Attribute, Group};
+use std::{path::PathBuf, str::FromStr};
 
 /// Field names for [Root].
 mod labels {
