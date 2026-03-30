@@ -14,6 +14,7 @@
 //! ```
 
 pub(crate) mod baseline;
+pub(crate) mod convolution_filter;
 pub(crate) mod finite_differences;
 pub(crate) mod smoothing_window;
 
@@ -34,4 +35,14 @@ pub(crate) trait Window: Clone {
 
     /// Shifts the time value by half the window's size.
     fn apply_time_shift(&self, time: Self::TimeType) -> Self::TimeType;
+}
+
+/// Consumes values from a waveform, and outputs a waveform after processing.[TODO]
+pub(crate) trait SliceWindow: Clone {
+    type TimeType: Temporal;
+    type InputType: Copy;
+    type OutputType;
+
+    /// TODO.
+    fn apply_to_slice<'a>(&self, input: &'a [Self::InputType], output: &'a mut [Self::OutputType]);
 }

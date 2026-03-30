@@ -18,6 +18,7 @@
 pub(crate) mod datatype;
 pub(crate) mod detectors;
 pub(crate) mod iterators;
+pub(crate) mod utils;
 pub(crate) mod window;
 
 pub(crate) use datatype::{EventData, EventPoint, RealArray, Stats, Temporal, TracePoint};
