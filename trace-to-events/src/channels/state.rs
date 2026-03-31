@@ -104,7 +104,7 @@ impl SmoothingDetectorCache {
     /// # Parameters
     /// - size: the intended size of the `time` vector.
     /// - sample_time: the intended `sample_time`, defining the scale of the time-series.
-   pub(super) fn ensure_time_data_written(&mut self, size: usize, sample_time: Real) {
+    pub(super) fn ensure_time_data_written(&mut self, size: usize, sample_time: Real) {
         if size != self.time.len()
             || self
                 .expected_sample_time
