@@ -3,3 +3,4 @@ mod algorithms;
 mod state;
 
 use state::{PeakHeightParameters, SmoothingDetectorCache};
+pub(crate) use state::ChannelState;
