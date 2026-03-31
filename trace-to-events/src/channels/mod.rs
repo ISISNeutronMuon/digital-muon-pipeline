@@ -216,6 +216,11 @@ impl ChannelState {
         trace: &ChannelTrace,
         sample_time: Real,
     ) -> (Vec<Time>, Vec<Intensity>) {
+        let trace = trace
+            .voltage()
+            .expect("Trace voltage should be Some, this should never fail.")
+            .into_iter()
+            .map(|x| x as Real);
         let result = match &mut self.algorithm {
             ChannelAlgorithmState::FixedThreshold { parameters } => find_fixed_threshold_events(
                 trace,
