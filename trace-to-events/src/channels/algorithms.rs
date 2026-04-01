@@ -20,7 +20,6 @@ use crate::{
     },
 };
 use digital_muon_common::{Intensity, Time};
-use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
 
 /// Extract muon events from the given trace, using the fixed threshold discriminator and the given settings.
 /// # Parameters
@@ -31,23 +30,18 @@ use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::Chan
 /// - parameters: settings to use for the fixed threshold discriminator.
 #[tracing::instrument(skip_all, level = "trace")]
 pub(super) fn find_fixed_threshold_events(
-    trace: &ChannelTrace,
+    trace: impl Iterator<Item = Real> + Clone,
     sample_time: Real,
     polarity_sign: Real,
     baseline: Real,
     parameters: &ThresholdDuration,
 ) -> (Vec<Time>, Vec<Intensity>) {
-    let raw = trace
-        .voltage()
-        .unwrap()
-        .into_iter()
-        .enumerate()
-        .map(|(i, v)| {
-            (
-                i as Real * sample_time,
-                polarity_sign * (v as Real - baseline),
-            )
-        });
+    let raw = trace.enumerate().map(|(i, v)| {
+        (
+            i as Real * sample_time,
+            polarity_sign * (v as Real - baseline),
+        )
+    });
 
     let pulses = raw.clone().events(ThresholdDetector::new(parameters));
 
@@ -71,7 +65,7 @@ pub(super) fn find_fixed_threshold_events(
 /// - peak_height: settings determining how peak heights are calculated.
 #[tracing::instrument(skip_all, level = "trace")]
 pub(super) fn find_differential_threshold_events(
-    trace: &ChannelTrace,
+    trace: impl Iterator<Item = Real> + Clone,
     sample_time: Real,
     polarity_sign: Real,
     baseline: Real,
@@ -79,17 +73,12 @@ pub(super) fn find_differential_threshold_events(
     parameters: &DifferentialThresholdParameters,
     peak_height: &PeakHeightParameters,
 ) -> (Vec<Time>, Vec<Intensity>) {
-    let raw = trace
-        .voltage()
-        .unwrap()
-        .into_iter()
-        .enumerate()
-        .map(|(i, v)| {
-            (
-                i as Real * sample_time,
-                polarity_sign * (v as Real - baseline),
-            )
-        });
+    let raw = trace.enumerate().map(|(i, v)| {
+        (
+            i as Real * sample_time,
+            polarity_sign * (v as Real - baseline),
+        )
+    });
 
     let pulses = raw
         .clone()
@@ -126,7 +115,7 @@ pub(super) fn find_differential_threshold_events(
 /// - parameters: settings to use for the smoothing detector.
 #[tracing::instrument(skip_all, level = "trace", fields(std_dev, num_regions))]
 pub(super) fn find_smoothing_events(
-    trace: &ChannelTrace,
+    trace: impl Clone + ExactSizeIterator<Item = Real> + DoubleEndedIterator,
     fin_diff_gaussian: &ConvolutionFilter,
     cache: &mut SmoothingDetectorCache,
     sample_time: Real,
@@ -134,22 +123,15 @@ pub(super) fn find_smoothing_events(
     baseline: Real,
     parameters: &SmoothingDetectorParameters,
 ) -> (Vec<Time>, Vec<Intensity>) {
-    let raw_voltages = trace
-        .voltage()
-        .expect("Trace voltage should be Some, this should never fail.");
-
-    cache.ensure_time_data_written(raw_voltages.len(), sample_time);
+    cache.ensure_time_data_written(trace.len(), sample_time);
     // Get the radius of the kernel by right-bitshifting the size by one
     // i.e. divide by 2, and round-down.
     let kernel_radius = fin_diff_gaussian.kernel_size() >> 1;
-    let padded = raw_voltages
-        .iter()
+    let padded = trace
+        .clone()
         .map(|v| polarity_sign * (v as Real - baseline))
         .pad_reflect(kernel_radius, kernel_radius);
-    cache.ensure_cache_lengths(
-        raw_voltages.len() + fin_diff_gaussian.kernel_size(),
-        raw_voltages.len(),
-    );
+    cache.ensure_cache_lengths(trace.len() + fin_diff_gaussian.kernel_size(), trace.len());
     cache.write_input_values(padded);
 
     fin_diff_gaussian.apply_to_slice(
@@ -157,7 +139,7 @@ pub(super) fn find_smoothing_events(
         cache.output_values.as_mut_slice(),
     );
 
-    let percentile = ((raw_voltages.len() as f64 * parameters.noise_centile) / 100.0) as usize;
+    let percentile = ((trace.len() as f64 * parameters.noise_centile) / 100.0) as usize;
     let noise_std = std_dev(&cache.output_values[percentile..])
         .expect("std_dev should exist, this should never fail.");
     tracing::Span::current().record("std_dev", noise_std);
@@ -193,7 +175,7 @@ pub(super) fn find_smoothing_events(
     let mut voltages = Vec::<Intensity>::new();
     for time in pulses {
         times.push(time as Time);
-        voltages.push(raw_voltages.get(time));
+        voltages.push(trace.clone().nth(time).expect("") as Intensity);
     }
     (times, voltages)
 }

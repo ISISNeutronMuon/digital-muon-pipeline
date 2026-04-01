@@ -77,7 +77,7 @@ impl DigitiserMessageProcessor {
 
         let sample_time_in_ns: Real = 1_000_000_000.0 / trace.sample_rate() as Real;
 
-        let channels = trace.channels().unwrap();
+        let channels = trace.channels().unwrap(); // FIXME: We should handle this error
         self.ensure_sufficient_channels(channels.len());
 
         let vec: Vec<(Channel, _)> = channels
