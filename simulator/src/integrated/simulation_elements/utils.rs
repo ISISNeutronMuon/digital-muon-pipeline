@@ -3,7 +3,7 @@ use num::{
     Float, Num, NumCast,
     traits::{Inv, NumOps, int::PrimInt},
 };
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use rand_distr::{Distribution, Exp, Normal, uniform::SampleUniform};
 use serde::Deserialize;
 use std::{
