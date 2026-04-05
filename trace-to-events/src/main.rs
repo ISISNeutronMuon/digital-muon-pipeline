@@ -10,6 +10,8 @@ mod channels;
 mod parameters;
 mod processing;
 mod pulse_detection;
+#[cfg(test)]
+mod test_data;
 
 use crate::processing::DigitiserMessageProcessor;
 use chrono::{DateTime, Utc};
