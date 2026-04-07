@@ -5,6 +5,7 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+rustfft.workspace = true
 chrono.workspace = true
 clap.workspace = true
 const_format.workspace = true
