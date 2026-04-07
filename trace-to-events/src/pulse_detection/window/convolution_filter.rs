@@ -172,7 +172,10 @@ impl SliceWindow for ConvolutionFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{pulse_detection::iterators::{PaddingIterable, WindowIterable}, test_data::{SMOOTHED_VALUED, VALUES}};
+    use crate::{
+        pulse_detection::iterators::{PaddingIterable, WindowIterable},
+        test_data::{SMOOTHED_VALUED, VALUES},
+    };
     use assert_approx_eq::assert_approx_eq;
     use digital_muon_common::Intensity;
 

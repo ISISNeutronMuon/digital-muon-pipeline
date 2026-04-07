@@ -3,4 +3,4 @@ mod algorithms;
 mod state;
 
 pub(crate) use state::ChannelState;
-use state::{PeakHeightParameters, SmoothingDetectorCache, MultiscalingDetectorCache};
+use state::{MultiscalingDetectorCache, PeakHeightParameters, SmoothingDetectorCache};

@@ -198,8 +198,7 @@ pub(super) fn find_multiscaling_events(
     baseline: Real,
     parameters: &MultiscalingDetectorParameters,
 ) -> (Vec<Time>, Vec<Intensity>) {
-    let raw_voltages = trace.map(|x| x as Real)
-        .collect::<Vec<_>>();
+    let raw_voltages = trace.map(|x| x as Real).collect::<Vec<_>>();
 
     // Denoising
     /*

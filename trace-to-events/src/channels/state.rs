@@ -1,9 +1,12 @@
 use crate::{
     channels::algorithms::{
-        find_differential_threshold_events, find_fixed_threshold_events, find_multiscaling_events, find_smoothing_events
+        find_differential_threshold_events, find_fixed_threshold_events, find_multiscaling_events,
+        find_smoothing_events,
     },
     parameters::{
-        DetectorSettings, DifferentialThresholdDiscriminatorParameters, Mode, MultiscalingDetectorParameters, PeakHeightBasis, PeakHeightMode, Polarity, SmoothingDetectorParameters
+        DetectorSettings, DifferentialThresholdDiscriminatorParameters, Mode,
+        MultiscalingDetectorParameters, PeakHeightBasis, PeakHeightMode, Polarity,
+        SmoothingDetectorParameters,
     },
     pulse_detection::{
         Real,
@@ -140,7 +143,6 @@ impl SmoothingDetectorCache {
         }
     }
 }
-
 
 /// Encapsulates all settings and objects in the smoothing algorithm which persist across digitiser messages.
 #[derive(Clone)]

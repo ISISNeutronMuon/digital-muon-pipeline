@@ -1,5 +1,8 @@
 use num::Integer;
-use rustfft::{FftPlanner, num_complex::{Complex, ComplexFloat}};
+use rustfft::{
+    FftPlanner,
+    num_complex::{Complex, ComplexFloat},
+};
 
 use crate::pulse_detection::{
     Real,
@@ -46,13 +49,17 @@ impl<FT> FftInverse<FT> {
             .collect::<Vec<_>>();
 
         if (even_mask.iter().sum::<Real>() - 1.0).abs() > Real::EPSILON {
-            panic!("The even mask does not add to 1! {}", even_mask.iter().sum::<Real>() - 1.0);
+            panic!(
+                "The even mask does not add to 1! {}",
+                even_mask.iter().sum::<Real>() - 1.0
+            );
         }
         even_mask
     }
 
     fn padded_complex_from_reals(input: Vec<Real>, padding_size: usize) -> Vec<Complex<Real>> {
-        input.into_iter()
+        input
+            .into_iter()
             .pad_zeroes(padding_size, padding_size)
             .map(|real| rustfft::num_complex::Complex::new(real, Default::default()))
             .collect::<Vec<_>>()
@@ -60,23 +67,27 @@ impl<FT> FftInverse<FT> {
 
     fn iter_about_max(input: Vec<Real>, radius: usize) -> impl Iterator<Item = Real> + Clone {
         //  Find the index of the max value of the resulting buffer.
-        let arg_max = input.iter()
+        let arg_max = input
+            .iter()
             .enumerate()
             .max_by(|r1, r2| {
-                Real::partial_cmp(r1.1, r2.1)
-                    .expect("Numbers are finite, this should never fail.")
+                Real::partial_cmp(r1.1, r2.1).expect("Numbers are finite, this should never fail.")
             })
             .map(|r| r.0)
             .expect("Vector should be nonempty, this should never fail.");
 
         // Truncate the buffer about the `arg_max` element.
-        input.into_iter()
+        input
+            .into_iter()
             .take(arg_max + radius + 1)
             .skip(arg_max - radius + 1)
     }
 }
 
-impl<FT> SliceWindow for FftInverse<FT> where FT: Fn(Complex<Real>) -> Complex<Real> + Clone {
+impl<FT> SliceWindow for FftInverse<FT>
+where
+    FT: Fn(Complex<Real>) -> Complex<Real> + Clone,
+{
     type TimeType = Real;
     type InputType = Real;
     type OutputType = Real;
@@ -109,7 +120,8 @@ impl<FT> SliceWindow for FftInverse<FT> where FT: Fn(Complex<Real>) -> Complex<R
             .collect::<Vec<_>>();
 
         // Truncate the buffer about the `arg_max` element.
-        let mut iter = Self::iter_about_max(padded_even_mask_recip_real, self.truncation_size / 2 + 1);
+        let mut iter =
+            Self::iter_about_max(padded_even_mask_recip_real, self.truncation_size / 2 + 1);
 
         // Normalise and return.
         let sum = iter.clone().sum::<Real>();
@@ -122,25 +134,23 @@ impl<FT> SliceWindow for FftInverse<FT> where FT: Fn(Complex<Real>) -> Complex<R
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assert_approx_eq::assert_approx_eq;
     use crate::pulse_detection::window::SliceWindow;
+    use assert_approx_eq::assert_approx_eq;
 
     #[test]
     fn test_invertability() {
         let alpha = vec![0.125, 0.175, 0.4, 0.175, 0.125];
         let support = vec![0, 0, 0, 0, 0];
         let mut gamma = vec![0.0; 5];
-        let fft = FftInverse::new(8, 5, support.clone(), |x|x);
+        let fft = FftInverse::new(8, 5, support.clone(), |x| x);
         fft.apply_to_slice(alpha.as_slice(), gamma.as_mut_slice());
-        let fft = FftInverse::new(8, 5, vec![0,0,0,0,0], |x|x);
-        let mut alpha2 = vec![0.0;5];
+        let fft = FftInverse::new(8, 5, vec![0, 0, 0, 0, 0], |x| x);
+        let mut alpha2 = vec![0.0; 5];
         fft.apply_to_slice(gamma.as_slice(), alpha2.as_mut_slice());
-        for (i,alpha2) in alpha2.into_iter().enumerate() {
+        for (i, alpha2) in alpha2.into_iter().enumerate() {
             assert_approx_eq!(alpha[i], alpha2);
         }
     }
