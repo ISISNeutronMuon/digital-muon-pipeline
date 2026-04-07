@@ -2,8 +2,8 @@
 use core::f64;
 
 use crate::{
-    channels::{PeakHeightParameters, SmoothingDetectorCache},
-    parameters::{PeakHeightBasis, SmoothingDetectorParameters},
+    channels::{MultiscalingDetectorCache, PeakHeightParameters, SmoothingDetectorCache},
+    parameters::{MultiscalingDetectorParameters, PeakHeightBasis, SmoothingDetectorParameters},
     pulse_detection::{
         EventsIterable, Real, WindowIterable,
         detectors::{
@@ -177,5 +177,44 @@ pub(super) fn find_smoothing_events(
         times.push(time as Time);
         voltages.push(trace.clone().nth(time).expect("") as Intensity);
     }
+    (times, voltages)
+}
+
+/// FIXME
+/// # Parameters
+/// - trace: raw trace data.
+/// - fin_diff_gaussian: the composite convolution filter applying the smoothing filer and taking the second derivative.
+/// - cache: provides `Vec` objects which are used to write intermediate calculations.
+/// - sample_time: sample time in ns.
+/// - polarity_sign: the polarity of the trace signal.
+/// - baseline: the baseline of the trace signal.
+/// - parameters: settings to use for the smoothing detector.
+#[tracing::instrument(skip_all, level = "trace", fields(std_dev, num_regions))]
+pub(super) fn find_multiscaling_events(
+    trace: impl Clone + ExactSizeIterator<Item = Real> + DoubleEndedIterator,
+    cache: &mut MultiscalingDetectorCache,
+    sample_time: Real,
+    polarity_sign: Real,
+    baseline: Real,
+    parameters: &MultiscalingDetectorParameters,
+) -> (Vec<Time>, Vec<Intensity>) {
+    let raw_voltages = trace.map(|x| x as Real)
+        .collect::<Vec<_>>();
+
+    // Denoising
+    /*
+       let pulses = regions
+           .into_iter()
+           .flat_map(|region| {
+           })
+           .collect::<Vec<_>>();
+    */
+    let mut times = Vec::<Time>::new();
+    let mut voltages = Vec::<Intensity>::new();
+    /*
+    for time in pulses {
+        times.push(time as Time);
+        voltages.push(raw_voltages.get(time));
+    } */
     (times, voltages)
 }

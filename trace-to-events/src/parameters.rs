@@ -110,6 +110,65 @@ pub(crate) struct SmoothingDetectorParameters {
     pub(crate) use_local_for_sizes_ge: Option<usize>,
 }
 
+/// Encapsulates the parameters specific to the Multiscaling detector.
+#[derive(Default, Debug, Clone, Parser)]
+pub(crate) struct MultiscalingDetectorParameters {
+    ///
+    #[clap(
+        long,
+        default_value = "0.125,0.5,0.75,0.5,0.125",
+        value_delimiter = ','
+    )]
+    pub(crate) alpha: Vec<Real>,
+    ///
+    #[clap(long, default_value = "-2,-1,0,1,2", value_delimiter = ',')]
+    pub(crate) support: Vec<i32>,
+    ///
+    #[clap(long, default_value = "4")]
+    pub(crate) number_of_layers: usize,
+    ///
+    #[clap(long, default_value = "true")]
+    pub(crate) denoise: bool,
+    ///
+    #[clap(long, default_value = "1,2,3,4", value_delimiter = ',')]
+    pub(crate) scales_denoise: Vec<usize>,
+    ///
+    #[clap(long, default_value = "false")]
+    pub(crate) enhance: bool,
+    ///
+    #[clap(long)]
+    pub(crate) enhancement_factor: Option<Real>,
+    ///
+    #[clap(long)]
+    pub(crate) enhancement_threshold: Option<Real>,
+    ///
+    #[clap(long)]
+    pub(crate) enhance_scales: Option<Real>,
+    ///
+    #[clap(long)]
+    pub(crate) multiply: bool,
+    ///
+    #[command(subcommand)]
+    pub(crate) method: MultiscalingDetectorMethod,
+}
+
+/// Encapsulates the parameters specific to the Smoothing detector.
+#[derive(Debug, Clone, Parser)]
+pub(crate) enum MultiscalingDetectorMethod {
+    /// Detects events using a fixed threshold discriminator. Event lists consist of time and voltage values.
+    FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters),
+    /// Detects events using a differential threshold discriminator. Event lists consist of time and voltage values.
+    DifferentialThresholdDiscriminator(DifferentialThresholdDiscriminatorParameters),
+    /// Detects events using a smoothed second derivative. Event lists consist of time and voltage values.
+    SmoothingDetector(SmoothingDetectorParameters),
+}
+
+impl Default for MultiscalingDetectorMethod {
+    fn default() -> Self {
+        Self::FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters::default())
+    }
+}
+
 /// Specifies which detector is to be used, and wraps the detector-specific options in each variant.
 #[derive(Subcommand, Debug)]
 pub(crate) enum Mode {
@@ -119,4 +178,6 @@ pub(crate) enum Mode {
     DifferentialThresholdDiscriminator(DifferentialThresholdDiscriminatorParameters),
     /// Detects events using a smoothed second derivative. Event lists consist of time and voltage values.
     SmoothingDetector(SmoothingDetectorParameters),
+    /// Detects events using a smoothed second derivative. Event lists consist of time and voltage values.
+    Multiscaling(MultiscalingDetectorParameters),
 }

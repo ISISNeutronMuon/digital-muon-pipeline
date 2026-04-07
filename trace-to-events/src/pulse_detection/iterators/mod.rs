@@ -5,5 +5,5 @@ pub(crate) mod window;
 
 use super::{Detector, TracePoint};
 pub(crate) use event::EventsIterable;
-pub(crate) use padding::PaddingIterable;
+pub(crate) use padding::{PaddingIterable, ZeroPaddingIterable};
 pub(crate) use window::WindowIterable;
