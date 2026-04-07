@@ -6,7 +6,6 @@ use std::{
     os::unix::process,
 };
 
-
 #[derive(Default, Clone)]
 pub(super) struct ConvolutionCache {
     pub(super) padding: usize,
@@ -25,11 +24,6 @@ impl ConvolutionCache {
 
     pub(super) fn convolve(&mut self, alpha: &ConvolutionFilter) {
         alpha.apply_to_slice(self.raw.as_slice(), self.convolved.as_mut_slice());
-        
-
-        println!("Convolving");
-        println!("  input = {:?}", self.raw.as_slice());
-        println!("  output = {:?}\n", self.convolved.as_slice());
     }
 }
 

@@ -1,15 +1,15 @@
 use super::Real;
 use crate::pulse_detection::window::{
-    convolution_filter::ConvolutionFilter, pyramid::{ConvolutionCache, DetailCoefficients, downsample, upsample}
+    convolution_filter::ConvolutionFilter,
+    pyramid::{ConvolutionCache, DetailCoefficients, downsample, upsample},
 };
 
 #[derive(Default, Clone)]
-pub(super) struct LayerProcessingSettings {
+pub(crate) struct LayerProcessingSettings {
     pub(super) denoise_threshold: Option<Real>,
     pub(super) enhance_threshold_factor: Option<(Real, Real)>,
     pub(super) multiply_factor: Option<Real>,
 }
-
 
 /// Non-terminating struct of the `Layer` enum, containtaining the next `Layer` in the sequence.
 #[derive(Clone)]
@@ -28,15 +28,15 @@ impl LayerLevel {
         size: usize,
         subdivide_padding: usize,
         refined_padding: usize,
-        next: Box<Layer>
+        next: Box<Layer>,
     ) -> Self {
         Self {
-                settings,
-                subdivided: ConvolutionCache::new(size, subdivide_padding),
-                refined: ConvolutionCache::new(size, refined_padding),
-                detail_coefficients: DetailCoefficients::new(size),
-                rebuilt: ConvolutionCache::new(size, refined_padding),
-                next
+            settings,
+            subdivided: ConvolutionCache::new(size, subdivide_padding),
+            refined: ConvolutionCache::new(size, refined_padding),
+            detail_coefficients: DetailCoefficients::new(size),
+            rebuilt: ConvolutionCache::new(size, refined_padding),
+            next,
         }
     }
 
@@ -52,8 +52,7 @@ impl LayerLevel {
         self.subdivided.convolve(gamma);
 
         //  Propagate recursive method
-        self.next
-            .process(&self.subdivided, alpha, gamma);
+        self.next.process(&self.subdivided, alpha, gamma);
 
         // Upsample from next layer
         let padding = self.refined.padding;
@@ -90,13 +89,15 @@ impl LayerLevel {
 
             // Rebuilt is the sum of the next layer's `rebuilt` (upsampled and convolved), and the current detail coefficietns.
             // Note that if output is Some, we use this in place of `rebuilt`.
-            output.map(<[Real]>::iter_mut)
+            output
+                .map(<[Real]>::iter_mut)
                 .unwrap_or(self.rebuilt.convolved.iter_mut())
                 .enumerate()
-                .for_each(|(i, coef)| *coef += self.detail_coefficients[i]);   
+                .for_each(|(i, coef)| *coef += self.detail_coefficients[i]);
         } else {
             // Apex case (rebuilt case is the sum of refined and detail_coefficient).
-            self.rebuilt.convolved
+            self.rebuilt
+                .convolved
                 .iter_mut()
                 .enumerate()
                 .for_each(|(i, coef)| *coef = self.refined[i] + self.detail_coefficients[i]);
@@ -136,7 +137,13 @@ impl Layer {
                 subdivide_padding,
                 refined_padding,
             ));
-            Self::Level(LayerLevel::new(settings, size, subdivide_padding, refined_padding, next))
+            Self::Level(LayerLevel::new(
+                settings,
+                size,
+                subdivide_padding,
+                refined_padding,
+                next,
+            ))
         }
     }
 
@@ -162,7 +169,7 @@ impl Layer {
                 let padding = subdivided.padding;
                 downsample(source, subdivided, padding);
                 subdivided.convolve(gamma);
-            },
+            }
         }
     }
 
@@ -176,11 +183,30 @@ impl Layer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pulse_detection::window::{
+        SliceWindow, convolution_filter::KernelType, fft_inverse::FftInverse,
+    };
     use rustfft::num_complex::{Complex, ComplexFloat};
-    use crate::pulse_detection::window::{SliceWindow, convolution_filter::KernelType, fft_inverse::FftInverse};
 
     const SIZE: usize = 36;
-    const DATA : [Real; SIZE] = [0.0,1.0,0.0,2.0,1.0,3.0,5.0,4.0,3.2,1.1,0.1,0.0,0.0,1.0,8.0,2.0,1.0,3.0,5.0,4.0,3.2,1.1,9.1,4.0,2.1,1.5,0.0,2.0,1.0,3.0,5.0,4.0,3.2,1.1,3.1,2.0];
+    const DATA: [Real; SIZE] = [
+        0.0, 1.0, 0.0, 2.0, 1.0, 3.0, 5.0, 4.0, 3.2, 1.1, 0.1, 0.0, 0.0, 1.0, 8.0, 2.0, 1.0, 3.0,
+        5.0, 4.0, 3.2, 1.1, 9.1, 4.0, 2.1, 1.5, 0.0, 2.0, 1.0, 3.0, 5.0, 4.0, 3.2, 1.1, 3.1, 2.0,
+    ];
+
+    #[test]
+    fn test_layer_placement() {
+        let layer_level = LayerLevel::new(
+            LayerProcessingSettings::default(),
+            5,
+            2,
+            3,
+            Box::new(Layer::Apex(ConvolutionCache::default())),
+        );
+        //layer_level
+        let input = vec![1, 2, 3, 4];
+        let output = vec![0; 8];
+    }
 
     fn assert_layer_settings_default(settings: &LayerProcessingSettings) {
         assert!(settings.denoise_threshold.is_none());
@@ -202,13 +228,16 @@ mod tests {
 
     #[test]
     fn test_two_layers() {
-        let settings = vec![
-            LayerProcessingSettings::default()
-        ];
-        let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0,0.0,0.0]));
-        let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0,0.0,0.0]));
+        let settings = vec![LayerProcessingSettings::default()];
+        let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
+        let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let base = Layer::new(SIZE, settings, gamma.kernel_size()/2, alpha.kernel_size()/2);
+        let base = Layer::new(
+            SIZE,
+            settings,
+            gamma.kernel_size() / 2,
+            alpha.kernel_size() / 2,
+        );
         assert!(matches!(base, Layer::Level(_)));
         match base {
             Layer::Level(layer_level) => {
@@ -219,9 +248,9 @@ mod tests {
                     Layer::Level(_) => unreachable!(),
                     Layer::Apex(subdivided) => {
                         assert_convolution_cache_sizes(subdivided, SIZE >> 1, 2);
-                    },
+                    }
                 }
-            },
+            }
             Layer::Apex(_) => unreachable!(),
         }
     }
@@ -232,10 +261,15 @@ mod tests {
             LayerProcessingSettings::default(),
             LayerProcessingSettings::default(),
         ];
-        let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0,0.0,0.0]));
-        let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0,0.0,0.0]));
+        let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
+        let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let base = Layer::new(SIZE, settings, gamma.kernel_size()/2, alpha.kernel_size()/2);
+        let base = Layer::new(
+            SIZE,
+            settings,
+            gamma.kernel_size() / 2,
+            alpha.kernel_size() / 2,
+        );
         assert!(matches!(base, Layer::Level(_)));
         match base {
             Layer::Level(layer_level) => {
@@ -251,12 +285,12 @@ mod tests {
                             Layer::Level(_) => unreachable!(),
                             Layer::Apex(subdivided) => {
                                 assert_convolution_cache_sizes(subdivided, SIZE >> 2, 2);
-                            },
+                            }
                         }
-                    },
+                    }
                     Layer::Apex(_) => unreachable!(),
                 }
-            },
+            }
             Layer::Apex(_) => unreachable!(),
         }
     }
@@ -270,15 +304,22 @@ mod tests {
 
     #[test]
     fn test_reverse() {
-        let settings = vec![
-            LayerProcessingSettings { denoise_threshold: Some(1.1), enhance_threshold_factor: Some((1.1, 1.3)), multiply_factor: Some(1.1) }
-        ];
+        let settings = vec![LayerProcessingSettings {
+            denoise_threshold: Some(1.1),
+            enhance_threshold_factor: Some((1.1, 1.3)),
+            multiply_factor: Some(1.1),
+        }];
         let alpha = vec![0.125, 0.5, 0.75, 0.5, 0.125];
         let gamma = reverse(&alpha, &[-2, -1, 0, 1, 2]);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(alpha));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(gamma));
 
-        let mut base = Layer::new(SIZE, settings, gamma.kernel_size()/2, alpha.kernel_size()/2);
+        let mut base = Layer::new(
+            SIZE,
+            settings,
+            gamma.kernel_size() / 2,
+            alpha.kernel_size() / 2,
+        );
 
         base.process(&DATA, &alpha, &gamma);
         let mut output = vec![0.0; SIZE];
