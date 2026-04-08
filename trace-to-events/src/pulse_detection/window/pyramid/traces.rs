@@ -1,9 +1,7 @@
 use super::Real;
 use crate::pulse_detection::window::{SliceWindow, convolution_filter::ConvolutionFilter};
-use num::Zero;
 use std::{
-    ops::{Deref, DerefMut, Range},
-    os::unix::process,
+    ops::{Deref, DerefMut}
 };
 
 #[derive(Default, Clone)]
