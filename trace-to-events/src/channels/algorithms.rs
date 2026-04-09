@@ -1,9 +1,8 @@
 //! Provides algorithm-specific functions and which extract and return lists of muon events using specified settings.
 use core::f64;
-use std::os::linux::raw;
 
 use crate::{
-    channels::{MultiscalingDetectorCache, PeakHeightParameters, SmoothingDetectorCache},
+    channels::{MultiscalingDetectorCache, PeakHeightParameters, SmoothingDetectorCache, state::MultiscalingMethodAlgorithmState},
     parameters::{MultiscalingDetectorMethod, MultiscalingDetectorParameters, PeakHeightBasis, SmoothingDetectorParameters},
     pulse_detection::{
         EventsIterable, Real, WindowIterable,
@@ -197,24 +196,22 @@ pub(super) fn find_multiscaling_events(
     sample_time: Real,
     polarity_sign: Real,
     baseline: Real,
-    parameters: &MultiscalingDetectorParameters,
+    method_state: &mut MultiscalingMethodAlgorithmState,
 ) -> (Vec<Time>, Vec<Intensity>) {
-    cache.ensure_time_data_written(trace.len(), sample_time);
     let raw_voltages = trace.map(|v| polarity_sign * (v as Real - baseline));
     cache.ensure_cache_lengths(raw_voltages.len());
     cache.write_input_values(raw_voltages);
     let output_iter = cache.pyramid.apply_to_slice(&cache.input_values).expect("Pyramid should be configured correctly, this should never fail").into_iter().cloned();
 
-    match parameters.method {
-        MultiscalingDetectorMethod::FixedThresholdDiscriminator(fixed_threshold_discriminator_parameters) => {
-            find_fixed_threshold_events(output_iter, sample_time, polarity_sign, baseline, fixed_threshold_discriminator_parameters)
+    match method_state {
+        MultiscalingMethodAlgorithmState::FixedThreshold{ parameters } => {
+            find_fixed_threshold_events(output_iter, sample_time, polarity_sign, baseline, parameters)
         },
-        MultiscalingDetectorMethod::DifferentialThresholdDiscriminator(differential_threshold_discriminator_parameters) => {
-            find_differential_threshold_events(output_iter, sample_time, polarity_sign, baseline, differential_threshold_discriminator_parameters)
-            
+        MultiscalingMethodAlgorithmState::DifferentialThreshold(state) => {
+            find_differential_threshold_events(output_iter, sample_time, polarity_sign, baseline, &state.finite_differences, &state.parameters, &state.peak_height)
         },
-        MultiscalingDetectorMethod::SmoothingDetector(smoothing_detector_parameters) => {
-            find_smoothing_events(output.iter(), sample_time, polarity_sign, baseline, smoothing_detector_parameters)
+        MultiscalingMethodAlgorithmState::Smoothing(state) => {
+            find_smoothing_events(output_iter, &state.fin_diff_gaussian, &mut state.cache, sample_time, polarity_sign, baseline, &state.parameters)
         },
     }
 }

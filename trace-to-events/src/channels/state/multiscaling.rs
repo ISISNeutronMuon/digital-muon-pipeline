@@ -1,4 +1,59 @@
 
+use crate::{
+    channels::{algorithms::{
+        find_differential_threshold_events, find_fixed_threshold_events, find_multiscaling_events,
+        find_smoothing_events,
+    }, state::{DifferentialThresholdDiscriminatorState, SmoothingDetectorState}},
+    parameters::{
+        DetectorSettings, DifferentialThresholdDiscriminatorParameters, Mode, MultiscalingDetectorMethod, MultiscalingDetectorParameters, PeakHeightBasis, PeakHeightMode, Polarity, SmoothingDetectorParameters
+    },
+    pulse_detection::{
+        Real,
+        detectors::differential_threshold_detector::DifferentialThresholdParameters,
+        threshold_detector::ThresholdDuration,
+        window::{
+            FiniteDifferences, SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}, fft_inverse::FftInverse, pyramid::PyramidFilter
+        },
+    },
+};
+use num::complex::ComplexFloat;
+
+
+/// Encapsulates settings and objects specific to the method used by the multiscaling algorithm.
+#[derive(Clone)]
+pub(crate) enum MultiscalingMethodAlgorithmState {
+    /// Encapsulates channel state used by the Fixed Threshold algorithm.
+    FixedThreshold { parameters: ThresholdDuration },
+    /// Encapsulates channel state used by the Differential Threshold algorithm.
+    DifferentialThreshold(DifferentialThresholdDiscriminatorState),
+    /// Encapsulates channel state used by the Smoothing algorithm.
+    Smoothing(SmoothingDetectorState),
+}
+
+impl MultiscalingMethodAlgorithmState {
+    /// Creates a new `ChannelAlgorithmState` object defined from `mode`. The state object is specific to the detector chosen.
+    /// # Parameters
+    /// - mode: the `Mode` enum to create the state object from.
+    pub(crate) fn new(mode: &MultiscalingDetectorMethod) -> Self {
+        match mode {
+            MultiscalingDetectorMethod::FixedThresholdDiscriminator(parameters) => Self::FixedThreshold {
+                parameters: ThresholdDuration {
+                    threshold: parameters.threshold,
+                    duration: parameters.duration,
+                    cool_off: parameters.cool_off,
+                },
+            },
+            MultiscalingDetectorMethod::DifferentialThresholdDiscriminator(parameters) => Self::DifferentialThreshold(
+                DifferentialThresholdDiscriminatorState::new(parameters),
+            ),
+            MultiscalingDetectorMethod::SmoothingDetector(parameters) => {
+                Self::Smoothing(SmoothingDetectorState::new(parameters))
+            }
+        }
+    }
+}
+
+
 #[derive(Default, Clone)]
 pub(crate) struct LayerProcessingSettings {
     pub(crate) denoise_threshold: Option<Real>,
@@ -8,15 +63,16 @@ pub(crate) struct LayerProcessingSettings {
 
 /// Encapsulates all settings and objects in the smoothing algorithm which persist across digitiser messages.
 #[derive(Clone)]
-struct MultiscalingDetectorState {
+pub(crate) struct MultiscalingDetectorState {
     /// Parameters for the smoothing detector.
-    parameters: MultiscalingDetectorParameters,
+    pub(super) parameters: MultiscalingDetectorParameters,
     /// This cache is persisted to avoid reallocations on every channel trace.
-    cache: MultiscalingDetectorCache,
+    pub(super) cache: MultiscalingDetectorCache,
+    pub(super) method_state: MultiscalingMethodAlgorithmState,
 }
 
 impl MultiscalingDetectorState {
-    fn new(parameters: &MultiscalingDetectorParameters) -> Self {
+    pub(super) fn new(parameters: &MultiscalingDetectorParameters) -> Self {
         let layers_settings = (0..parameters.number_of_layers).map(|layer|LayerProcessingSettings {
             denoise_threshold: parameters.denoise.then(||parameters.scales_denoise[layer] as Real),
             enhance_threshold_factor: parameters.enhance.then(||(parameters.enhancement_threshold[layer] as Real, parameters.enhancement_factor[layer] as Real)),
@@ -29,8 +85,10 @@ impl MultiscalingDetectorState {
 
         let subdivide_smoothing = ConvolutionFilter::new(KernelType::ManualCoefficients(subdivide_smoothing_coefs));
         let refinement_smoothing = ConvolutionFilter::new(KernelType::ManualCoefficients(refinement_smoothing_coefs));
+        let method_state = MultiscalingMethodAlgorithmState::new(&parameters.method);
         Self {
             parameters: parameters.clone(),
+            method_state,
             cache: MultiscalingDetectorCache {
                 expected_sample_time: None,
                 pyramid: PyramidFilter::new(layers_settings, refinement_smoothing, subdivide_smoothing),
@@ -44,40 +102,23 @@ impl MultiscalingDetectorState {
 /// These are persisted and overwritten each channel trace,
 /// to avoid repeated memory reallocation.
 #[derive(Default, Clone)]
-pub(super) struct MultiscalingDetectorCache {
+pub(crate) struct MultiscalingDetectorCache {
     /// Value of `sample_time`
     expected_sample_time: Option<Real>,
     /// Value of `trace.len()`
     expected_size: Option<usize>,
-    /// Memory in which to write the time bin values.
-    pub(super) time: Vec<Real>,
     /// Memory in which to write the pre-convolution trace data.
-    pub(super) input_values: Vec<Real>,
+    pub(crate) input_values: Vec<Real>,
     ///
-    pub(super) pyramid: PyramidFilter,
+    pub(crate) pyramid: PyramidFilter,
 }
 
 impl MultiscalingDetectorCache {
-    /// Refreshes the `time` vector if and only if the size of the vector changes, or the `sample_time` field.
-    /// # Parameters
-    /// - size: the intended size of the `time` vector.
-    /// - sample_time: the intended `sample_time`, defining the scale of the time-series.
-    pub(super) fn ensure_time_data_written(&mut self, size: usize, sample_time: Real) {
-        if size != self.time.len()
-            || self
-                .expected_sample_time
-                .is_some_and(|current_sample_time| current_sample_time != sample_time)
-        {
-            self.time = (0..size).map(|t| t as Real * sample_time).collect();
-            self.expected_sample_time = Some(sample_time);
-        }
-    }
-
     /// Ensures the value caches are of sufficient length for the message.
     /// If the fields are too small, they are resized.
     /// # Parameters
     /// - size: the minimum length of the cache's vectors.
-    pub(super) fn ensure_cache_lengths(&mut self, input_size: usize) {
+    pub(crate) fn ensure_cache_lengths(&mut self, input_size: usize) {
         // FIXME: Should there be some sort of check for absurdly big trace sizes?
         if self.expected_size.is_none_or(|expected_size|input_size != expected_size) {
             self.expected_size = Some(input_size);
@@ -90,7 +131,7 @@ impl MultiscalingDetectorCache {
     /// This should not be called unless `Self::ensure_cache_lengths` has been called with the appropriate `size` value.
     /// # Parameters
     /// - input: iterator from which the `input_values` field is written.
-    pub(super) fn write_input_values(&mut self, input: impl Iterator<Item = Real> + Clone) {
+    pub(crate) fn write_input_values(&mut self, input: impl Iterator<Item = Real> + Clone) {
         for (i, v) in input.enumerate() {
             self.input_values[i] = v;
         }
