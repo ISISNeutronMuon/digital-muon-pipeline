@@ -12,12 +12,17 @@ pub(super) struct ConvolutionCache {
 }
 
 impl ConvolutionCache {
-    pub(super) fn new(size: usize, padding: usize) -> Self {
+    pub(super) fn new(padding: usize) -> Self {
         Self {
             padding,
-            raw: vec![0.0; size + 2 * padding],
-            convolved: vec![0.0; size],
+            raw: Default::default(),
+            convolved: Default::default(),
         }
+    }
+
+    pub(super) fn init_size(&mut self, size: usize) {
+        self.raw.resize(size + 2 * self.padding, Default::default());
+        self.convolved.resize(size, Default::default());
     }
 
     pub(super) fn convolve(&mut self, alpha: &ConvolutionFilter) {
@@ -43,8 +48,11 @@ impl DerefMut for ConvolutionCache {
 pub(super) struct DetailCoefficients(pub(super) Vec<Real>);
 
 impl DetailCoefficients {
-    pub(super) fn new(size: usize) -> Self {
-        Self(vec![0.0; size])
+    pub(super) fn new() -> Self {
+        Self(Default::default())
+    }
+    pub(super) fn init_size(&mut self, size: usize) {
+        self.0.resize(size, Default::default());
     }
 
     pub(super) fn denoise(&mut self, threshold: Real) {

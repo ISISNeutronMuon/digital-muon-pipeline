@@ -15,9 +15,7 @@ mod layer;
 mod traces;
 
 use super::Real;
-use crate::pulse_detection::window::{
-    convolution_filter::ConvolutionFilter, pyramid::layer::LayerProcessingSettings,
-};
+use crate::{channels::LayerProcessingSettings, pulse_detection::window::convolution_filter::ConvolutionFilter};
 use layer::Layer;
 use traces::{ConvolutionCache, DetailCoefficients};
 
@@ -45,31 +43,33 @@ fn upsample(input: &[Real], output: &mut [Real], padding: usize) {
 
 #[derive(Default, Clone)]
 pub(crate) struct PyramidFilter {
-    alpha: ConvolutionFilter,
-    gamma: ConvolutionFilter,
+    subdivide_smoothing: ConvolutionFilter,
+    refinement_smoothing: ConvolutionFilter,
     pyramid_base: Layer,
 }
 
 impl PyramidFilter {
     pub(crate) fn new(
         layer_settings: Vec<LayerProcessingSettings>,
-        size: usize,
-        alpha: ConvolutionFilter,
-        gamma: ConvolutionFilter,
+        refinement_smoothing: ConvolutionFilter,
+        subdivide_smoothing: ConvolutionFilter,
     ) -> Self {
-        let subdivide_padding = gamma.kernel_size() / 2;
-        let refined_padding = alpha.kernel_size() / 2;
-        let pyramid_base = Layer::new(size, layer_settings, subdivide_padding, refined_padding);
+        let subdivide_padding = subdivide_smoothing.kernel_size() / 2;
+        let refined_padding = refinement_smoothing.kernel_size() / 2;
+        let pyramid_base = Layer::new(layer_settings, subdivide_padding, refined_padding);
         PyramidFilter {
-            alpha,
-            gamma,
+            subdivide_smoothing,
+            refinement_smoothing,
             pyramid_base,
         }
     }
+    pub(crate) fn init_size(&mut self, size: usize) {
+        self.pyramid_base.init_size(size);
+    }
 
-    fn apply_to_slice<'a>(&mut self, input: &[Real]) -> Option<&[Real]> {
-        self.pyramid_base.process(input, &self.alpha, &self.gamma);
-        self.pyramid_base.rebuild(&self.alpha)
+    pub(crate) fn apply_to_slice<'a>(&mut self, input: &[Real]) -> Option<&[Real]> {
+        self.pyramid_base.process(input, &self.refinement_smoothing, &self.subdivide_smoothing);
+        self.pyramid_base.rebuild(&self.refinement_smoothing)
     }
 }
 
@@ -77,10 +77,9 @@ impl PyramidFilter {
 mod tests {
     use super::*;
     use crate::{
-        pulse_detection::window::{
+        channels::LayerProcessingSettings, pulse_detection::window::{
             SliceWindow, convolution_filter::KernelType, fft_inverse::FftInverse,
-        },
-        test_data::{NUM_VALUES, VALUES},
+        }, test_data::{NUM_VALUES, VALUES}
     };
     use rustfft::num_complex::{Complex, ComplexFloat};
 
@@ -139,7 +138,7 @@ mod tests {
 
         let fft = FftInverse::new(50, 4, support.clone(), Complex::recip);
         fft.apply_to_slice(alpha_coefs.as_slice(), gamma_coefs.as_mut_slice());
-        println!("{gamma_coefs:?}");
+        
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(alpha_coefs));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(gamma_coefs));
 
@@ -152,10 +151,10 @@ mod tests {
                 };
                 5
             ],
-            NUM_VALUES,
             alpha,
             gamma,
         );
+        pyramid.init_size(NUM_VALUES);
         let output = pyramid.apply_to_slice(&VALUES).unwrap();
         //println!("{VALUES:?}");
         //println!("{output:?}\n");

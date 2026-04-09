@@ -1,9 +1,10 @@
 //! Provides algorithm-specific functions and which extract and return lists of muon events using specified settings.
 use core::f64;
+use std::os::linux::raw;
 
 use crate::{
     channels::{MultiscalingDetectorCache, PeakHeightParameters, SmoothingDetectorCache},
-    parameters::{MultiscalingDetectorParameters, PeakHeightBasis, SmoothingDetectorParameters},
+    parameters::{MultiscalingDetectorMethod, MultiscalingDetectorParameters, PeakHeightBasis, SmoothingDetectorParameters},
     pulse_detection::{
         EventsIterable, Real, WindowIterable,
         detectors::{
@@ -198,22 +199,22 @@ pub(super) fn find_multiscaling_events(
     baseline: Real,
     parameters: &MultiscalingDetectorParameters,
 ) -> (Vec<Time>, Vec<Intensity>) {
-    let raw_voltages = trace.map(|x| x as Real).collect::<Vec<_>>();
+    cache.ensure_time_data_written(trace.len(), sample_time);
+    let raw_voltages = trace.map(|v| polarity_sign * (v as Real - baseline));
+    cache.ensure_cache_lengths(raw_voltages.len());
+    cache.write_input_values(raw_voltages);
+    let output_iter = cache.pyramid.apply_to_slice(&cache.input_values).expect("Pyramid should be configured correctly, this should never fail").into_iter().cloned();
 
-    // Denoising
-    /*
-       let pulses = regions
-           .into_iter()
-           .flat_map(|region| {
-           })
-           .collect::<Vec<_>>();
-    */
-    let mut times = Vec::<Time>::new();
-    let mut voltages = Vec::<Intensity>::new();
-    /*
-    for time in pulses {
-        times.push(time as Time);
-        voltages.push(raw_voltages.get(time));
-    } */
-    (times, voltages)
+    match parameters.method {
+        MultiscalingDetectorMethod::FixedThresholdDiscriminator(fixed_threshold_discriminator_parameters) => {
+            find_fixed_threshold_events(output_iter, sample_time, polarity_sign, baseline, fixed_threshold_discriminator_parameters)
+        },
+        MultiscalingDetectorMethod::DifferentialThresholdDiscriminator(differential_threshold_discriminator_parameters) => {
+            find_differential_threshold_events(output_iter, sample_time, polarity_sign, baseline, differential_threshold_discriminator_parameters)
+            
+        },
+        MultiscalingDetectorMethod::SmoothingDetector(smoothing_detector_parameters) => {
+            find_smoothing_events(output.iter(), sample_time, polarity_sign, baseline, smoothing_detector_parameters)
+        },
+    }
 }

@@ -1,15 +1,8 @@
 use super::Real;
-use crate::pulse_detection::window::{
+use crate::{channels::LayerProcessingSettings, pulse_detection::window::{
     convolution_filter::ConvolutionFilter,
     pyramid::{ConvolutionCache, DetailCoefficients, downsample, upsample},
-};
-
-#[derive(Default, Clone)]
-pub(crate) struct LayerProcessingSettings {
-    pub(super) denoise_threshold: Option<Real>,
-    pub(super) enhance_threshold_factor: Option<(Real, Real)>,
-    pub(super) multiply_factor: Option<Real>,
-}
+}};
 
 /// Non-terminating struct of the `Layer` enum, containtaining the next `Layer` in the sequence.
 #[derive(Clone)]
@@ -25,36 +18,42 @@ pub(super) struct LayerLevel {
 impl LayerLevel {
     fn new(
         settings: LayerProcessingSettings,
-        size: usize,
         subdivide_padding: usize,
         refined_padding: usize,
         next: Box<Layer>,
     ) -> Self {
         Self {
             settings,
-            subdivided: ConvolutionCache::new(size >> 1, subdivide_padding),
-            refined: ConvolutionCache::new(size, refined_padding),
-            detail_coefficients: DetailCoefficients::new(size),
-            rebuilt: ConvolutionCache::new(size, refined_padding),
+            subdivided: ConvolutionCache::new(subdivide_padding),
+            refined: ConvolutionCache::new(refined_padding),
+            detail_coefficients: DetailCoefficients::new(),
+            rebuilt: ConvolutionCache::new(refined_padding),
             next,
         }
+    }
+
+    fn init_size(&mut self, size: usize) {
+        self.subdivided.init_size(size >> 1);
+        self.refined.init_size(size);
+        self.detail_coefficients.init_size(size);
+        self.rebuilt.init_size(size);
     }
 
     pub(super) fn process(
         &mut self,
         source: &[Real],
-        alpha: &ConvolutionFilter,
-        gamma: &ConvolutionFilter,
+        refinement_smoothing: &ConvolutionFilter,
+        subdivide_smoothing: &ConvolutionFilter,
     ) {
         // Downsample from source.
         let padding = self.subdivided.padding;
         downsample(source, &mut self.subdivided, padding);
-        self.subdivided.convolve(gamma);
+        self.subdivided.convolve(subdivide_smoothing);
 
         // Upsample from the next layer's subdivided.
         let padding = self.refined.padding;
         upsample(&self.subdivided, &mut self.refined, padding);
-        self.refined.convolve(alpha);
+        self.refined.convolve(refinement_smoothing);
 
         // Extract detail coefficients.
         for (coef, (src, rfn)) in self.detail_coefficients
@@ -76,17 +75,17 @@ impl LayerLevel {
         }
 
         //  Recurse method to next layer.
-        self.next.process(&self.subdivided, alpha, gamma);
+        self.next.process(&self.subdivided, refinement_smoothing, subdivide_smoothing);
     }
 
-    pub(super) fn rebuild(&mut self, alpha: &ConvolutionFilter) {
+    pub(super) fn rebuild(&mut self, refinement_smoothing: &ConvolutionFilter) {
         if let Layer::Level(layer_level) = self.next.as_mut() {
             // Propagate rebuild
-            layer_level.rebuild(alpha);
+            layer_level.rebuild(refinement_smoothing);
 
             let padding = self.rebuilt.padding;
             upsample(&layer_level.rebuilt, &mut self.rebuilt, padding);
-            self.rebuilt.convolve(alpha);
+            self.rebuilt.convolve(refinement_smoothing);
 
             // Rebuilt is the sum of the next layer's `rebuilt` (upsampled and convolved), and the current detail coefficietns.
             // Note that if output is Some, we use this in place of `rebuilt`.
@@ -119,7 +118,6 @@ pub(super) enum Layer {
 
 impl Layer {
     pub(super) fn new(
-        size: usize,
         mut layer_settings: Vec<LayerProcessingSettings>,
         subdivide_padding: usize,
         refined_padding: usize,
@@ -128,14 +126,12 @@ impl Layer {
             .pop()
             .map(|settings| {
                 let next = Box::new(Layer::new(
-                    size >> 1,
                     layer_settings,
                     subdivide_padding,
                     refined_padding,
                 ));
                 Self::Level(LayerLevel::new(
                     settings,
-                    size,
                     subdivide_padding,
                     refined_padding,
                     next,
@@ -147,13 +143,19 @@ impl Layer {
     pub(super) fn process(
         &mut self,
         source: &[Real],
-        alpha: &ConvolutionFilter,
-        gamma: &ConvolutionFilter,
+        refinement_smoothing: &ConvolutionFilter,
+        subdivide_smoothing: &ConvolutionFilter,
     ) {
         //  Propagate recursive method
         match self {
-            Layer::Level(layer_level) => layer_level.process(source, alpha, gamma),
+            Layer::Level(layer_level) => layer_level.process(source, refinement_smoothing, subdivide_smoothing),
             Layer::Apex => (),
+        }
+    }
+
+    pub(super) fn init_size(&mut self, size: usize) {
+        if let Layer::Level(layer_level) = self {
+            layer_level.init_size(size);
         }
     }
 
@@ -200,12 +202,12 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let base = Layer::new(
-            SIZE,
+        let mut base = Layer::new(
             settings,
             gamma.kernel_size() / 2,
             alpha.kernel_size() / 2,
         );
+        base.init_size(SIZE);
         assert!(matches!(base, Layer::Level(_)));
         match base {
             Layer::Level(layer_level) => {
@@ -226,12 +228,12 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let base = Layer::new(
-            SIZE,
+        let mut base = Layer::new(
             settings,
             gamma.kernel_size() / 2,
             alpha.kernel_size() / 2,
         );
+        base.init_size(SIZE);
         assert!(matches!(base, Layer::Level(_)));
         match base {
             Layer::Level(layer_level) => {
@@ -261,11 +263,11 @@ mod tests {
     fn test_layer_level_unconvolved() {
         let mut layer_level = LayerLevel::new(
             LayerProcessingSettings::default(),
-            SIZE,
             0,
             0,
             Box::new(Layer::Apex),
         );
+        layer_level.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         layer_level.process(DATA.as_slice(), &alpha, &gamma);
@@ -292,7 +294,8 @@ mod tests {
 
     #[test]
     fn test_layer_unconvolved() {
-        let mut layer = Layer::new(SIZE, vec![LayerProcessingSettings::default()], 0, 0);
+        let mut layer = Layer::new(vec![LayerProcessingSettings::default()], 0, 0);
+        layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         layer.process(DATA.as_slice(), &alpha, &gamma);
@@ -327,7 +330,6 @@ mod tests {
     #[test]
     fn test_two_layer_unconvolved() {
         let mut layer = Layer::new(
-            SIZE,
             vec![
                 LayerProcessingSettings::default(),
                 LayerProcessingSettings::default(),
@@ -335,6 +337,7 @@ mod tests {
             0,
             0,
         );
+        layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         layer.process(DATA.as_slice(), &alpha, &gamma);
@@ -410,11 +413,11 @@ mod tests {
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(gamma));
 
         let mut base = Layer::new(
-            SIZE,
             settings,
             gamma.kernel_size() / 2,
             alpha.kernel_size() / 2,
         );
+        base.init_size(SIZE);
 
         base.process(&DATA, &alpha, &gamma);
         let output = base.rebuild(&alpha);

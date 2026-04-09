@@ -137,13 +137,13 @@ pub(crate) struct MultiscalingDetectorParameters {
     pub(crate) enhance: bool,
     ///
     #[clap(long)]
-    pub(crate) enhancement_factor: Option<Real>,
+    pub(crate) enhancement_factor: Vec<Real>,
     ///
     #[clap(long)]
-    pub(crate) enhancement_threshold: Option<Real>,
+    pub(crate) enhancement_threshold: Vec<Real>,
     ///
     #[clap(long)]
-    pub(crate) enhance_scales: Option<Real>,
+    pub(crate) enhance_scales: Vec<Real>,
     ///
     #[clap(long)]
     pub(crate) multiply: bool,
