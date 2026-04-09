@@ -189,7 +189,7 @@ pub(super) fn find_smoothing_events(
 /// - polarity_sign: the polarity of the trace signal.
 /// - baseline: the baseline of the trace signal.
 /// - parameters: settings to use for the smoothing detector.
-#[tracing::instrument(skip_all, level = "trace", fields(std_dev, num_regions))]
+#[tracing::instrument(skip_all, level = "trace")]
 pub(super) fn find_multiscaling_events(
     trace: impl Clone + ExactSizeIterator<Item = Real> + DoubleEndedIterator,
     cache: &mut MultiscalingDetectorCache,
@@ -201,7 +201,11 @@ pub(super) fn find_multiscaling_events(
     let raw_voltages = trace.map(|v| polarity_sign * (v as Real - baseline));
     cache.ensure_cache_lengths(raw_voltages.len());
     cache.write_input_values(raw_voltages);
-    let output_iter = cache.pyramid.apply_to_slice(&cache.input_values).expect("Pyramid should be configured correctly, this should never fail").into_iter().cloned();
+    let output_iter = cache.pyramid
+        .apply_to_slice(&cache.input_values)
+        .expect("Pyramid should be configured correctly, this should never fail")
+        .into_iter()
+        .cloned();
 
     match method_state {
         MultiscalingMethodAlgorithmState::FixedThreshold{ parameters } => {

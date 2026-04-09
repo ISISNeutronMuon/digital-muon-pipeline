@@ -119,10 +119,10 @@ pub(crate) struct MultiscalingDetectorParameters {
         default_value = "0.125,0.5,0.75,0.5,0.125",
         value_delimiter = ','
     )]
-    pub(crate) alpha: Vec<Real>,
+    pub(crate) subdivision_smoothing: Vec<Real>,
     ///
     #[clap(long, default_value = "-2,-1,0,1,2", value_delimiter = ',')]
-    pub(crate) support: Vec<i32>,
+    pub(crate) smoothing_support: Vec<i32>,
     ///
     #[clap(long, default_value = "4")]
     pub(crate) number_of_layers: usize,
@@ -131,22 +131,22 @@ pub(crate) struct MultiscalingDetectorParameters {
     pub(crate) denoise: bool,
     ///
     #[clap(long, default_value = "1,2,3,4", value_delimiter = ',')]
-    pub(crate) scales_denoise: Vec<usize>,
+    pub(crate) denoise_thresholds: Vec<usize>,
     ///
     #[clap(long, default_value = "false")]
     pub(crate) enhance: bool,
     ///
     #[clap(long)]
-    pub(crate) enhancement_factor: Vec<Real>,
+    pub(crate) enhance_thresholds: Vec<Real>,
     ///
     #[clap(long)]
-    pub(crate) enhancement_threshold: Vec<Real>,
-    ///
-    #[clap(long)]
-    pub(crate) enhance_scales: Vec<Real>,
+    pub(crate) enhance_factors: Vec<Real>,
     ///
     #[clap(long)]
     pub(crate) multiply: bool,
+    ///
+    #[clap(long)]
+    pub(crate) multiply_factors: Vec<Real>,
     ///
     #[command(subcommand)]
     pub(crate) method: MultiscalingDetectorMethod,

@@ -6,8 +6,8 @@ use rustfft::{
 
 use crate::pulse_detection::{
     Real,
-    iterators::{ZeroPaddingIterable, padding},
-    window::{SliceWindow, Window},
+    iterators::ZeroPaddingIterable,
+    window::SliceWindow,
 };
 
 #[derive(Default, Clone)]

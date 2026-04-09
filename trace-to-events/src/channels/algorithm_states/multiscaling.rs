@@ -59,8 +59,6 @@ pub(crate) struct LayerProcessingSettings {
 /// Encapsulates all settings and objects in the smoothing algorithm which persist across digitiser messages.
 #[derive(Clone)]
 pub(crate) struct MultiscalingDetectorState {
-    /// Parameters for the smoothing detector.
-    pub(super) parameters: MultiscalingDetectorParameters,
     /// This cache is persisted to avoid reallocations on every channel trace.
     pub(crate) cache: MultiscalingDetectorCache,
     pub(crate) method_state: MultiscalingMethodAlgorithmState,
@@ -69,12 +67,12 @@ pub(crate) struct MultiscalingDetectorState {
 impl MultiscalingDetectorState {
     pub(crate) fn new(parameters: &MultiscalingDetectorParameters) -> Self {
         let layers_settings = (0..parameters.number_of_layers).map(|layer|LayerProcessingSettings {
-            denoise_threshold: parameters.denoise.then(||parameters.scales_denoise[layer] as Real),
-            enhance_threshold_factor: parameters.enhance.then(||(parameters.enhancement_threshold[layer] as Real, parameters.enhancement_factor[layer] as Real)),
-            multiply_factor: parameters.multiply.then(||parameters.enhance_scales[layer] as Real), // FIXME
+            denoise_threshold: parameters.denoise.then(||parameters.denoise_thresholds[layer] as Real),
+            enhance_threshold_factor: parameters.enhance.then(||(parameters.enhance_thresholds[layer] as Real, parameters.enhance_factors[layer] as Real)),
+            multiply_factor: parameters.multiply.then(||parameters.multiply_factors[layer] as Real), // FIXME
         }).collect();
-        let subdivide_smoothing_coefs = parameters.alpha.clone();
-        let fft = FftInverse::new(subdivide_smoothing_coefs.len(), subdivide_smoothing_coefs.len(), parameters.support.clone(), ComplexFloat::recip);
+        let subdivide_smoothing_coefs = parameters.subdivision_smoothing.clone();
+        let fft = FftInverse::new(subdivide_smoothing_coefs.len(), subdivide_smoothing_coefs.len(), parameters.smoothing_support.clone(), ComplexFloat::recip);
         let mut refinement_smoothing_coefs = vec![0.0; subdivide_smoothing_coefs.len()];
         fft.apply_to_slice(subdivide_smoothing_coefs.as_slice(), refinement_smoothing_coefs.as_mut_slice());
 
@@ -82,10 +80,8 @@ impl MultiscalingDetectorState {
         let refinement_smoothing = ConvolutionFilter::new(KernelType::ManualCoefficients(refinement_smoothing_coefs));
         let method_state = MultiscalingMethodAlgorithmState::new(&parameters.method);
         Self {
-            parameters: parameters.clone(),
             method_state,
             cache: MultiscalingDetectorCache {
-                expected_sample_time: None,
                 pyramid: PyramidFilter::new(layers_settings, refinement_smoothing, subdivide_smoothing),
                 ..Default::default()
             }
@@ -98,8 +94,6 @@ impl MultiscalingDetectorState {
 /// to avoid repeated memory reallocation.
 #[derive(Default, Clone)]
 pub(crate) struct MultiscalingDetectorCache {
-    /// Value of `sample_time`
-    expected_sample_time: Option<Real>,
     /// Value of `trace.len()`
     expected_size: Option<usize>,
     /// Memory in which to write the pre-convolution trace data.

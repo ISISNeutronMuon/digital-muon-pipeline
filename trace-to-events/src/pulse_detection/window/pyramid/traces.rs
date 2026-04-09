@@ -88,6 +88,7 @@ impl DerefMut for DetailCoefficients {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,3 +99,4 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
     use digital_muon_common::Intensity;
 }
+ */
