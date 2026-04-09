@@ -1,4 +1,3 @@
-
 use crate::{
     parameters::SmoothingDetectorParameters, pulse_detection::{
         Real, window::convolution_filter::{ConvolutionFilter, KernelType}
@@ -17,7 +16,7 @@ pub(crate) struct SmoothingDetectorState {
 }
 
 impl SmoothingDetectorState {
-    pub(super) fn new(parameters: &SmoothingDetectorParameters) -> Self {
+    pub(crate) fn new(parameters: &SmoothingDetectorParameters) -> Self {
         Self {
             parameters: parameters.clone(),
             fin_diff_gaussian: ConvolutionFilter::new(KernelType::Composition {

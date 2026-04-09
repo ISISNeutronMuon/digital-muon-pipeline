@@ -2,8 +2,8 @@
 use core::f64;
 
 use crate::{
-    channels::{MultiscalingDetectorCache, PeakHeightParameters, SmoothingDetectorCache, state::MultiscalingMethodAlgorithmState},
-    parameters::{MultiscalingDetectorMethod, MultiscalingDetectorParameters, PeakHeightBasis, SmoothingDetectorParameters},
+    channels::{MultiscalingDetectorCache, PeakHeightParameters, SmoothingDetectorCache, algorithm_states::MultiscalingMethodAlgorithmState},
+    parameters::{PeakHeightBasis, SmoothingDetectorParameters},
     pulse_detection::{
         EventsIterable, Real, WindowIterable,
         detectors::{

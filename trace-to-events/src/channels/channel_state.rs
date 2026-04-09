@@ -1,12 +1,8 @@
-mod differential;
-mod multiscaling;
-mod smoothing;
-
 use crate::{
-    channels::algorithms::{
+    channels::{algorithm_states::{DifferentialThresholdDiscriminatorState, MultiscalingDetectorState, SmoothingDetectorState}, algorithms::{
         find_differential_threshold_events, find_fixed_threshold_events, find_multiscaling_events,
         find_smoothing_events,
-    },
+    }},
     parameters::{
         DetectorSettings, Mode, Polarity,
     },
@@ -17,10 +13,6 @@ use crate::{
 };
 use digital_muon_common::{Intensity, Time};
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
-
-pub(crate) use differential::{DifferentialThresholdDiscriminatorState, PeakHeightParameters};
-pub(crate) use multiscaling::{LayerProcessingSettings, MultiscalingDetectorState, MultiscalingDetectorCache, MultiscalingMethodAlgorithmState};
-pub(crate) use smoothing::{SmoothingDetectorCache, SmoothingDetectorState};
 
 /// Encapsulates settings and objects specific to an algorithm.
 #[derive(Clone)]

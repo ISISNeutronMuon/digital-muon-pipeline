@@ -1,27 +1,13 @@
-
 use crate::{
-    channels::algorithms::{
-        find_differential_threshold_events, find_fixed_threshold_events, find_multiscaling_events,
-        find_smoothing_events,
-    },
     parameters::{
-        DetectorSettings, DifferentialThresholdDiscriminatorParameters, Mode,
-        MultiscalingDetectorParameters, PeakHeightBasis, PeakHeightMode, Polarity,
-        SmoothingDetectorParameters,
+        DifferentialThresholdDiscriminatorParameters,
+        PeakHeightBasis, PeakHeightMode
     },
     pulse_detection::{
-        Real,
         detectors::differential_threshold_detector::DifferentialThresholdParameters,
-        threshold_detector::ThresholdDuration,
-        window::{
-            FiniteDifferences, SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}, fft_inverse::FftInverse, pyramid::PyramidFilter
-        },
+        window::FiniteDifferences,
     },
 };
-use digital_muon_common::{Intensity, Time};
-use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
-use num::{Complex, complex::ComplexFloat};
-
 /// Encapsulates settings to determine how peak heights should be calculated.
 #[derive(Clone)]
 pub(crate) struct PeakHeightParameters {
@@ -43,7 +29,7 @@ pub(crate) struct DifferentialThresholdDiscriminatorState {
 }
 
 impl DifferentialThresholdDiscriminatorState {
-    pub(super) fn new(parameters: &DifferentialThresholdDiscriminatorParameters) -> Self {
+    pub(crate) fn new(parameters: &DifferentialThresholdDiscriminatorParameters) -> Self {
         Self {
             finite_differences: FiniteDifferences::<2>::new(),
             parameters: DifferentialThresholdParameters {

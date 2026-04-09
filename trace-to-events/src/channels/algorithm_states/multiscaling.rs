@@ -1,18 +1,13 @@
-
 use crate::{
-    channels::{algorithms::{
-        find_differential_threshold_events, find_fixed_threshold_events, find_multiscaling_events,
-        find_smoothing_events,
-    }, state::{DifferentialThresholdDiscriminatorState, SmoothingDetectorState}},
+    channels::{algorithm_states::{DifferentialThresholdDiscriminatorState, SmoothingDetectorState}},
     parameters::{
-        DetectorSettings, DifferentialThresholdDiscriminatorParameters, Mode, MultiscalingDetectorMethod, MultiscalingDetectorParameters, PeakHeightBasis, PeakHeightMode, Polarity, SmoothingDetectorParameters
+        MultiscalingDetectorMethod, MultiscalingDetectorParameters
     },
     pulse_detection::{
         Real,
-        detectors::differential_threshold_detector::DifferentialThresholdParameters,
         threshold_detector::ThresholdDuration,
         window::{
-            FiniteDifferences, SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}, fft_inverse::FftInverse, pyramid::PyramidFilter
+            SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}, fft_inverse::FftInverse, pyramid::PyramidFilter
         },
     },
 };
@@ -67,12 +62,12 @@ pub(crate) struct MultiscalingDetectorState {
     /// Parameters for the smoothing detector.
     pub(super) parameters: MultiscalingDetectorParameters,
     /// This cache is persisted to avoid reallocations on every channel trace.
-    pub(super) cache: MultiscalingDetectorCache,
-    pub(super) method_state: MultiscalingMethodAlgorithmState,
+    pub(crate) cache: MultiscalingDetectorCache,
+    pub(crate) method_state: MultiscalingMethodAlgorithmState,
 }
 
 impl MultiscalingDetectorState {
-    pub(super) fn new(parameters: &MultiscalingDetectorParameters) -> Self {
+    pub(crate) fn new(parameters: &MultiscalingDetectorParameters) -> Self {
         let layers_settings = (0..parameters.number_of_layers).map(|layer|LayerProcessingSettings {
             denoise_threshold: parameters.denoise.then(||parameters.scales_denoise[layer] as Real),
             enhance_threshold_factor: parameters.enhance.then(||(parameters.enhancement_threshold[layer] as Real, parameters.enhancement_factor[layer] as Real)),
