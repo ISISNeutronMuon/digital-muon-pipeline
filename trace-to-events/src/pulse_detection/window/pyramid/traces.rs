@@ -1,8 +1,6 @@
 use super::Real;
 use crate::pulse_detection::window::{SliceWindow, convolution_filter::ConvolutionFilter};
-use std::{
-    ops::{Deref, DerefMut}
-};
+use std::ops::{Deref, DerefMut};
 
 #[derive(Default, Clone)]
 pub(super) struct ConvolutionCache {

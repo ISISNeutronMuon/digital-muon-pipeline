@@ -2,7 +2,10 @@
 use core::f64;
 
 use crate::{
-    channels::{MultiscalingDetectorCache, PeakHeightParameters, SmoothingDetectorCache, algorithm_states::MultiscalingMethodAlgorithmState},
+    channels::{
+        MultiscalingDetectorCache, PeakHeightParameters, SmoothingDetectorCache,
+        algorithm_states::MultiscalingMethodAlgorithmState,
+    },
     parameters::{PeakHeightBasis, SmoothingDetectorParameters},
     pulse_detection::{
         EventsIterable, Real, WindowIterable,
@@ -201,21 +204,42 @@ pub(super) fn find_multiscaling_events(
     let raw_voltages = trace.map(|v| polarity_sign * (v as Real - baseline));
     cache.ensure_cache_lengths(raw_voltages.len());
     cache.write_input_values(raw_voltages);
-    let output_iter = cache.pyramid
+    let output_iter = cache
+        .pyramid
         .apply_to_slice(&cache.input_values)
         .expect("Pyramid should be configured correctly, this should never fail")
         .into_iter()
         .cloned();
 
     match method_state {
-        MultiscalingMethodAlgorithmState::FixedThreshold{ parameters } => {
-            find_fixed_threshold_events(output_iter, sample_time, polarity_sign, baseline, parameters)
-        },
+        MultiscalingMethodAlgorithmState::FixedThreshold { parameters } => {
+            find_fixed_threshold_events(
+                output_iter,
+                sample_time,
+                polarity_sign,
+                baseline,
+                parameters,
+            )
+        }
         MultiscalingMethodAlgorithmState::DifferentialThreshold(state) => {
-            find_differential_threshold_events(output_iter, sample_time, polarity_sign, baseline, &state.finite_differences, &state.parameters, &state.peak_height)
-        },
-        MultiscalingMethodAlgorithmState::Smoothing(state) => {
-            find_smoothing_events(output_iter, &state.fin_diff_gaussian, &mut state.cache, sample_time, polarity_sign, baseline, &state.parameters)
-        },
+            find_differential_threshold_events(
+                output_iter,
+                sample_time,
+                polarity_sign,
+                baseline,
+                &state.finite_differences,
+                &state.parameters,
+                &state.peak_height,
+            )
+        }
+        MultiscalingMethodAlgorithmState::Smoothing(state) => find_smoothing_events(
+            output_iter,
+            &state.fin_diff_gaussian,
+            &mut state.cache,
+            sample_time,
+            polarity_sign,
+            baseline,
+            &state.parameters,
+        ),
     }
 }

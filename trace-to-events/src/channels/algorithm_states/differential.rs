@@ -1,8 +1,5 @@
 use crate::{
-    parameters::{
-        DifferentialThresholdDiscriminatorParameters,
-        PeakHeightBasis, PeakHeightMode
-    },
+    parameters::{DifferentialThresholdDiscriminatorParameters, PeakHeightBasis, PeakHeightMode},
     pulse_detection::{
         detectors::differential_threshold_detector::DifferentialThresholdParameters,
         window::FiniteDifferences,

@@ -1,7 +1,9 @@
 use crate::{
-    parameters::SmoothingDetectorParameters, pulse_detection::{
-        Real, window::convolution_filter::{ConvolutionFilter, KernelType}
-    }
+    parameters::SmoothingDetectorParameters,
+    pulse_detection::{
+        Real,
+        window::convolution_filter::{ConvolutionFilter, KernelType},
+    },
 };
 
 /// Encapsulates all settings and objects in the smoothing algorithm which persist across digitiser messages.

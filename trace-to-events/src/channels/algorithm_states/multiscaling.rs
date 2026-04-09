@@ -1,18 +1,18 @@
 use crate::{
-    channels::{algorithm_states::{DifferentialThresholdDiscriminatorState, SmoothingDetectorState}},
-    parameters::{
-        MultiscalingDetectorMethod, MultiscalingDetectorParameters
-    },
+    channels::algorithm_states::{DifferentialThresholdDiscriminatorState, SmoothingDetectorState},
+    parameters::{MultiscalingDetectorMethod, MultiscalingDetectorParameters},
     pulse_detection::{
         Real,
         threshold_detector::ThresholdDuration,
         window::{
-            SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}, fft_inverse::FftInverse, pyramid::PyramidFilter
+            SliceWindow,
+            convolution_filter::{ConvolutionFilter, KernelType},
+            fft_inverse::FftInverse,
+            pyramid::PyramidFilter,
         },
     },
 };
 use num::complex::ComplexFloat;
-
 
 /// Encapsulates settings and objects specific to the method used by the multiscaling algorithm.
 #[derive(Clone)]
@@ -31,23 +31,26 @@ impl MultiscalingMethodAlgorithmState {
     /// - mode: the `Mode` enum to create the state object from.
     pub(crate) fn new(mode: &MultiscalingDetectorMethod) -> Self {
         match mode {
-            MultiscalingDetectorMethod::FixedThresholdDiscriminator(parameters) => Self::FixedThreshold {
-                parameters: ThresholdDuration {
-                    threshold: parameters.threshold,
-                    duration: parameters.duration,
-                    cool_off: parameters.cool_off,
-                },
-            },
-            MultiscalingDetectorMethod::DifferentialThresholdDiscriminator(parameters) => Self::DifferentialThreshold(
-                DifferentialThresholdDiscriminatorState::new(parameters),
-            ),
+            MultiscalingDetectorMethod::FixedThresholdDiscriminator(parameters) => {
+                Self::FixedThreshold {
+                    parameters: ThresholdDuration {
+                        threshold: parameters.threshold,
+                        duration: parameters.duration,
+                        cool_off: parameters.cool_off,
+                    },
+                }
+            }
+            MultiscalingDetectorMethod::DifferentialThresholdDiscriminator(parameters) => {
+                Self::DifferentialThreshold(DifferentialThresholdDiscriminatorState::new(
+                    parameters,
+                ))
+            }
             MultiscalingDetectorMethod::SmoothingDetector(parameters) => {
                 Self::Smoothing(SmoothingDetectorState::new(parameters))
             }
         }
     }
 }
-
 
 #[derive(Default, Clone)]
 pub(crate) struct LayerProcessingSettings {
@@ -66,25 +69,50 @@ pub(crate) struct MultiscalingDetectorState {
 
 impl MultiscalingDetectorState {
     pub(crate) fn new(parameters: &MultiscalingDetectorParameters) -> Self {
-        let layers_settings = (0..parameters.number_of_layers).map(|layer|LayerProcessingSettings {
-            denoise_threshold: parameters.denoise.then(||parameters.denoise_thresholds[layer] as Real),
-            enhance_threshold_factor: parameters.enhance.then(||(parameters.enhance_thresholds[layer] as Real, parameters.enhance_factors[layer] as Real)),
-            multiply_factor: parameters.multiply.then(||parameters.multiply_factors[layer] as Real), // FIXME
-        }).collect();
+        let layers_settings = (0..parameters.number_of_layers)
+            .map(|layer| LayerProcessingSettings {
+                denoise_threshold: parameters
+                    .denoise
+                    .then(|| parameters.denoise_thresholds[layer] as Real),
+                enhance_threshold_factor: parameters.enhance.then(|| {
+                    (
+                        parameters.enhance_thresholds[layer] as Real,
+                        parameters.enhance_factors[layer] as Real,
+                    )
+                }),
+                multiply_factor: parameters
+                    .multiply
+                    .then(|| parameters.multiply_factors[layer] as Real), // FIXME
+            })
+            .collect();
         let subdivide_smoothing_coefs = parameters.subdivision_smoothing.clone();
-        let fft = FftInverse::new(subdivide_smoothing_coefs.len(), subdivide_smoothing_coefs.len(), parameters.smoothing_support.clone(), ComplexFloat::recip);
+        let fft = FftInverse::new(
+            subdivide_smoothing_coefs.len(),
+            subdivide_smoothing_coefs.len(),
+            parameters.smoothing_support.clone(),
+            ComplexFloat::recip,
+        );
         let mut refinement_smoothing_coefs = vec![0.0; subdivide_smoothing_coefs.len()];
-        fft.apply_to_slice(subdivide_smoothing_coefs.as_slice(), refinement_smoothing_coefs.as_mut_slice());
+        fft.apply_to_slice(
+            subdivide_smoothing_coefs.as_slice(),
+            refinement_smoothing_coefs.as_mut_slice(),
+        );
 
-        let subdivide_smoothing = ConvolutionFilter::new(KernelType::ManualCoefficients(subdivide_smoothing_coefs));
-        let refinement_smoothing = ConvolutionFilter::new(KernelType::ManualCoefficients(refinement_smoothing_coefs));
+        let subdivide_smoothing =
+            ConvolutionFilter::new(KernelType::ManualCoefficients(subdivide_smoothing_coefs));
+        let refinement_smoothing =
+            ConvolutionFilter::new(KernelType::ManualCoefficients(refinement_smoothing_coefs));
         let method_state = MultiscalingMethodAlgorithmState::new(&parameters.method);
         Self {
             method_state,
             cache: MultiscalingDetectorCache {
-                pyramid: PyramidFilter::new(layers_settings, refinement_smoothing, subdivide_smoothing),
+                pyramid: PyramidFilter::new(
+                    layers_settings,
+                    refinement_smoothing,
+                    subdivide_smoothing,
+                ),
                 ..Default::default()
-            }
+            },
         }
     }
 }
@@ -109,7 +137,10 @@ impl MultiscalingDetectorCache {
     /// - size: the minimum length of the cache's vectors.
     pub(crate) fn ensure_cache_lengths(&mut self, input_size: usize) {
         // FIXME: Should there be some sort of check for absurdly big trace sizes?
-        if self.expected_size.is_none_or(|expected_size|input_size != expected_size) {
+        if self
+            .expected_size
+            .is_none_or(|expected_size| input_size != expected_size)
+        {
             self.expected_size = Some(input_size);
             self.pyramid.init_size(input_size);
         }

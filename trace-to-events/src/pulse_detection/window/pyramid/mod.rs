@@ -15,7 +15,10 @@ mod layer;
 mod traces;
 
 use super::Real;
-use crate::{channels::LayerProcessingSettings, pulse_detection::window::convolution_filter::ConvolutionFilter};
+use crate::{
+    channels::LayerProcessingSettings,
+    pulse_detection::window::convolution_filter::ConvolutionFilter,
+};
 use layer::Layer;
 use traces::{ConvolutionCache, DetailCoefficients};
 
@@ -68,7 +71,8 @@ impl PyramidFilter {
     }
 
     pub(crate) fn apply_to_slice<'a>(&mut self, input: &[Real]) -> Option<&[Real]> {
-        self.pyramid_base.process(input, &self.refinement_smoothing, &self.subdivide_smoothing);
+        self.pyramid_base
+            .process(input, &self.refinement_smoothing, &self.subdivide_smoothing);
         self.pyramid_base.rebuild(&self.refinement_smoothing)
     }
 }
@@ -77,9 +81,11 @@ impl PyramidFilter {
 mod tests {
     use super::*;
     use crate::{
-        channels::LayerProcessingSettings, pulse_detection::window::{
+        channels::LayerProcessingSettings,
+        pulse_detection::window::{
             SliceWindow, convolution_filter::KernelType, fft_inverse::FftInverse,
-        }, test_data::{NUM_VALUES, VALUES}
+        },
+        test_data::{NUM_VALUES, VALUES},
     };
     use rustfft::num_complex::{Complex, ComplexFloat};
 
@@ -138,7 +144,7 @@ mod tests {
 
         let fft = FftInverse::new(50, 4, support.clone(), Complex::recip);
         fft.apply_to_slice(alpha_coefs.as_slice(), gamma_coefs.as_mut_slice());
-        
+
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(alpha_coefs));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(gamma_coefs));
 

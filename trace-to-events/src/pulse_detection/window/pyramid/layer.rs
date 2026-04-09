@@ -1,8 +1,11 @@
 use super::Real;
-use crate::{channels::LayerProcessingSettings, pulse_detection::window::{
-    convolution_filter::ConvolutionFilter,
-    pyramid::{ConvolutionCache, DetailCoefficients, downsample, upsample},
-}};
+use crate::{
+    channels::LayerProcessingSettings,
+    pulse_detection::window::{
+        convolution_filter::ConvolutionFilter,
+        pyramid::{ConvolutionCache, DetailCoefficients, downsample, upsample},
+    },
+};
 
 /// Non-terminating struct of the `Layer` enum, containtaining the next `Layer` in the sequence.
 #[derive(Clone)]
@@ -56,10 +59,12 @@ impl LayerLevel {
         self.refined.convolve(refinement_smoothing);
 
         // Extract detail coefficients.
-        for (coef, (src, rfn)) in self.detail_coefficients
+        for (coef, (src, rfn)) in self
+            .detail_coefficients
             .iter_mut()
-            .zip(Iterator::zip(source.iter(), self.refined.convolved.iter())) {
-                *coef = *src - *rfn;
+            .zip(Iterator::zip(source.iter(), self.refined.convolved.iter()))
+        {
+            *coef = *src - *rfn;
         }
 
         // Process detail coefficients.
@@ -75,7 +80,8 @@ impl LayerLevel {
         }
 
         //  Recurse method to next layer.
-        self.next.process(&self.subdivided, refinement_smoothing, subdivide_smoothing);
+        self.next
+            .process(&self.subdivided, refinement_smoothing, subdivide_smoothing);
     }
 
     pub(super) fn rebuild(&mut self, refinement_smoothing: &ConvolutionFilter) {
@@ -89,20 +95,21 @@ impl LayerLevel {
 
             // Rebuilt is the sum of the next layer's `rebuilt` (upsampled and convolved), and the current detail coefficietns.
             // Note that if output is Some, we use this in place of `rebuilt`.
-            for (coef, det) in self.rebuilt
+            for (coef, det) in self
+                .rebuilt
                 .convolved
                 .iter_mut()
-                .zip(self.detail_coefficients.0.iter()) {
+                .zip(self.detail_coefficients.0.iter())
+            {
                 *coef += *det
             }
-
         } else {
             // Apex case (rebuilt case is the sum of refined and detail_coefficient).
-            for (coef, (rfn, det)) in self.rebuilt
-                .convolved
-                .iter_mut()
-                .zip(Iterator::zip(self.refined.convolved.iter(), self.detail_coefficients.0.iter())) {
-                    *coef = *rfn + *det;
+            for (coef, (rfn, det)) in self.rebuilt.convolved.iter_mut().zip(Iterator::zip(
+                self.refined.convolved.iter(),
+                self.detail_coefficients.0.iter(),
+            )) {
+                *coef = *rfn + *det;
             }
         }
     }
@@ -148,7 +155,9 @@ impl Layer {
     ) {
         //  Propagate recursive method
         match self {
-            Layer::Level(layer_level) => layer_level.process(source, refinement_smoothing, subdivide_smoothing),
+            Layer::Level(layer_level) => {
+                layer_level.process(source, refinement_smoothing, subdivide_smoothing)
+            }
             Layer::Apex => (),
         }
     }
@@ -202,11 +211,7 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let mut base = Layer::new(
-            settings,
-            gamma.kernel_size() / 2,
-            alpha.kernel_size() / 2,
-        );
+        let mut base = Layer::new(settings, gamma.kernel_size() / 2, alpha.kernel_size() / 2);
         base.init_size(SIZE);
         assert!(matches!(base, Layer::Level(_)));
         match base {
@@ -228,11 +233,7 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let mut base = Layer::new(
-            settings,
-            gamma.kernel_size() / 2,
-            alpha.kernel_size() / 2,
-        );
+        let mut base = Layer::new(settings, gamma.kernel_size() / 2, alpha.kernel_size() / 2);
         base.init_size(SIZE);
         assert!(matches!(base, Layer::Level(_)));
         match base {
@@ -412,11 +413,7 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(alpha));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(gamma));
 
-        let mut base = Layer::new(
-            settings,
-            gamma.kernel_size() / 2,
-            alpha.kernel_size() / 2,
-        );
+        let mut base = Layer::new(settings, gamma.kernel_size() / 2, alpha.kernel_size() / 2);
         base.init_size(SIZE);
 
         base.process(&DATA, &alpha, &gamma);

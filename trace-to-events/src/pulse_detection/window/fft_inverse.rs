@@ -4,11 +4,7 @@ use rustfft::{
     num_complex::{Complex, ComplexFloat},
 };
 
-use crate::pulse_detection::{
-    Real,
-    iterators::ZeroPaddingIterable,
-    window::SliceWindow,
-};
+use crate::pulse_detection::{Real, iterators::ZeroPaddingIterable, window::SliceWindow};
 
 #[derive(Default, Clone)]
 pub(crate) struct FftInverse<FT> {

@@ -1,15 +1,16 @@
 use crate::{
-    channels::{algorithm_states::{DifferentialThresholdDiscriminatorState, MultiscalingDetectorState, SmoothingDetectorState}, algorithms::{
-        find_differential_threshold_events, find_fixed_threshold_events, find_multiscaling_events,
-        find_smoothing_events,
-    }},
-    parameters::{
-        DetectorSettings, Mode, Polarity,
+    channels::{
+        algorithm_states::{
+            DifferentialThresholdDiscriminatorState, MultiscalingDetectorState,
+            SmoothingDetectorState,
+        },
+        algorithms::{
+            find_differential_threshold_events, find_fixed_threshold_events,
+            find_multiscaling_events, find_smoothing_events,
+        },
     },
-    pulse_detection::{
-        Real,
-        threshold_detector::ThresholdDuration,
-    },
+    parameters::{DetectorSettings, Mode, Polarity},
+    pulse_detection::{Real, threshold_detector::ThresholdDuration},
 };
 use digital_muon_common::{Intensity, Time};
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
