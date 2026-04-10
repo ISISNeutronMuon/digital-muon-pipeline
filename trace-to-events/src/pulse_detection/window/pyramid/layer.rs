@@ -109,43 +109,6 @@ impl LayerLevel {
     }
 }
 
-/// Linked list implementation of the pyramid. As an invariant each layer of the sequence contains only `ConvolutionCache`s of the same length.
-#[derive(Default, Clone)]
-pub(super) enum Layer {
-    #[default]
-    Apex,
-    Level(LayerLevel),
-}
-
-impl Layer {
-    pub(super) fn process(
-        &mut self,
-        source: &[Real],
-        refinement_smoothing: &ConvolutionFilter,
-        subdivide_smoothing: &ConvolutionFilter,
-    ) {
-        //  Propagate recursive method
-        if let Layer::Level(layer_level) = self {
-            layer_level.process(source, refinement_smoothing, subdivide_smoothing)
-        }
-    }
-
-    pub(super) fn init_size(&mut self, size: usize) {
-        if let Layer::Level(layer_level) = self {
-            layer_level.init_size(size);
-        }
-    }
-
-    pub(super) fn rebuild(&mut self, alpha: &ConvolutionFilter) -> Option<&[Real]> {
-        if let Layer::Level(layer_level) = self {
-            layer_level.rebuild(alpha);
-            Some(&layer_level.rebuilt)
-        } else {
-            None
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
