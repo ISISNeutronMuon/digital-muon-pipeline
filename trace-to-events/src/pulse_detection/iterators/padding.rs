@@ -16,7 +16,11 @@ impl<I> ZeroPaddingIterable for I
 where
     I: Iterator<Item = Real> + Clone,
 {
-    fn pad_zeroes(self, left_padding: usize, right_padding: usize) -> impl Iterator<Item = Real> + Clone {
+    fn pad_zeroes(
+        self,
+        left_padding: usize,
+        right_padding: usize,
+    ) -> impl Iterator<Item = Real> + Clone {
         let left_padding = once(Default::default()).cycle().take(left_padding);
         let right_padding = once(Default::default()).cycle().take(right_padding);
 

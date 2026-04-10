@@ -2,7 +2,7 @@ use super::Real;
 use crate::pulse_detection::window::{SliceWindow, convolution_filter::ConvolutionFilter};
 use std::ops::{AddAssign, Deref, DerefMut};
 
-/// 
+///
 #[derive(Default, Clone)]
 pub(super) struct ConvolutionCache {
     /// The amount of extra space to allocate to the beginning and end of the raw vector.
@@ -14,7 +14,7 @@ pub(super) struct ConvolutionCache {
 }
 
 impl ConvolutionCache {
-    /// 
+    ///
     pub(super) fn new(padding: usize) -> Self {
         Self {
             padding,
@@ -40,7 +40,7 @@ impl ConvolutionCache {
         self.convolved
             .iter_mut()
             .zip(detail_coefficients.iter())
-            .for_each(|(coef, det)|coef.add_assign(det));
+            .for_each(|(coef, det)| coef.add_assign(det));
     }
 
     pub(super) fn sum_from_slices(&mut self, refined: &[Real], detail_coefficients: &[Real]) {
@@ -98,7 +98,8 @@ impl DetailCoefficients {
 
     pub(super) fn extract_from_slices(&mut self, source: &[Real], refined: &[Real]) {
         let iters = Iterator::zip(source.iter(), refined.iter());
-        self.0.iter_mut()
+        self.0
+            .iter_mut()
             .zip(iters)
             .for_each(|(coef, (src, rfn))| *coef = *src - *rfn);
     }
@@ -117,7 +118,6 @@ impl DerefMut for DetailCoefficients {
         self.0.as_mut_slice()
     }
 }
-
 
 #[cfg(test)]
 mod tests {

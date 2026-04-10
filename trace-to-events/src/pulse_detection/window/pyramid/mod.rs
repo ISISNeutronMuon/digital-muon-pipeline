@@ -17,7 +17,7 @@ mod traces;
 use super::Real;
 use crate::{
     channels::LayerProcessingSettings,
-    pulse_detection::window::{convolution_filter::ConvolutionFilter},
+    pulse_detection::window::convolution_filter::ConvolutionFilter,
 };
 use layer::Layer;
 use traces::{ConvolutionCache, DetailCoefficients};
@@ -59,9 +59,14 @@ impl PyramidFilter {
     ) -> Option<Self> {
         let subdivide_padding = subdivide_smoothing.kernel_size() / 2;
         let refined_padding = refinement_smoothing.kernel_size() / 2;
-        
+
         layer_settings.pop().map(|first_layer_settings| {
-            let pyramid_base = Layer::new(first_layer_settings, subdivide_padding, refined_padding, layer_settings);
+            let pyramid_base = Layer::new(
+                first_layer_settings,
+                subdivide_padding,
+                refined_padding,
+                layer_settings,
+            );
             PyramidFilter {
                 subdivide_smoothing,
                 refinement_smoothing,
@@ -162,7 +167,8 @@ mod tests {
             ],
             alpha,
             gamma,
-        ).unwrap();
+        )
+        .unwrap();
         pyramid.init_size(NUM_VALUES);
         let output = pyramid.apply_to_slice(&VALUES);
         //println!("{VALUES:?}");

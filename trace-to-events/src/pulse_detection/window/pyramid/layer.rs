@@ -26,14 +26,14 @@ impl Layer {
         mut next_settings_tail: Vec<LayerProcessingSettings>,
     ) -> Self {
         let next_settings = next_settings_tail.pop();
-        let next_layer = next_settings.map(|layer_settings|
+        let next_layer = next_settings.map(|layer_settings| {
             Box::new(Layer::new(
                 layer_settings,
                 subdivide_padding,
                 refined_padding,
-                next_settings_tail
+                next_settings_tail,
             ))
-        );
+        });
         Self {
             settings,
             subdivided: ConvolutionCache::new(subdivide_padding),
@@ -71,7 +71,8 @@ impl Layer {
         self.refined.convolve(refinement_smoothing);
 
         // Extract detail coefficients.
-        self.detail_coefficients.extract_from_slices(source, &self.refined);
+        self.detail_coefficients
+            .extract_from_slices(source, &self.refined);
 
         // Process detail coefficients.
         if let Some(denoise_threshold) = self.settings.denoise_threshold {
@@ -103,7 +104,8 @@ impl Layer {
             self.rebuilt.append_slice(&self.detail_coefficients);
         } else {
             // Apex case (rebuilt case is the sum of refined and detail_coefficient).
-            self.rebuilt.sum_from_slices(&self.refined, &self.detail_coefficients);
+            self.rebuilt
+                .sum_from_slices(&self.refined, &self.detail_coefficients);
         }
         &self.rebuilt
     }
@@ -112,9 +114,7 @@ impl Layer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::window::{
-        convolution_filter::KernelType
-    };
+    use crate::pulse_detection::window::convolution_filter::KernelType;
     use num::Integer;
 
     fn assert_layer_settings_default(settings: &LayerProcessingSettings) {
@@ -134,7 +134,12 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let mut base = Layer::new(settings, gamma.kernel_size() / 2, alpha.kernel_size() / 2, Default::default());
+        let mut base = Layer::new(
+            settings,
+            gamma.kernel_size() / 2,
+            alpha.kernel_size() / 2,
+            Default::default(),
+        );
         assert_layer_settings_default(&base.settings);
         assert_layer_sizes(&base, 0, 0);
         assert!(base.next_layer.is_none());
@@ -150,7 +155,12 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let mut base = Layer::new(LayerProcessingSettings::default(), gamma.kernel_size() / 2, alpha.kernel_size() / 2, vec![LayerProcessingSettings::default()]);
+        let mut base = Layer::new(
+            LayerProcessingSettings::default(),
+            gamma.kernel_size() / 2,
+            alpha.kernel_size() / 2,
+            vec![LayerProcessingSettings::default()],
+        );
         base.init_size(SIZE);
         assert_layer_settings_default(&base.settings);
         assert_layer_sizes(&base, SIZE, 2);
@@ -171,7 +181,10 @@ mod tests {
         5.0, 4.0, 3.2, 1.1, 9.1, 4.0, 2.1, 1.5, 0.0, 2.0, 1.0, 3.0, 5.0, 4.0, 3.2, 1.1, 3.1, 2.0,
     ];
 
-    fn assert_iters_equal<'a>(output: impl ExactSizeIterator<Item = &'a Real>, expected_data: impl ExactSizeIterator<Item = &'a Real>) {
+    fn assert_iters_equal<'a>(
+        output: impl ExactSizeIterator<Item = &'a Real>,
+        expected_data: impl ExactSizeIterator<Item = &'a Real>,
+    ) {
         assert_eq!(output.len(), expected_data.len());
 
         for (out, exp) in Iterator::zip(output, expected_data) {
@@ -181,12 +194,8 @@ mod tests {
 
     #[test]
     fn test_layer_level_unconvolved() {
-        let mut layer_level = Layer::new(
-            LayerProcessingSettings::default(),
-            0,
-            0,
-            Default::default(),
-        );
+        let mut layer_level =
+            Layer::new(LayerProcessingSettings::default(), 0, 0, Default::default());
         layer_level.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
@@ -215,7 +224,7 @@ mod tests {
         let output = layer.subdivided.as_ref().into_iter();
         let expected_data = DATA.iter().step_by(2);
         assert_iters_equal(output, expected_data);
-        
+
         let output = layer.refined.as_ref().into_iter();
         let expected_data = DATA
             .iter()
@@ -232,7 +241,7 @@ mod tests {
             LayerProcessingSettings::default(),
             0,
             0,
-            vec![LayerProcessingSettings::default()]
+            vec![LayerProcessingSettings::default()],
         );
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
@@ -287,7 +296,7 @@ mod tests {
         let output = layer.rebuilt.as_ref().into_iter();
         let expected_data = DATA.iter();
         assert_iters_equal(output, expected_data);
-        
+
         match layer.next_layer {
             None => unreachable!(),
             Some(layer) => {

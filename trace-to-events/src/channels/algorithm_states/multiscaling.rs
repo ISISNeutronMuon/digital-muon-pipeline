@@ -111,7 +111,8 @@ impl MultiscalingDetectorState {
                     layers_settings,
                     refinement_smoothing,
                     subdivide_smoothing,
-                ).expect("Pyramid should be configured correctly, this should never fail."),
+                )
+                .expect("Pyramid should be configured correctly, this should never fail."),
                 ..Default::default()
             },
         }
