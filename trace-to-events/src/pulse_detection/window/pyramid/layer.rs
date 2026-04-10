@@ -11,9 +11,9 @@ use crate::{
 #[derive(Clone)]
 pub(super) struct LayerLevel {
     settings: LayerProcessingSettings,
-    pub(super) subdivided: ConvolutionCache,
-    pub(super) refined: ConvolutionCache,
-    pub(super) detail_coefficients: DetailCoefficients,
+    subdivided: ConvolutionCache,
+    refined: ConvolutionCache,
+    detail_coefficients: DetailCoefficients,
     rebuilt: ConvolutionCache,
     next: Box<Layer>,
 }
@@ -62,13 +62,7 @@ impl LayerLevel {
         self.refined.convolve(refinement_smoothing);
 
         // Extract detail coefficients.
-        for (coef, (src, rfn)) in self
-            .detail_coefficients
-            .iter_mut()
-            .zip(Iterator::zip(source.iter(), self.refined.convolved.iter()))
-        {
-            *coef = *src - *rfn;
-        }
+        self.detail_coefficients.extract_from_slices(source, &self.refined);
 
         // Process detail coefficients.
         if let Some(denoise_threshold) = self.settings.denoise_threshold {
@@ -92,28 +86,14 @@ impl LayerLevel {
             // Propagate rebuild
             layer_level.rebuild(refinement_smoothing);
 
+            // Rebuilt is the sum of the next layer's `rebuilt` (upsampled and convolved), and the current detail_coefficients.
             let padding = self.rebuilt.get_padding();
             upsample(&layer_level.rebuilt, &mut self.rebuilt, padding);
             self.rebuilt.convolve(refinement_smoothing);
-
-            // Rebuilt is the sum of the next layer's `rebuilt` (upsampled and convolved), and the current detail coefficietns.
-            // Note that if output is Some, we use this in place of `rebuilt`.
-            for (coef, det) in self
-                .rebuilt
-                .convolved
-                .iter_mut()
-                .zip(self.detail_coefficients.0.iter())
-            {
-                *coef += *det
-            }
+            self.rebuilt.append_slice(&self.detail_coefficients);
         } else {
             // Apex case (rebuilt case is the sum of refined and detail_coefficient).
-            for (coef, (rfn, det)) in self.rebuilt.convolved.iter_mut().zip(Iterator::zip(
-                self.refined.convolved.iter(),
-                self.detail_coefficients.0.iter(),
-            )) {
-                *coef = *rfn + *det;
-            }
+            self.rebuilt.sum_from_slices(&self.refined, &self.detail_coefficients);
         }
     }
 }
@@ -157,11 +137,8 @@ impl Layer {
         subdivide_smoothing: &ConvolutionFilter,
     ) {
         //  Propagate recursive method
-        match self {
-            Layer::Level(layer_level) => {
-                layer_level.process(source, refinement_smoothing, subdivide_smoothing)
-            }
-            Layer::Apex => (),
+        if let Layer::Level(layer_level) = self {
+            layer_level.process(source, refinement_smoothing, subdivide_smoothing)
         }
     }
 
