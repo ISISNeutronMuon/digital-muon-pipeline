@@ -207,7 +207,7 @@ pub(super) fn find_multiscaling_events(
     let smoothed_trace = cache
         .pyramid
         .apply_to_slice(&cache.input_values)
-        .expect("Pyramid should be configured correctly, this should never fail.")
+        //.expect("Pyramid should be configured correctly, this should never fail.")
         .into_iter()
         .cloned();
 

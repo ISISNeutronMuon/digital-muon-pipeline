@@ -8,40 +8,49 @@ use crate::{
 };
 
 /// Non-terminating struct of the `Layer` enum, containtaining the next `Layer` in the sequence.
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub(super) struct LayerLevel {
     settings: LayerProcessingSettings,
     subdivided: ConvolutionCache,
     refined: ConvolutionCache,
     detail_coefficients: DetailCoefficients,
     rebuilt: ConvolutionCache,
-    next: Box<Layer>,
+    next_layer: Option<Box<LayerLevel>>,
 }
 
 impl LayerLevel {
-    fn new(
+    pub(super) fn new(
         settings: LayerProcessingSettings,
         subdivide_padding: usize,
         refined_padding: usize,
-        next: Box<Layer>,
+        mut next_settings_tail: Vec<LayerProcessingSettings>,
     ) -> Self {
+        let next_settings = next_settings_tail.pop();
+        let next_layer = next_settings.map(|layer_settings|
+            Box::new(LayerLevel::new(
+                layer_settings,
+                subdivide_padding,
+                refined_padding,
+                next_settings_tail
+            ))
+        );
         Self {
             settings,
             subdivided: ConvolutionCache::new(subdivide_padding),
             refined: ConvolutionCache::new(refined_padding),
             detail_coefficients: DetailCoefficients::new(),
             rebuilt: ConvolutionCache::new(refined_padding),
-            next,
+            next_layer,
         }
     }
 
-    fn init_size(&mut self, size: usize) {
+    pub(super) fn init_size(&mut self, size: usize) {
         self.subdivided.init_size(size >> 1);
         self.refined.init_size(size);
         self.detail_coefficients.init_size(size);
         self.rebuilt.init_size(size);
-        if let Layer::Level(next_level) = self.next.as_mut() {
-            next_level.init_size(size >> 1);
+        if let Some(next_layer) = self.next_layer.as_mut() {
+            next_layer.init_size(size >> 1);
         }
     }
 
@@ -77,24 +86,26 @@ impl LayerLevel {
         }
 
         //  Recurse method to next layer.
-        self.next
-            .process(&self.subdivided, refinement_smoothing, subdivide_smoothing);
+        if let Some(next_layer) = &mut self.next_layer {
+            next_layer.process(&self.subdivided, refinement_smoothing, subdivide_smoothing);
+        }
     }
 
-    pub(super) fn rebuild(&mut self, refinement_smoothing: &ConvolutionFilter) {
-        if let Layer::Level(layer_level) = self.next.as_mut() {
+    pub(super) fn rebuild(&mut self, refinement_smoothing: &ConvolutionFilter) -> &[Real] {
+        if let Some(next_layer) = &mut self.next_layer {
             // Propagate rebuild
-            layer_level.rebuild(refinement_smoothing);
+            next_layer.rebuild(refinement_smoothing);
 
             // Rebuilt is the sum of the next layer's `rebuilt` (upsampled and convolved), and the current detail_coefficients.
             let padding = self.rebuilt.get_padding();
-            upsample(&layer_level.rebuilt, &mut self.rebuilt, padding);
+            upsample(&next_layer.rebuilt, &mut self.rebuilt, padding);
             self.rebuilt.convolve(refinement_smoothing);
             self.rebuilt.append_slice(&self.detail_coefficients);
         } else {
             // Apex case (rebuilt case is the sum of refined and detail_coefficient).
             self.rebuilt.sum_from_slices(&self.refined, &self.detail_coefficients);
         }
+        &self.rebuilt
     }
 }
 
@@ -107,29 +118,6 @@ pub(super) enum Layer {
 }
 
 impl Layer {
-    pub(super) fn new(
-        mut layer_settings: Vec<LayerProcessingSettings>,
-        subdivide_padding: usize,
-        refined_padding: usize,
-    ) -> Self {
-        layer_settings
-            .pop()
-            .map(|settings| {
-                let next = Box::new(Layer::new(
-                    layer_settings,
-                    subdivide_padding,
-                    refined_padding,
-                ));
-                Self::Level(LayerLevel::new(
-                    settings,
-                    subdivide_padding,
-                    refined_padding,
-                    next,
-                ))
-            })
-            .unwrap_or_default()
-    }
-
     pub(super) fn process(
         &mut self,
         source: &[Real],
@@ -172,57 +160,45 @@ mod tests {
         assert!(settings.multiply_factor.is_none());
     }
 
-    fn assert_layer_sizes(layer_level: &LayerLevel, size: usize, padding: usize) {
+    fn assert_layer_sizes(layer_level: &LayerLevel, size: usize, _padding: usize) {
         assert_eq!(layer_level.detail_coefficients.len(), size);
         assert_eq!(layer_level.rebuilt.len(), size);
     }
 
     #[test]
     fn test_two_layers() {
-        let settings = vec![LayerProcessingSettings::default()];
+        let settings = LayerProcessingSettings::default();
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let mut base = Layer::new(settings, gamma.kernel_size() / 2, alpha.kernel_size() / 2);
+        let mut base = LayerLevel::new(settings, gamma.kernel_size() / 2, alpha.kernel_size() / 2, Default::default());
+        assert_layer_settings_default(&base.settings);
+        assert_layer_sizes(&base, 0, 0);
+        assert!(base.next_layer.is_none());
+
         base.init_size(SIZE);
-        assert!(matches!(base, Layer::Level(_)));
-        match base {
-            Layer::Level(layer_level) => {
-                assert_layer_settings_default(&layer_level.settings);
-                assert_layer_sizes(&layer_level, SIZE, 2);
-                assert!(matches!(layer_level.next.as_ref(), Layer::Apex));
-            }
-            Layer::Apex => unreachable!(),
-        }
+        assert_layer_settings_default(&base.settings);
+        assert_layer_sizes(&base, SIZE, 2);
+        assert!(base.next_layer.is_none());
     }
 
     #[test]
     fn test_three_layers() {
-        let settings = vec![
-            LayerProcessingSettings::default(),
-            LayerProcessingSettings::default(),
-        ];
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let mut base = Layer::new(settings, gamma.kernel_size() / 2, alpha.kernel_size() / 2);
+        let mut base = LayerLevel::new(LayerProcessingSettings::default(), gamma.kernel_size() / 2, alpha.kernel_size() / 2, vec![LayerProcessingSettings::default()]);
         base.init_size(SIZE);
-        assert!(matches!(base, Layer::Level(_)));
-        match base {
-            Layer::Level(layer_level) => {
+        assert_layer_settings_default(&base.settings);
+        assert_layer_sizes(&base, SIZE, 2);
+        assert!(base.next_layer.is_some());
+        match base.next_layer.as_ref() {
+            Some(layer_level) => {
                 assert_layer_settings_default(&layer_level.settings);
-                assert_layer_sizes(&layer_level, SIZE, 2);
-                assert!(matches!(layer_level.next.as_ref(), Layer::Level(_)));
-                match layer_level.next.as_ref() {
-                    Layer::Level(layer_level) => {
-                        assert_layer_settings_default(&layer_level.settings);
-                        assert_layer_sizes(&layer_level, SIZE >> 1, 2);
-                        assert!(matches!(layer_level.next.as_ref(), Layer::Apex));
-                    }
-                    Layer::Apex => unreachable!(),
-                }
+                assert_layer_sizes(&layer_level, SIZE >> 1, 2);
+                assert!(layer_level.next_layer.is_none());
             }
-            Layer::Apex => unreachable!(),
+            None => unreachable!(),
         }
     }
 
@@ -246,7 +222,7 @@ mod tests {
             LayerProcessingSettings::default(),
             0,
             0,
-            Box::new(Layer::Apex),
+            Default::default(),
         );
         layer_level.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
@@ -267,91 +243,77 @@ mod tests {
 
     #[test]
     fn test_layer_unconvolved() {
-        let mut layer = Layer::new(vec![LayerProcessingSettings::default()], 0, 0);
+        let mut layer = LayerLevel::new(LayerProcessingSettings::default(), 0, 0, vec![]);
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         layer.process(DATA.as_slice(), &alpha, &gamma);
 
-        match layer {
-            Layer::Apex => unreachable!(),
-            Layer::Level(layer_level) => {
-                let output = layer_level.subdivided.as_ref().into_iter();
-                let expected_data = DATA.iter().step_by(2);
-                assert_iters_equal(output, expected_data);
-                
-                let output = layer_level.refined.as_ref().into_iter();
-                let expected_data = DATA
-                    .iter()
-                    .enumerate()
-                    .map(|(i, v)| if i.is_even() { v } else { &0.0 });
-                assert_iters_equal(output, expected_data);
+        let output = layer.subdivided.as_ref().into_iter();
+        let expected_data = DATA.iter().step_by(2);
+        assert_iters_equal(output, expected_data);
+        
+        let output = layer.refined.as_ref().into_iter();
+        let expected_data = DATA
+            .iter()
+            .enumerate()
+            .map(|(i, v)| if i.is_even() { v } else { &0.0 });
+        assert_iters_equal(output, expected_data);
 
-                assert!(matches!(*layer_level.next, Layer::Apex));
-            }
-        }
+        assert!(layer.next_layer.is_none());
     }
 
     #[test]
     fn test_two_layer_unconvolved_process() {
-        let mut layer = Layer::new(
-            vec![
-                LayerProcessingSettings::default(),
-                LayerProcessingSettings::default(),
-            ],
+        let mut layer = LayerLevel::new(
+            LayerProcessingSettings::default(),
             0,
             0,
+            vec![LayerProcessingSettings::default()]
         );
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         layer.process(DATA.as_slice(), &alpha, &gamma);
 
-        match layer {
-            Layer::Apex => unreachable!(),
-            Layer::Level(layer_level) => {
+        let output = layer.subdivided.as_ref().into_iter();
+        let expected_data = DATA.iter().step_by(2);
+        assert_iters_equal(output, expected_data);
+
+        let output = layer.refined.as_ref().into_iter();
+        let expected_data = DATA
+            .iter()
+            .enumerate()
+            .map(|(i, v)| if i.is_even() { v } else { &0.0 });
+        assert_iters_equal(output, expected_data);
+
+        match layer.next_layer {
+            None => unreachable!(),
+            Some(layer_level) => {
                 let output = layer_level.subdivided.as_ref().into_iter();
-                let expected_data = DATA.iter().step_by(2);
+                let expected_data = DATA.iter().step_by(4);
                 assert_iters_equal(output, expected_data);
 
                 let output = layer_level.refined.as_ref().into_iter();
                 let expected_data = DATA
                     .iter()
+                    .step_by(2)
                     .enumerate()
                     .map(|(i, v)| if i.is_even() { v } else { &0.0 });
                 assert_iters_equal(output, expected_data);
 
-                match *layer_level.next {
-                    Layer::Apex => unreachable!(),
-                    Layer::Level(layer_level) => {
-                        let output = layer_level.subdivided.as_ref().into_iter();
-                        let expected_data = DATA.iter().step_by(4);
-                        assert_iters_equal(output, expected_data);
-
-                        let output = layer_level.refined.as_ref().into_iter();
-                        let expected_data = DATA
-                            .iter()
-                            .step_by(2)
-                            .enumerate()
-                            .map(|(i, v)| if i.is_even() { v } else { &0.0 });
-                        assert_iters_equal(output, expected_data);
-
-                        assert!(matches!(*layer_level.next, Layer::Apex));
-                    }
-                }
+                assert!(layer_level.next_layer.is_none());
             }
         }
     }
 
     #[test]
     fn test_two_layer_unconvolved_rebuild() {
-        let mut layer = Layer::new(
-            vec![
-                LayerProcessingSettings::default(),
-                LayerProcessingSettings::default(),
-            ],
+        let mut layer = LayerLevel::new(
+            LayerProcessingSettings::default(),
             0,
             0,
+            vec![LayerProcessingSettings::default()],
         );
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
@@ -359,23 +321,18 @@ mod tests {
         layer.process(DATA.as_slice(), &alpha, &gamma);
         layer.rebuild(&alpha);
 
-        match layer {
-            Layer::Apex => unreachable!(),
-            Layer::Level(layer_level) => {
-                let output = layer_level.rebuilt.as_ref().into_iter();
-                let expected_data = DATA.iter();
+        let output = layer.rebuilt.as_ref().into_iter();
+        let expected_data = DATA.iter();
+        assert_iters_equal(output, expected_data);
+        
+        match layer.next_layer {
+            None => unreachable!(),
+            Some(layer) => {
+                let output = layer.rebuilt.as_ref().into_iter();
+                let expected_data = DATA.iter().step_by(2);
                 assert_iters_equal(output, expected_data);
-                
-                match *layer_level.next {
-                    Layer::Apex => unreachable!(),
-                    Layer::Level(layer_level) => {
-                        let output = layer_level.rebuilt.as_ref().into_iter();
-                        let expected_data = DATA.iter().step_by(2);
-                        assert_iters_equal(output, expected_data);
 
-                        assert!(matches!(*layer_level.next, Layer::Apex));
-                    }
-                }
+                assert!(matches!(layer.next_layer, None));
             }
         }
     }

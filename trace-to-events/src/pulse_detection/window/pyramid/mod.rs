@@ -17,7 +17,7 @@ mod traces;
 use super::Real;
 use crate::{
     channels::LayerProcessingSettings,
-    pulse_detection::window::convolution_filter::ConvolutionFilter,
+    pulse_detection::window::{convolution_filter::ConvolutionFilter, pyramid::layer::LayerLevel},
 };
 use layer::Layer;
 use traces::{ConvolutionCache, DetailCoefficients};
@@ -48,29 +48,32 @@ fn upsample(input: &[Real], output: &mut [Real], padding: usize) {
 pub(crate) struct PyramidFilter {
     subdivide_smoothing: ConvolutionFilter,
     refinement_smoothing: ConvolutionFilter,
-    pyramid_base: Layer,
+    pyramid_base: LayerLevel,
 }
 
 impl PyramidFilter {
     pub(crate) fn new(
-        layer_settings: Vec<LayerProcessingSettings>,
+        mut layer_settings: Vec<LayerProcessingSettings>,
         refinement_smoothing: ConvolutionFilter,
         subdivide_smoothing: ConvolutionFilter,
-    ) -> Self {
+    ) -> Option<Self> {
         let subdivide_padding = subdivide_smoothing.kernel_size() / 2;
         let refined_padding = refinement_smoothing.kernel_size() / 2;
-        let pyramid_base = Layer::new(layer_settings, subdivide_padding, refined_padding);
-        PyramidFilter {
-            subdivide_smoothing,
-            refinement_smoothing,
-            pyramid_base,
-        }
+        
+        layer_settings.pop().map(|first_layer_settings| {
+            let pyramid_base = LayerLevel::new(first_layer_settings, subdivide_padding, refined_padding, layer_settings);
+            PyramidFilter {
+                subdivide_smoothing,
+                refinement_smoothing,
+                pyramid_base,
+            }
+        })
     }
     pub(crate) fn init_size(&mut self, size: usize) {
         self.pyramid_base.init_size(size);
     }
 
-    pub(crate) fn apply_to_slice<'a>(&mut self, input: &[Real]) -> Option<&[Real]> {
+    pub(crate) fn apply_to_slice<'a>(&mut self, input: &[Real]) -> &[Real] {
         self.pyramid_base
             .process(input, &self.refinement_smoothing, &self.subdivide_smoothing);
         self.pyramid_base.rebuild(&self.refinement_smoothing)
@@ -159,9 +162,9 @@ mod tests {
             ],
             alpha,
             gamma,
-        );
+        ).unwrap();
         pyramid.init_size(NUM_VALUES);
-        let output = pyramid.apply_to_slice(&VALUES).unwrap();
+        let output = pyramid.apply_to_slice(&VALUES);
         //println!("{VALUES:?}");
         //println!("{output:?}\n");
         /*match pyramid.pyramid_base {
