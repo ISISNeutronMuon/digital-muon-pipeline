@@ -130,22 +130,22 @@ pub(crate) struct MultiscalingDetectorParameters {
     #[clap(long, default_value = "true")]
     pub(crate) denoise: bool,
     ///
-    #[clap(long, default_value = "1,2,3,4", value_delimiter = ',')]
-    pub(crate) denoise_thresholds: Vec<usize>,
+    #[clap(long, default_value = "2,2,2,2", value_delimiter = ',')]
+    pub(crate) denoise_thresholds: Vec<Real>,
     ///
     #[clap(long, default_value = "false")]
     pub(crate) enhance: bool,
     ///
-    #[clap(long)]
+    #[clap(long, default_value = "1,1,1,1", value_delimiter = ',')]
     pub(crate) enhance_thresholds: Vec<Real>,
     ///
-    #[clap(long)]
+    #[clap(long, default_value = "1.1,1.1,1.1,1.1", value_delimiter = ',')]
     pub(crate) enhance_factors: Vec<Real>,
     ///
     #[clap(long)]
     pub(crate) multiply: bool,
     ///
-    #[clap(long)]
+    #[clap(long, default_value = "1.1,1.1,1.1,1.1", value_delimiter = ',')]
     pub(crate) multiply_factors: Vec<Real>,
     ///
     #[command(subcommand)]

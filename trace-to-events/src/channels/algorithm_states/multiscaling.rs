@@ -64,6 +64,7 @@ pub(crate) struct LayerProcessingSettings {
 pub(crate) struct MultiscalingDetectorState {
     /// This cache is persisted to avoid reallocations on every channel trace.
     pub(crate) cache: MultiscalingDetectorCache,
+    /// The state of the underlying algorithm.
     pub(crate) method_state: MultiscalingMethodAlgorithmState,
 }
 
@@ -87,12 +88,12 @@ impl MultiscalingDetectorState {
             .collect();
         let subdivide_smoothing_coefs = parameters.subdivision_smoothing.clone();
         let fft = FftInverse::new(
-            subdivide_smoothing_coefs.len(),
-            subdivide_smoothing_coefs.len(),
+            200,
+            20,
             parameters.smoothing_support.clone(),
             ComplexFloat::recip,
         );
-        let mut refinement_smoothing_coefs = vec![0.0; subdivide_smoothing_coefs.len()];
+        let mut refinement_smoothing_coefs = vec![0.0; 20];
         fft.apply_to_slice(
             subdivide_smoothing_coefs.as_slice(),
             refinement_smoothing_coefs.as_mut_slice(),
@@ -142,6 +143,7 @@ impl MultiscalingDetectorCache {
             .is_none_or(|expected_size| input_size != expected_size)
         {
             self.expected_size = Some(input_size);
+            self.input_values.resize(input_size, Default::default());
             self.pyramid.init_size(input_size);
         }
     }

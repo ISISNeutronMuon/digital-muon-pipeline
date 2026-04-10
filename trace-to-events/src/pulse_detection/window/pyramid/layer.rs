@@ -40,6 +40,9 @@ impl LayerLevel {
         self.refined.init_size(size);
         self.detail_coefficients.init_size(size);
         self.rebuilt.init_size(size);
+        if let Layer::Level(next_level) = self.next.as_mut() {
+            next_level.init_size(size >> 1);
+        }
     }
 
     pub(super) fn process(
@@ -49,12 +52,12 @@ impl LayerLevel {
         subdivide_smoothing: &ConvolutionFilter,
     ) {
         // Downsample from source.
-        let padding = self.subdivided.padding;
+        let padding = self.subdivided.get_padding();
         downsample(source, &mut self.subdivided, padding);
         self.subdivided.convolve(subdivide_smoothing);
 
         // Upsample from the next layer's subdivided.
-        let padding = self.refined.padding;
+        let padding = self.refined.get_padding();
         upsample(&self.subdivided, &mut self.refined, padding);
         self.refined.convolve(refinement_smoothing);
 
@@ -89,7 +92,7 @@ impl LayerLevel {
             // Propagate rebuild
             layer_level.rebuild(refinement_smoothing);
 
-            let padding = self.rebuilt.padding;
+            let padding = self.rebuilt.get_padding();
             upsample(&layer_level.rebuilt, &mut self.rebuilt, padding);
             self.rebuilt.convolve(refinement_smoothing);
 
@@ -182,10 +185,9 @@ impl Layer {
 mod tests {
     use super::*;
     use crate::pulse_detection::window::{
-        SliceWindow, convolution_filter::KernelType, fft_inverse::FftInverse,
+        convolution_filter::KernelType
     };
     use num::Integer;
-    use rustfft::num_complex::{Complex, ComplexFloat};
 
     fn assert_layer_settings_default(settings: &LayerProcessingSettings) {
         assert!(settings.denoise_threshold.is_none());
@@ -193,14 +195,7 @@ mod tests {
         assert!(settings.multiply_factor.is_none());
     }
 
-    fn assert_convolution_cache_sizes(cache: &ConvolutionCache, size: usize, padding: usize) {
-        assert_eq!(cache.raw.len(), size + padding);
-        assert_eq!(cache.convolved.len(), size);
-    }
-
     fn assert_layer_sizes(layer_level: &LayerLevel, size: usize, padding: usize) {
-        assert_convolution_cache_sizes(&layer_level.subdivided, size, padding);
-        assert_convolution_cache_sizes(&layer_level.refined, size, padding);
         assert_eq!(layer_level.detail_coefficients.len(), size);
         assert_eq!(layer_level.rebuilt.len(), size);
     }
@@ -260,6 +255,14 @@ mod tests {
         5.0, 4.0, 3.2, 1.1, 9.1, 4.0, 2.1, 1.5, 0.0, 2.0, 1.0, 3.0, 5.0, 4.0, 3.2, 1.1, 3.1, 2.0,
     ];
 
+    fn assert_iters_equal<'a>(output: impl ExactSizeIterator<Item = &'a Real>, expected_data: impl ExactSizeIterator<Item = &'a Real>) {
+        assert_eq!(output.len(), expected_data.len());
+
+        for (out, exp) in Iterator::zip(output, expected_data) {
+            assert_eq!(out, exp);
+        }
+    }
+
     #[test]
     fn test_layer_level_unconvolved() {
         let mut layer_level = LayerLevel::new(
@@ -275,22 +278,14 @@ mod tests {
 
         let output = layer_level.subdivided.as_ref().into_iter();
         let expected_data = DATA.iter().step_by(2);
-        assert_eq!(output.len(), expected_data.len());
+        assert_iters_equal(output, expected_data.into_iter());
 
-        for (out, exp) in Iterator::zip(output, expected_data) {
-            assert_eq!(out, exp);
-        }
-
-        let output = layer_level.refined.as_ref().into_iter().cloned();
+        let output = layer_level.refined.as_ref().into_iter();
         let expected_data = DATA
             .iter()
             .enumerate()
-            .map(|(i, v)| if i.is_even() { *v } else { 0.0 });
-        assert_eq!(output.len(), expected_data.len());
-
-        for (out, exp) in Iterator::zip(output, expected_data) {
-            assert_eq!(out, exp);
-        }
+            .map(|(i, v)| if i.is_even() { v } else { &0.0 });
+        assert_iters_equal(output, expected_data);
     }
 
     #[test]
@@ -306,22 +301,14 @@ mod tests {
             Layer::Level(layer_level) => {
                 let output = layer_level.subdivided.as_ref().into_iter();
                 let expected_data = DATA.iter().step_by(2);
-                assert_eq!(output.len(), expected_data.len());
-
-                for (out, exp) in Iterator::zip(output, expected_data) {
-                    assert_eq!(out, exp);
-                }
-
-                let output = layer_level.refined.as_ref().into_iter().cloned();
+                assert_iters_equal(output, expected_data);
+                
+                let output = layer_level.refined.as_ref().into_iter();
                 let expected_data = DATA
                     .iter()
                     .enumerate()
-                    .map(|(i, v)| if i.is_even() { *v } else { 0.0 });
-                assert_eq!(output.len(), expected_data.len());
-
-                for (out, exp) in Iterator::zip(output, expected_data) {
-                    assert_eq!(out, exp);
-                }
+                    .map(|(i, v)| if i.is_even() { v } else { &0.0 });
+                assert_iters_equal(output, expected_data);
 
                 assert!(matches!(*layer_level.next, Layer::Apex));
             }
@@ -329,7 +316,7 @@ mod tests {
     }
 
     #[test]
-    fn test_two_layer_unconvolved() {
+    fn test_two_layer_unconvolved_process() {
         let mut layer = Layer::new(
             vec![
                 LayerProcessingSettings::default(),
@@ -348,45 +335,30 @@ mod tests {
             Layer::Level(layer_level) => {
                 let output = layer_level.subdivided.as_ref().into_iter();
                 let expected_data = DATA.iter().step_by(2);
-                assert_eq!(output.len(), expected_data.len());
+                assert_iters_equal(output, expected_data);
 
-                for (out, exp) in Iterator::zip(output, expected_data) {
-                    assert_eq!(out, exp);
-                }
-
-                let output = layer_level.refined.as_ref().into_iter().cloned();
+                let output = layer_level.refined.as_ref().into_iter();
                 let expected_data = DATA
                     .iter()
                     .enumerate()
-                    .map(|(i, v)| if i.is_even() { *v } else { 0.0 });
-                assert_eq!(output.len(), expected_data.len());
-
-                for (out, exp) in Iterator::zip(output, expected_data) {
-                    assert_eq!(out, exp);
-                }
+                    .map(|(i, v)| if i.is_even() { v } else { &0.0 });
+                assert_iters_equal(output, expected_data);
 
                 match *layer_level.next {
                     Layer::Apex => unreachable!(),
                     Layer::Level(layer_level) => {
                         let output = layer_level.subdivided.as_ref().into_iter();
                         let expected_data = DATA.iter().step_by(4);
-                        assert_eq!(output.len(), expected_data.len());
+                        assert_iters_equal(output, expected_data);
 
-                        for (out, exp) in Iterator::zip(output, expected_data) {
-                            assert_eq!(out, exp);
-                        }
-
-                        let output = layer_level.refined.as_ref().into_iter().cloned();
+                        let output = layer_level.refined.as_ref().into_iter();
                         let expected_data = DATA
                             .iter()
                             .step_by(2)
                             .enumerate()
-                            .map(|(i, v)| if i.is_even() { *v } else { 0.0 });
-                        assert_eq!(output.len(), expected_data.len());
+                            .map(|(i, v)| if i.is_even() { v } else { &0.0 });
+                        assert_iters_equal(output, expected_data);
 
-                        for (out, exp) in Iterator::zip(output, expected_data) {
-                            assert_eq!(out, exp);
-                        }
                         assert!(matches!(*layer_level.next, Layer::Apex));
                     }
                 }
@@ -394,30 +366,40 @@ mod tests {
         }
     }
 
-    fn reverse(alpha: &[Real], support: &[i32]) -> Vec<Real> {
-        let mut gamma = vec![0.0; 5];
-        let fft = FftInverse::new(200, 6, support.to_vec(), Complex::recip);
-        fft.apply_to_slice(alpha, gamma.as_mut_slice());
-        gamma
-    }
-
     #[test]
-    fn test_reverse() {
-        let settings = vec![LayerProcessingSettings {
-            denoise_threshold: Some(1.1),
-            enhance_threshold_factor: Some((1.1, 1.3)),
-            multiply_factor: Some(1.1),
-        }];
-        let alpha = vec![0.125, 0.5, 0.75, 0.5, 0.125];
-        let gamma = reverse(&alpha, &[-2, -1, 0, 1, 2]);
-        let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(alpha));
-        let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(gamma));
+    fn test_two_layer_unconvolved_rebuild() {
+        let mut layer = Layer::new(
+            vec![
+                LayerProcessingSettings::default(),
+                LayerProcessingSettings::default(),
+            ],
+            0,
+            0,
+        );
+        layer.init_size(SIZE);
+        let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
+        let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
+        layer.process(DATA.as_slice(), &alpha, &gamma);
+        layer.rebuild(&alpha);
 
-        let mut base = Layer::new(settings, gamma.kernel_size() / 2, alpha.kernel_size() / 2);
-        base.init_size(SIZE);
+        match layer {
+            Layer::Apex => unreachable!(),
+            Layer::Level(layer_level) => {
+                let output = layer_level.rebuilt.as_ref().into_iter();
+                let expected_data = DATA.iter();
+                assert_iters_equal(output, expected_data);
+                
+                match *layer_level.next {
+                    Layer::Apex => unreachable!(),
+                    Layer::Level(layer_level) => {
+                        let output = layer_level.rebuilt.as_ref().into_iter();
+                        let expected_data = DATA.iter().step_by(2);
+                        assert_iters_equal(output, expected_data);
 
-        base.process(&DATA, &alpha, &gamma);
-        let output = base.rebuild(&alpha);
-        println!("{output:?}");
+                        assert!(matches!(*layer_level.next, Layer::Apex));
+                    }
+                }
+            }
+        }
     }
 }

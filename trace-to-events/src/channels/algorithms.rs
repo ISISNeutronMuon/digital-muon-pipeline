@@ -201,20 +201,21 @@ pub(super) fn find_multiscaling_events(
     baseline: Real,
     method_state: &mut MultiscalingMethodAlgorithmState,
 ) -> (Vec<Time>, Vec<Intensity>) {
-    let raw_voltages = trace.map(|v| polarity_sign * (v as Real - baseline));
-    cache.ensure_cache_lengths(raw_voltages.len());
-    cache.write_input_values(raw_voltages);
-    let output_iter = cache
+    cache.ensure_cache_lengths(trace.len());
+    cache.write_input_values(trace);
+
+    let smoothed_trace = cache
         .pyramid
         .apply_to_slice(&cache.input_values)
-        .expect("Pyramid should be configured correctly, this should never fail")
+        .expect("Pyramid should be configured correctly, this should never fail.")
         .into_iter()
         .cloned();
 
+    // Pass the smoothed trace on to the method.
     match method_state {
         MultiscalingMethodAlgorithmState::FixedThreshold { parameters } => {
             find_fixed_threshold_events(
-                output_iter,
+                smoothed_trace,
                 sample_time,
                 polarity_sign,
                 baseline,
@@ -223,7 +224,7 @@ pub(super) fn find_multiscaling_events(
         }
         MultiscalingMethodAlgorithmState::DifferentialThreshold(state) => {
             find_differential_threshold_events(
-                output_iter,
+                smoothed_trace,
                 sample_time,
                 polarity_sign,
                 baseline,
@@ -233,7 +234,7 @@ pub(super) fn find_multiscaling_events(
             )
         }
         MultiscalingMethodAlgorithmState::Smoothing(state) => find_smoothing_events(
-            output_iter,
+            smoothed_trace,
             &state.fin_diff_gaussian,
             &mut state.cache,
             sample_time,

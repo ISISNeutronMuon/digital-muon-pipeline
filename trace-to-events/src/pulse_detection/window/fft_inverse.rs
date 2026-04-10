@@ -75,6 +75,7 @@ impl<FT> FftInverse<FT> {
         // Truncate the buffer about the `arg_max` element.
         input
             .into_iter()
+            //.pad_zeroes(radius + 1, radius + 1)
             .take(arg_max + radius + 1)
             .skip(arg_max - radius + 1)
     }
