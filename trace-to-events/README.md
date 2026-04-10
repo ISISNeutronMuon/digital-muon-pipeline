@@ -30,7 +30,7 @@ trace-to-events --help
 - `advanced-muon-detector`: Detects events using differential discriminators. Event lists consist of time and voltage values.
 - `help`: Print this message or the help of the given subcommand(s)
 
-### Constant Phase Discriminator
+### Fixed Threshold Discriminator
 
 `trace-to-events --broker <BROKER> fixed-threshold-discriminator --threshold <THRESHOLD>`
 

@@ -1,8 +1,9 @@
 use crate::integrated::simulation_elements::{
     Interval,
     run_messages::{SendAlarm, SendRunLogData, SendRunStart, SendRunStop, SendSampleEnvLog},
-    utils::IntConstant,
+    utils::NumConstant,
 };
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -51,8 +52,8 @@ pub(crate) struct GenerateEventList {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Loop<A> {
-    pub(crate) start: IntConstant,
-    pub(crate) end: IntConstant,
+    pub(crate) start: NumConstant<usize>,
+    pub(crate) end: NumConstant<usize>,
     pub(crate) schedule: Vec<A>,
 }
 
@@ -60,6 +61,7 @@ pub(crate) struct Loop<A> {
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Timestamp {
     Now,
+    To(DateTime<Utc>),
     AdvanceByMs(usize),
     RewindByMs(usize),
 }
@@ -92,6 +94,8 @@ pub(crate) enum Action {
     SendAlarm(SendAlarm),
     //
     FrameLoop(Loop<FrameAction>),
+    //
+    LogLoop(Loop<LogAction>),
     //
     SetTimestamp(Timestamp),
     SetVetoFlags(u16),
@@ -134,4 +138,15 @@ pub(crate) enum DigitiserAction {
     //
     GenerateTrace(GenerateTrace),
     GenerateEventList(GenerateEventList),
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum LogAction {
+    Comment(#[allow(unused)] String),
+    SendRunLogData(SendRunLogData),
+    SendSampleEnvLog(SendSampleEnvLog),
+    SendAlarm(SendAlarm),
+    SetTimestamp(Timestamp),
+    WaitMs(usize),
 }

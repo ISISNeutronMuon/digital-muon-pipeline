@@ -1,4 +1,7 @@
-use crate::{channels::find_channel_events, parameters::DetectorSettings, pulse_detection::Real};
+//! Provides the [process] function which extracts muon events, creates the flatbuffer eventlist messages.
+//!
+//! The function then creates a [DeliveryFuture], and passes it to the kafka producer task.
+use crate::{channels::ChannelState, parameters::DetectorSettings, pulse_detection::Real};
 use digital_muon_common::{
     Channel, EventData,
     spanned::{SpanWrapper, Spanned},
@@ -16,95 +19,137 @@ use metrics::counter;
 use rayon::prelude::*;
 use tracing::debug;
 
-#[tracing::instrument(skip_all, fields(num_total_pulses = tracing::field::Empty))]
-pub(crate) fn process<'a>(
-    fbb: &mut FlatBufferBuilder<'a>,
-    trace: &'a DigitizerAnalogTraceMessage,
-    detector_settings: &DetectorSettings,
-) {
-    debug!(
-        "Dig ID: {}, Metadata: {:?}",
-        trace.digitizer_id(),
-        trace.metadata()
-    );
+/// Encapsulates the state objects for multiple channels, and the methods for processing digitiser messages.
+pub(crate) struct DigitiserMessageProcessor {
+    /// Vector of channel states that can be assigned to different cores to be run in parallel.
+    channels: Vec<ChannelState>,
+}
 
-    let sample_time_in_ns: Real = 1_000_000_000.0 / trace.sample_rate() as Real;
-
-    let vec: Vec<(Channel, _)> = trace
-        .channels()
-        .unwrap()
-        .iter()
-        .map(SpanWrapper::<_>::new_with_current)
-        .collect::<Vec<_>>()
-        .par_iter()
-        .map(|spanned_channel_trace| {
-            let channel_span = spanned_channel_trace
-                .span()
-                .get()
-                .expect("Channel has span");
-
-            channel_span.in_scope(|| {
-                let channel = spanned_channel_trace.channel();
-                let events = find_channel_events(
-                    spanned_channel_trace,
-                    sample_time_in_ns,
-                    detector_settings,
-                );
-                (channel, events)
-            })
-        })
-        .collect();
-
-    let mut events = EventData::default();
-    for (channel, (time, voltage)) in vec {
-        let num_events = voltage.len();
-        counter!(
-            crate::EVENTS_FOUND_METRIC,
-            &[
-                ("digitizer_id", format!("{}", trace.digitizer_id())),
-                ("channel", format!("{channel}"))
-            ]
-        )
-        .increment(num_events as u64);
-
-        events.channel.extend_from_slice(&vec![channel; time.len()]);
-        events.time.extend_from_slice(&time);
-        events.voltage.extend_from_slice(&voltage);
+impl DigitiserMessageProcessor {
+    /// Creates a new `DigitiserMessageProcessor` object, from the given `settings`, and expected number of channels.
+    /// # Parameters
+    /// - expected_num_channels: the expected number of channels.
+    pub(crate) fn new(expected_num_channels: usize, settings: &DetectorSettings) -> Self {
+        if expected_num_channels == 0 {
+            panic!("expected_num_channels should be nonzero, this should never fail.");
+        }
+        Self {
+            channels: vec![ChannelState::new(settings); expected_num_channels],
+        }
     }
 
-    let metadata = FrameMetadataV2Args {
-        frame_number: trace.metadata().frame_number(),
-        period_number: trace.metadata().period_number(),
-        running: trace.metadata().running(),
-        protons_per_pulse: trace.metadata().protons_per_pulse(),
-        timestamp: trace.metadata().timestamp(),
-        veto_flags: trace.metadata().veto_flags(),
-    };
-    let metadata = FrameMetadataV2::create(fbb, &metadata);
+    /// Checks whether the number of channel states is sufficient and resizes if necessary.
+    /// # Parameters
+    /// - num_channels: the number of channels in the digitiser message. In normal operation, this value is never different from number specified at initialisation.
+    fn ensure_sufficient_channels(&mut self, num_channels: usize) {
+        if num_channels > self.channels.len() {
+            self.channels.resize(
+                num_channels,
+                self.channels
+                    .first()
+                    .expect("First element should exist, this should never fail.")
+                    .clone(),
+            );
+        }
+    }
 
-    let time = Some(fbb.create_vector(&events.time));
-    let voltage = Some(fbb.create_vector(&events.voltage));
-    let channel = Some(fbb.create_vector(&events.channel));
+    /// Extracts a flatbuffer trace message, converts its contents into events using the provided settings,
+    /// and creates a flatbuffer eventlist message.
+    ///
+    /// # Returns
+    /// The total number of pulses found in all channels.
+    ///
+    /// # Parameters
+    /// - fbb: a flatbuffer builder object which creates the event list messages.
+    /// - trace: the flatbuffer message of the trace.
+    /// - detector_settings: settings to use for the detector.
+    #[tracing::instrument(skip_all, fields(num_total_pulses))]
+    pub(crate) fn process<'a>(
+        &mut self,
+        fbb: &mut FlatBufferBuilder<'a>,
+        trace: &'a DigitizerAnalogTraceMessage,
+    ) -> usize {
+        debug!(
+            "Dig ID: {}, Metadata: {:?}",
+            trace.digitizer_id(),
+            trace.metadata()
+        );
 
-    let message = DigitizerEventListMessageArgs {
-        digitizer_id: trace.digitizer_id(),
-        metadata: Some(metadata),
-        time,
-        voltage,
-        channel,
-    };
-    let message = DigitizerEventListMessage::create(fbb, &message);
-    finish_digitizer_event_list_message_buffer(fbb, message);
+        let sample_time_in_ns: Real = 1_000_000_000.0 / trace.sample_rate() as Real;
 
-    tracing::Span::current().record("num_total_pulses", events.channel.len());
+        let channels = trace.channels().unwrap(); // FIXME: We should handle this error
+        self.ensure_sufficient_channels(channels.len());
+
+        let vec: Vec<(Channel, _)> = channels
+            .iter()
+            .map(SpanWrapper::<_>::new_with_current)
+            .zip(self.channels.iter_mut())
+            .collect::<Vec<_>>()
+            .par_iter_mut()
+            .map(|(spanned_channel_trace, channel_processor)| {
+                let channel_span = spanned_channel_trace
+                    .span()
+                    .get()
+                    .expect("Channel has span");
+
+                channel_span.in_scope(|| {
+                    let channel = spanned_channel_trace.channel();
+                    let events = channel_processor
+                        .find_channel_events(spanned_channel_trace, sample_time_in_ns);
+                    (channel, events)
+                })
+            })
+            .collect();
+
+        let mut events = EventData::default();
+        for (channel, (time, voltage)) in vec {
+            let num_events = voltage.len();
+            counter!(
+                crate::EVENTS_FOUND_METRIC,
+                &[
+                    ("digitizer_id", format!("{}", trace.digitizer_id())),
+                    ("channel", format!("{channel}"))
+                ]
+            )
+            .increment(num_events as u64);
+
+            events.channel.extend_from_slice(&vec![channel; time.len()]);
+            events.time.extend_from_slice(&time);
+            events.voltage.extend_from_slice(&voltage);
+        }
+
+        let metadata = FrameMetadataV2Args {
+            frame_number: trace.metadata().frame_number(),
+            period_number: trace.metadata().period_number(),
+            running: trace.metadata().running(),
+            protons_per_pulse: trace.metadata().protons_per_pulse(),
+            timestamp: trace.metadata().timestamp(),
+            veto_flags: trace.metadata().veto_flags(),
+        };
+        let metadata = FrameMetadataV2::create(fbb, &metadata);
+
+        let time = Some(fbb.create_vector(&events.time));
+        let voltage = Some(fbb.create_vector(&events.voltage));
+        let channel = Some(fbb.create_vector(&events.channel));
+
+        let message = DigitizerEventListMessageArgs {
+            digitizer_id: trace.digitizer_id(),
+            metadata: Some(metadata),
+            time,
+            voltage,
+            channel,
+        };
+        let message = DigitizerEventListMessage::create(fbb, &message);
+        finish_digitizer_event_list_message_buffer(fbb, message);
+
+        tracing::Span::current().record("num_total_pulses", events.channel.len());
+        events.channel.len()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        Mode, Polarity,
-        parameters::{AdvancedMuonDetectorParameters, FixedThresholdDiscriminatorParameters},
-    };
+    use crate::{Mode, Polarity, parameters::FixedThresholdDiscriminatorParameters};
 
     use super::*;
     use chrono::Utc;
@@ -182,15 +227,15 @@ mod tests {
             cool_off: 0,
         };
         let mut fbb = FlatBufferBuilder::new();
-        process(
-            &mut fbb,
-            &message,
+        DigitiserMessageProcessor::new(
+            1,
             &DetectorSettings {
                 mode: &Mode::FixedThresholdDiscriminator(test_parameters),
                 polarity: &Polarity::Positive,
                 baseline: Intensity::default(),
             },
-        );
+        )
+        .process(&mut fbb, &message);
 
         assert!(digitizer_event_list_message_buffer_has_identifier(
             fbb.finished_data()
@@ -232,15 +277,15 @@ mod tests {
             cool_off: 0,
         };
         let mut fbb = FlatBufferBuilder::new();
-        process(
-            &mut fbb,
-            &message,
+        DigitiserMessageProcessor::new(
+            2,
             &DetectorSettings {
                 mode: &Mode::FixedThresholdDiscriminator(test_parameters),
                 polarity: &Polarity::Positive,
                 baseline: Intensity::default(),
             },
-        );
+        )
+        .process(&mut fbb, &message);
 
         assert!(digitizer_event_list_message_buffer_has_identifier(
             fbb.finished_data()
@@ -264,57 +309,6 @@ mod tests {
     }
 
     #[test]
-    fn advanced_positive_zero_baseline() {
-        let mut fbb = FlatBufferBuilder::new();
-
-        let time: GpsTime = Utc::now().into();
-        let channel0: Vec<u16> = vec![0, 1, 2, 1, 0, 1, 2, 1, 8, 0, 2, 8, 3, 1, 2];
-        create_message(&mut fbb, &[channel0.as_slice()], &time);
-        let message = fbb.finished_data().to_vec();
-        let message = root_as_digitizer_analog_trace_message(&message).unwrap();
-
-        let mut fbb = FlatBufferBuilder::new();
-
-        let test_parameters = AdvancedMuonDetectorParameters {
-            muon_onset: 0.5,
-            muon_fall: -0.01,
-            muon_termination: 0.001,
-            duration: 0.0,
-            smoothing_window_size: Some(2),
-            ..Default::default()
-        };
-        process(
-            &mut fbb,
-            &message,
-            &DetectorSettings {
-                mode: &Mode::AdvancedMuonDetector(test_parameters),
-                polarity: &Polarity::Positive,
-                baseline: Intensity::default(),
-            },
-        );
-
-        assert!(digitizer_event_list_message_buffer_has_identifier(
-            fbb.finished_data()
-        ));
-        let event_message = root_as_digitizer_event_list_message(fbb.finished_data()).unwrap();
-
-        assert_eq!(
-            vec![0, 0],
-            event_message.channel().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 7],
-            event_message.time().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 4],
-            event_message.voltage().unwrap().iter().collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
     fn fixed_threshold_discriminator_positive_nonzero_baseline() {
         let mut fbb = FlatBufferBuilder::new();
 
@@ -330,15 +324,15 @@ mod tests {
             cool_off: 0,
         };
         let mut fbb = FlatBufferBuilder::new();
-        process(
-            &mut fbb,
-            &message,
+        DigitiserMessageProcessor::new(
+            1,
             &DetectorSettings {
                 mode: &Mode::FixedThresholdDiscriminator(test_parameters),
                 polarity: &Polarity::Positive,
                 baseline: 3,
             },
-        );
+        )
+        .process(&mut fbb, &message);
 
         assert!(digitizer_event_list_message_buffer_has_identifier(
             fbb.finished_data()
@@ -357,57 +351,6 @@ mod tests {
 
         assert_eq!(
             vec![8, 8],
-            event_message.voltage().unwrap().iter().collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn advanced_positive_nonzero_baseline() {
-        let mut fbb = FlatBufferBuilder::new();
-
-        let time: GpsTime = Utc::now().into();
-        let channel0: Vec<u16> = vec![3, 4, 5, 4, 3, 4, 5, 4, 11, 3, 5, 11, 6, 4, 5];
-        create_message(&mut fbb, &[channel0.as_slice()], &time);
-        let message = fbb.finished_data().to_vec();
-        let message = root_as_digitizer_analog_trace_message(&message).unwrap();
-
-        let mut fbb = FlatBufferBuilder::new();
-
-        let test_parameters = AdvancedMuonDetectorParameters {
-            muon_onset: 0.5,
-            muon_fall: -0.01,
-            muon_termination: 0.001,
-            duration: 0.0,
-            smoothing_window_size: Some(2),
-            ..Default::default()
-        };
-        process(
-            &mut fbb,
-            &message,
-            &DetectorSettings {
-                mode: &Mode::AdvancedMuonDetector(test_parameters),
-                polarity: &Polarity::Positive,
-                baseline: 3,
-            },
-        );
-
-        assert!(digitizer_event_list_message_buffer_has_identifier(
-            fbb.finished_data()
-        ));
-        let event_message = root_as_digitizer_event_list_message(fbb.finished_data()).unwrap();
-
-        assert_eq!(
-            vec![0, 0],
-            event_message.channel().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 7],
-            event_message.time().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 4],
             event_message.voltage().unwrap().iter().collect::<Vec<_>>()
         );
     }
@@ -428,15 +371,15 @@ mod tests {
             cool_off: 0,
         };
         let mut fbb = FlatBufferBuilder::new();
-        process(
-            &mut fbb,
-            &message,
+        DigitiserMessageProcessor::new(
+            1,
             &DetectorSettings {
                 mode: &Mode::FixedThresholdDiscriminator(test_parameters),
                 polarity: &Polarity::Negative,
                 baseline: 10,
             },
-        );
+        )
+        .process(&mut fbb, &message);
 
         assert!(digitizer_event_list_message_buffer_has_identifier(
             fbb.finished_data()
@@ -455,57 +398,6 @@ mod tests {
 
         assert_eq!(
             vec![8, 8],
-            event_message.voltage().unwrap().iter().collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn advanced_negative_nonzero_baseline() {
-        let mut fbb = FlatBufferBuilder::new();
-
-        let time: GpsTime = Utc::now().into();
-        let channel0: Vec<u16> = vec![10, 9, 8, 9, 10, 9, 8, 9, 2, 10, 8, 2, 7, 9, 8];
-        create_message(&mut fbb, &[channel0.as_slice()], &time);
-        let message = fbb.finished_data().to_vec();
-        let message = root_as_digitizer_analog_trace_message(&message).unwrap();
-
-        let mut fbb = FlatBufferBuilder::new();
-
-        let test_parameters = AdvancedMuonDetectorParameters {
-            muon_onset: 0.5,
-            muon_fall: -0.01,
-            muon_termination: 0.001,
-            duration: 0.0,
-            smoothing_window_size: Some(2),
-            ..Default::default()
-        };
-        process(
-            &mut fbb,
-            &message,
-            &DetectorSettings {
-                mode: &Mode::AdvancedMuonDetector(test_parameters),
-                polarity: &Polarity::Negative,
-                baseline: 10,
-            },
-        );
-
-        assert!(digitizer_event_list_message_buffer_has_identifier(
-            fbb.finished_data()
-        ));
-        let event_message = root_as_digitizer_event_list_message(fbb.finished_data()).unwrap();
-
-        assert_eq!(
-            vec![0, 0],
-            event_message.channel().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 7],
-            event_message.time().unwrap().iter().collect::<Vec<_>>()
-        );
-
-        assert_eq!(
-            vec![1, 4],
             event_message.voltage().unwrap().iter().collect::<Vec<_>>()
         );
     }

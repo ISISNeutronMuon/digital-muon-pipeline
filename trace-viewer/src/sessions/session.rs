@@ -69,11 +69,12 @@ impl Session {
 
     #[instrument(skip_all)]
     pub fn get_search_summaries(&self) -> Result<SearchSummary, SessionError> {
-        let traces = self
+        let cache = self
             .results
             .as_ref()
             .ok_or(SessionError::ResultsMissing)?
-            .cache()?
+            .cache()?;
+        let traces = cache
             .iter()
             .enumerate()
             .map(|(index, (metadata, trace))| {
@@ -105,6 +106,7 @@ impl Session {
             })
             .collect::<Vec<_>>();
         Ok(SearchSummary {
+            eventlist_topic_indices: cache.get_eventlist_topic_indices().copied().collect(),
             target: self.target.clone(),
             traces,
         })

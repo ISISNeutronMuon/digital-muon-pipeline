@@ -8,6 +8,7 @@ macro_rules! schema {
     ($name:ident) => {
         pub mod $name {
             #![allow(
+                mismatched_lifetime_syntaxes,
                 non_camel_case_types,
                 unsafe_op_in_unsafe_fn,
                 unused_imports,

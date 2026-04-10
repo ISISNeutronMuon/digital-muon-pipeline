@@ -36,6 +36,7 @@ use tracing::{instrument, warn, warn_span};
 /// - nexus_engine: the engine to push the message to.
 /// - kafka_message_timestamp_ms: the timestamp in milliseconds as reported in the Kafka message header. Only used for tracing.
 /// - payload: the byte-stream of the message.
+#[tracing::instrument(skip_all, fields(payload_size = payload.len()))]
 pub(crate) fn process_payload_on_frame_event_list_topic(
     nexus_engine: &mut NexusEngine<EngineDependencies>,
     message_kafka_timestamp_ms: i64,
@@ -55,6 +56,7 @@ pub(crate) fn process_payload_on_frame_event_list_topic(
 /// - nexus_engine: the engine to push the message to.
 /// - kafka_message_timestamp_ms: the timestamp in milliseconds as reported in the Kafka message header. Only used for tracing.
 /// - payload: the byte-stream of the message.
+#[tracing::instrument(skip_all, fields(payload_size = payload.len()))]
 pub(crate) fn process_payload_on_sample_env_topic(
     nexus_engine: &mut NexusEngine<EngineDependencies>,
     message_kafka_timestamp_ms: i64,
@@ -74,6 +76,7 @@ pub(crate) fn process_payload_on_sample_env_topic(
 /// - nexus_engine: the engine to push the message to.
 /// - kafka_message_timestamp_ms: the timestamp in milliseconds as reported in the Kafka message header. Only used for tracing.
 /// - payload: the byte-stream of the message.
+#[tracing::instrument(skip_all, fields(payload_size = payload.len()))]
 pub(crate) fn process_payload_on_runlog_topic(
     nexus_engine: &mut NexusEngine<EngineDependencies>,
     message_kafka_timestamp_ms: i64,
@@ -91,6 +94,7 @@ pub(crate) fn process_payload_on_runlog_topic(
 /// - nexus_engine: the engine to push the message to.
 /// - kafka_message_timestamp_ms: the timestamp in milliseconds as reported in the Kafka message header. Only used for tracing.
 /// - payload: the byte-stream of the message.
+#[tracing::instrument(skip_all, fields(payload_size = payload.len()))]
 pub(crate) fn process_payload_on_alarm_topic(
     nexus_engine: &mut NexusEngine<EngineDependencies>,
     message_kafka_timestamp_ms: i64,
@@ -108,6 +112,7 @@ pub(crate) fn process_payload_on_alarm_topic(
 /// - nexus_engine: the engine to push the message to.
 /// - kafka_message_timestamp_ms: the timestamp in milliseconds as reported in the Kafka message header. Only used for tracing.
 /// - payload: the byte-stream of the message.
+#[tracing::instrument(skip_all, fields(payload_size = payload.len()))]
 pub(crate) fn process_payload_on_control_topic(
     nexus_engine: &mut NexusEngine<EngineDependencies>,
     message_kafka_timestamp_ms: i64,

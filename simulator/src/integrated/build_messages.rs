@@ -172,7 +172,7 @@ pub(crate) fn build_aggregated_event_list_message(
         metadata: Some(FrameMetadataV2::create(fbb, &metadata_args)),
         time: Some(fbb.create_vector(&time)),
         voltage: Some(fbb.create_vector(&voltage)),
-        channel: Some(fbb.create_vector(channels)),
+        channel: Some(fbb.create_vector(&channel)),
         complete: true,
         digitizers_present: None,
     };

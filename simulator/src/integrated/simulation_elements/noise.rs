@@ -1,4 +1,8 @@
-use super::{FloatExpression, Interval, utils::JsonFloatError};
+use std::collections::VecDeque;
+
+use crate::integrated::simulation_elements::FloatRandomDistribution;
+
+use super::{Interval, NumExpression, utils::JsonValueError};
 use chrono::Utc;
 use digital_muon_common::Time;
 use rand::SeedableRng;
@@ -8,27 +12,27 @@ use serde::Deserialize;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct NoiseSource {
-    bounds: Interval<Time>,
+    bounds: Interval<NumExpression<Time>>,
     attributes: NoiseAttributes,
-    smoothing_factor: FloatExpression,
+    /// Length of the moving average window to apply to the noise.
+    /// If no smoothing is required, set this to
+    /// ```json
+    /// "smoothing-window-length": { "const": 1 }
+    /// ```
+    smoothing_window_length: NumExpression<usize>,
 }
 
 impl NoiseSource {
-    pub(crate) fn smooth(
-        &self,
-        new_value: f64,
-        old_value: f64,
-        frame_index: usize,
-    ) -> Result<f64, JsonFloatError> {
-        Ok(
-            new_value * (1.0 - self.smoothing_factor.value(frame_index)?)
-                + old_value * self.smoothing_factor.value(frame_index)?,
-        )
-    }
-
-    pub(crate) fn sample(&self, time: Time, frame_index: usize) -> Result<f64, JsonFloatError> {
-        if self.bounds.is_in(time) {
+    pub(crate) fn sample(&self, time: Time, frame_index: usize) -> Result<f64, JsonValueError> {
+        if self.bounds.is_in(time, frame_index)? {
             match &self.attributes {
+                NoiseAttributes::Bernoulli { probability, value } => {
+                    if rand::random_bool(probability.value(frame_index)?) {
+                        value.sample(frame_index)
+                    } else {
+                        Ok(0.0)
+                    }
+                }
                 NoiseAttributes::Uniform(Interval { min, max }) => {
                     let val = (max.value(frame_index)? - min.value(frame_index)?)
                         * rand::random::<f64>()
@@ -52,23 +56,27 @@ impl NoiseSource {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "noise-type")]
 pub(crate) enum NoiseAttributes {
-    Uniform(Interval<FloatExpression>),
+    Bernoulli {
+        probability: NumExpression<f64>,
+        value: FloatRandomDistribution<f64>,
+    },
+    Uniform(Interval<NumExpression<f64>>),
     Gaussian {
-        mean: FloatExpression,
-        sd: FloatExpression,
+        mean: NumExpression<f64>,
+        sd: NumExpression<f64>,
     },
 }
 
 pub(crate) struct Noise<'a> {
     source: &'a NoiseSource,
-    prev: f64,
+    prev: VecDeque<f64>,
 }
 
 impl<'a> Noise<'a> {
     pub(crate) fn new(source: &'a NoiseSource) -> Self {
         Self {
             source,
-            prev: f64::default(),
+            prev: Default::default(),
         }
     }
 
@@ -77,12 +85,12 @@ impl<'a> Noise<'a> {
         value: f64,
         time: Time,
         frame_index: usize,
-    ) -> Result<f64, JsonFloatError> {
-        self.prev = self.source.smooth(
-            self.source.sample(time, frame_index)?,
-            self.prev,
-            frame_index,
-        )?;
-        Ok(value + self.prev)
+    ) -> Result<f64, JsonValueError> {
+        let window_len = self.source.smoothing_window_length.value(frame_index)?;
+        if self.prev.len() == window_len {
+            self.prev.pop_front();
+        }
+        self.prev.push_back(self.source.sample(time, frame_index)?);
+        Ok(value + self.prev.iter().sum::<f64>() / self.prev.len() as f64)
     }
 }

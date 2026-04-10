@@ -48,20 +48,20 @@ where
     /// to receive a message with the same `digitiser_id`, then `data` is added
     /// to the partial frame, otherwise a new [PartialFrame] is created.
     #[tracing::instrument(skip_all, level = "trace")]
-    pub(crate) fn push<'a>(
-        &'a mut self,
+    pub(crate) fn push(
+        &mut self,
         digitiser_id: DigitizerId,
         metadata: &FrameMetadata,
         data: D,
     ) -> Result<(), RejectMessageError> {
-        if let Some(latest_timestamp_dispatched) = self.latest_timestamp_dispatched {
-            if metadata.timestamp <= latest_timestamp_dispatched {
-                warn!(
-                    "Frame's timestamp earlier than or equal to the latest frame dispatched: {0} <= {1}",
-                    metadata.timestamp, latest_timestamp_dispatched
-                );
-                return Err(RejectMessageError::TimestampTooEarly);
-            }
+        if let Some(latest_timestamp_dispatched) = self.latest_timestamp_dispatched
+            && metadata.timestamp <= latest_timestamp_dispatched
+        {
+            warn!(
+                "Frame's timestamp earlier than or equal to the latest frame dispatched: {0} <= {1}",
+                metadata.timestamp, latest_timestamp_dispatched
+            );
+            return Err(RejectMessageError::TimestampTooEarly);
         }
         let frame = {
             match self

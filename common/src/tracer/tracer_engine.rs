@@ -1,6 +1,7 @@
 use super::otel_tracer::{OtelOptions, OtelTracer};
-use opentelemetry::{global::Error, trace::TraceError};
-use tracing::Span;
+use opentelemetry_otlp::ExporterBuildError;
+use opentelemetry_sdk::trace::SdkTracerProvider;
+use tracing::{Span, warn};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt};
 
@@ -24,7 +25,8 @@ impl<'a> TracerOptions<'a> {
 /// OtelTracer object as well.
 pub struct TracerEngine {
     use_otel: bool,
-    otel_setup_error: Option<TraceError>,
+    otel_tracer_provider: Option<SdkTracerProvider>,
+    otel_setup_error: Option<ExporterBuildError>,
 }
 
 impl TracerEngine {
@@ -54,13 +56,16 @@ impl TracerEngine {
             .unwrap_or((None, None));
         // If otel_tracer did not work, update the use_otel variable
         let use_otel = use_otel && otel_tracer.is_some();
+        let (otel_layer, otel_tracer_provider) = otel_tracer
+            .map(|otel_tracer| (otel_tracer.layer, otel_tracer.tracer_provider))
+            .unzip();
 
         // This filter is applied to the stdout tracer
         let log_filter = EnvFilter::from_default_env();
 
         let subscriber = tracing_subscriber::Registry::default()
             .with(stdout_tracer.with_filter(log_filter))
-            .with(otel_tracer.map(|otel_tracer| otel_tracer.layer));
+            .with(otel_layer);
 
         //  This is only called once, so will never panic
         tracing::subscriber::set_global_default(subscriber)
@@ -68,36 +73,33 @@ impl TracerEngine {
 
         Self {
             use_otel,
+            otel_tracer_provider,
             otel_setup_error,
         }
     }
 
     /// Sets a span's parent to other_span
     pub fn set_span_parent_to(span: &Span, parent_span: &Span) {
-        span.set_parent(parent_span.context());
+        if let Err(e) = span.set_parent(parent_span.context()) {
+            warn!("{e}");
+        }
     }
 
     pub fn use_otel(&self) -> bool {
         self.use_otel
     }
 
-    /// This sets a custom error handler for OpenTelemetry.
-    /// This is public so it can be used in the init_tracer macro,
-    /// but should not be called anywhere else.
-    pub fn set_otel_error_handler<F>(&self, f: F) -> Result<(), Error>
-    where
-        F: Fn(Error) + Send + Sync + 'static,
-    {
-        opentelemetry::global::set_error_handler(f)
-    }
-
-    pub fn get_otel_setup_error(&self) -> Option<&TraceError> {
+    pub fn get_otel_setup_error(&self) -> Option<&ExporterBuildError> {
         self.otel_setup_error.as_ref()
     }
 }
 
 impl Drop for TracerEngine {
     fn drop(&mut self) {
-        opentelemetry::global::shutdown_tracer_provider()
+        if let Some(otel_tracer_provider) = self.otel_tracer_provider.as_mut()
+            && let Err(e) = otel_tracer_provider.shutdown()
+        {
+            warn!("{e}");
+        }
     }
 }

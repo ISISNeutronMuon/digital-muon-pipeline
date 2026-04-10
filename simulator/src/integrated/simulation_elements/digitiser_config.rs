@@ -1,7 +1,7 @@
 use crate::integrated::{
     simulation_elements::{
         Interval,
-        utils::{IntConstant, JsonIntError},
+        utils::{JsonValueError, NumConstant},
     },
     simulation_engine::engine::SimulationEngineDigitiser,
 };
@@ -13,13 +13,13 @@ use tracing::instrument;
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum DigitiserConfig {
     #[serde(rename_all = "kebab-case")]
-    AutoAggregatedFrame { num_channels: IntConstant },
+    AutoAggregatedFrame { num_channels: NumConstant<usize> },
     #[serde(rename_all = "kebab-case")]
     ManualAggregatedFrame { channels: Vec<Channel> },
     #[serde(rename_all = "kebab-case")]
     AutoDigitisers {
-        num_digitisers: IntConstant,
-        num_channels_per_digitiser: IntConstant,
+        num_digitisers: NumConstant<usize>,
+        num_channels_per_digitiser: NumConstant<usize>,
     },
     #[serde(rename_all = "kebab-case")]
     ManualDigitisers(Vec<Digitiser>),
@@ -27,7 +27,7 @@ pub(crate) enum DigitiserConfig {
 
 impl DigitiserConfig {
     #[instrument(skip_all)]
-    pub(crate) fn generate_channels(&self) -> Result<Vec<Channel>, JsonIntError> {
+    pub(crate) fn generate_channels(&self) -> Result<Vec<Channel>, JsonValueError> {
         let channels = match self {
             DigitiserConfig::AutoAggregatedFrame { num_channels } => {
                 (0..num_channels.value()? as Channel).collect()
@@ -49,7 +49,7 @@ impl DigitiserConfig {
     #[instrument(skip_all)]
     pub(crate) fn generate_digitisers(
         &self,
-    ) -> Result<Vec<SimulationEngineDigitiser>, JsonIntError> {
+    ) -> Result<Vec<SimulationEngineDigitiser>, JsonValueError> {
         let digitisers = match self {
             DigitiserConfig::AutoAggregatedFrame { .. } => Default::default(),
             DigitiserConfig::ManualAggregatedFrame { .. } => Default::default(),
@@ -60,12 +60,12 @@ impl DigitiserConfig {
                 .map(|d| {
                     Ok(SimulationEngineDigitiser::new(
                         d as DigitizerId,
-                        ((d as usize * num_channels_per_digitiser.value()? as usize)
-                            ..((d as usize + 1) * num_channels_per_digitiser.value()? as usize))
+                        ((d * num_channels_per_digitiser.value()?)
+                            ..((d + 1) * num_channels_per_digitiser.value()?))
                             .collect(),
                     ))
                 })
-                .collect::<Result<_, JsonIntError>>()?,
+                .collect::<Result<_, JsonValueError>>()?,
             DigitiserConfig::ManualDigitisers(digitisers) => digitisers
                 .iter()
                 .map(|digitiser| SimulationEngineDigitiser {

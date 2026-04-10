@@ -34,13 +34,19 @@ pub struct SearchEngine {
     /// it must be passed to it.
     consumer: StreamConsumer,
     topics: Topics,
+    events_topic_indices: Vec<usize>,
 }
 
 impl SearchEngine {
-    pub fn new(consumer: StreamConsumer, topics: &Topics) -> Self {
+    pub fn new(
+        consumer: StreamConsumer,
+        topics: &Topics,
+        events_topic_indices: Vec<usize>,
+    ) -> Self {
         Self {
             consumer,
             topics: topics.clone(),
+            events_topic_indices,
         }
     }
 
@@ -77,6 +83,7 @@ impl SearchEngine {
     pub(crate) async fn poll_broker(
         &self,
         poll_broker_timeout_ms: u64,
+        events_topic_index: usize,
     ) -> Result<BrokerInfo, SearchEngineError> {
         let trace = Self::poll_broker_topic_info::<TraceMessage>(
             &self.consumer,
@@ -84,9 +91,15 @@ impl SearchEngine {
             poll_broker_timeout_ms,
         )
         .await?;
+
+        let events_topic = self
+            .topics
+            .digitiser_event_topic
+            .get(events_topic_index)
+            .expect("event topic index should be in range, this should never fail.");
         let events = Self::poll_broker_topic_info::<EventListMessage>(
             &self.consumer,
-            &self.topics.digitiser_event_topic,
+            events_topic,
             poll_broker_timeout_ms,
         )
         .await?;
@@ -105,24 +118,32 @@ impl SearchEngine {
     ) -> Result<SearchResults, SearchEngineError> {
         Ok(match target.mode {
             SearchTargetMode::Timestamp { timestamp } => {
-                SearchTask::<BinarySearchByTimestamp>::new(&self.consumer, &self.topics)
-                    .search(timestamp, target.by, target.number)
-                    .await?
+                SearchTask::<BinarySearchByTimestamp>::new(
+                    &self.consumer,
+                    &self.topics,
+                    self.events_topic_indices.clone(),
+                )
+                .search(timestamp, target.by, target.number)
+                .await?
             }
             SearchTargetMode::Dragnet {
                 timestamp,
                 backstep,
                 forward_distance,
             } => {
-                SearchTask::<Dragnet>::new(&self.consumer, &self.topics)
-                    .search(
-                        timestamp,
-                        backstep,
-                        forward_distance,
-                        target.by,
-                        target.number,
-                    )
-                    .await?
+                SearchTask::<Dragnet>::new(
+                    &self.consumer,
+                    &self.topics,
+                    self.events_topic_indices.clone(),
+                )
+                .search(
+                    timestamp,
+                    backstep,
+                    forward_distance,
+                    target.by,
+                    target.number,
+                )
+                .await?
             }
         })
     }

@@ -1,5 +1,7 @@
+//! [TODO]
 use super::{Real, Window};
 
+#[allow(unused)] // FIXME
 #[derive(Default, Clone)]
 pub(crate) struct Baseline {
     baseline: Real,
@@ -10,6 +12,7 @@ pub(crate) struct Baseline {
 }
 
 impl Baseline {
+    #[allow(unused)] // FIXME
     pub(crate) fn new(warm_up: usize, smoothing_factor: Real) -> Self {
         Baseline {
             warm_up,
@@ -51,7 +54,7 @@ impl Window for Baseline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::window::WindowFilter;
+    use crate::pulse_detection::iterators::WindowIterable;
     use assert_approx_eq::assert_approx_eq;
 
     #[test]

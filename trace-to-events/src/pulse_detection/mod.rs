@@ -1,4 +1,4 @@
-//! This crate provides tools for converting raw trace data into
+//! Provides tools for converting raw trace data into
 //! a stream of events which represent pulses in the trace stream.
 //!
 //! A raw trace takes the form of a Vec (or some other similar container)
@@ -16,18 +16,14 @@
 //! ```
 
 pub(crate) mod datatype;
-pub(crate) mod pulse;
-
 pub(crate) mod detectors;
 pub(crate) mod iterators;
+pub(crate) mod utils;
 pub(crate) mod window;
 
 pub(crate) use datatype::{EventData, EventPoint, RealArray, Stats, Temporal, TracePoint};
-pub(crate) use detectors::{Assembler, Detector, advanced_muon_detector, threshold_detector};
-pub(crate) use iterators::{AssembleFilter, EventFilter};
-#[cfg(test)]
-pub(crate) use window::WindowFilter;
+pub(crate) use detectors::{Detector, threshold_detector};
+pub(crate) use iterators::{EventsIterable, WindowIterable};
 
-pub(crate) use pulse::Pulse;
-
+/// Standard type to use for real numbers.
 pub(crate) type Real = f64;

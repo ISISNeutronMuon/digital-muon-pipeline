@@ -1,3 +1,18 @@
+//! Implements the [FiniteDifferences] window.
+//!
+//! This outputs a vector of finite differences up to the nth.
+//!
+//! # Example
+//!
+//! The following example applies a smoothing window of length five to a raw
+//! data stream.
+//! Note that a [FiniteDifference<N>] window outputs a static array type of length `N`, so we need to extract
+//! the a value at an index to convert it to a scalar stream.
+//! ```rust
+//!     let differential = raw
+//!        .window(FiniteDifference::<2>::new())
+//!        .map(|(i,fd)| (i, fd[1]));
+//! ```
 use super::{Real, RealArray, Window};
 use num::integer::binomial;
 use std::collections::VecDeque;
@@ -20,6 +35,15 @@ impl<const N: usize> FiniteDifferences<N> {
                         .collect()
                 })
                 .collect(),
+            diffs: vec![Real::default(); N],
+        }
+    }
+
+    /// Creates a new `FiniteDifferences` with the coefficients cloned this this instance.
+    pub(crate) fn clone_only_coefficients(&self) -> Self {
+        Self {
+            coefficients: self.coefficients.clone(),
+            values: VecDeque::<Real>::with_capacity(N),
             diffs: vec![Real::default(); N],
         }
     }
@@ -63,7 +87,7 @@ impl<const N: usize> Window for FiniteDifferences<N> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::window::WindowFilter;
+    use crate::pulse_detection::iterators::WindowIterable;
     use digital_muon_common::Intensity;
 
     #[test]

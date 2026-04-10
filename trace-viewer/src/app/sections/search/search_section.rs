@@ -16,16 +16,18 @@ use leptos::{IntoView, component, prelude::*, view};
 
 #[component]
 pub(crate) fn SearchSection() -> impl IntoView {
-    let default_data = use_context::<TopLevelContext>()
+    let client_side_data = use_context::<TopLevelContext>()
         .expect("TopLevelContext should be provided, this should never fail.")
-        .client_side_data
-        .default_data;
+        .client_side_data;
 
     let main_context = use_context::<MainLevelContext>()
         .expect("MainLevelContext should be provided, this should never fail.");
     let create_new_search = main_context.create_new_search;
 
-    let search_level_context = SearchLevelContext::new(&default_data);
+    let search_level_context = SearchLevelContext::new(
+        &client_side_data.default_data,
+        client_side_data.eventlist_topics.len(),
+    );
     provide_context(search_level_context.clone());
 
     let on_submit = move || {
@@ -52,14 +54,28 @@ pub(crate) fn SearchSection() -> impl IntoView {
             number: search_level_context.number.get(),
         };
 
-        create_new_search.dispatch(CreateNewSearch { target });
+        let events_topic_indices = search_level_context
+            .eventlist_sources
+            .iter()
+            .enumerate()
+            .filter_map(|(value, flag)| flag.get().then_some(value))
+            .collect();
+
+        create_new_search.dispatch(CreateNewSearch {
+            target,
+            events_topic_indices,
+        });
     };
 
     view! {
         <form on:submit = move |e|{ e.prevent_default(); on_submit() }>
-            <Section text = "Search" id = "search-setup">
-                <SearchSettings />
-                <SearchControl />
+            <Section text = "Search" id = "search">
+                <div class = "content" id = "search-setup">
+                    <SearchSettings />
+                </div>
+                <div class = "content" id = "search-controls">
+                    <SearchControl />
+                </div>
             </Section>
         </form>
     }

@@ -8,7 +8,9 @@ use crate::{
             EventList, Trace,
             run_messages::{
                 SendAlarm, SendRunLogData, SendRunStart, SendRunStop, SendSampleEnvLog,
+                SendSampleEnvLogValues,
             },
+            utils::JsonValueError,
         },
         simulation_engine::{
             SimulationEngineExternals,
@@ -50,6 +52,8 @@ pub(crate) enum SendError {
     TimestampToNanos(DateTime<Utc>),
     #[error("Build error: {0}")]
     Build(#[from] BuildError),
+    #[error("Build error: {0}")]
+    JsonValue(#[from] JsonValueError),
 }
 
 struct SendMessageArgs<'a> {
@@ -80,6 +84,7 @@ impl<'a> SendMessageArgs<'a> {
     }
 }
 
+#[tracing::instrument(skip_all)]
 async fn send_message(args: SendMessageArgs<'_>) {
     let span = debug_span!(parent: &args.span, "Send Message Thread");
     let _guard = span.enter();
@@ -119,9 +124,9 @@ pub(crate) fn send_run_start_command(
     let mut fbb = FlatBufferBuilder::new();
     let run_start = RunStartArgs {
         start_time: get_time_since_epoch_ms(timestamp)?,
-        run_name: Some(fbb.create_string(&status.name.value())),
-        filename: Some(fbb.create_string(&status.filename.value())),
-        instrument_name: Some(fbb.create_string(&status.instrument.value())),
+        run_name: Some(fbb.create_string(&status.name.value()?)),
+        filename: Some(fbb.create_string(&status.filename.value()?)),
+        instrument_name: Some(fbb.create_string(&status.instrument.value()?)),
         ..Default::default()
     };
     let message = RunStart::create(&mut fbb, &run_start);
@@ -149,7 +154,7 @@ pub(crate) fn send_run_stop_command(
     let mut fbb = FlatBufferBuilder::new();
     let run_stop = RunStopArgs {
         stop_time: get_time_since_epoch_ms(timestamp)?,
-        run_name: Some(fbb.create_string(&status.name.value())),
+        run_name: Some(fbb.create_string(&status.name.value()?)),
         ..Default::default()
     };
     let message = RunStop::create(&mut fbb, &run_stop);
@@ -178,7 +183,7 @@ pub(crate) fn send_run_log_command(
 
     let mut fbb = FlatBufferBuilder::new();
     let run_log_args = f144_LogDataArgs {
-        source_name: Some(fbb.create_string(&status.source_name.value())),
+        source_name: Some(fbb.create_string(&status.source_name.value()?)),
         timestamp: get_time_since_epoch_ns(timestamp)?,
         value_type,
         value: Some(runlog::make_value(&mut fbb, value_type, &status.value)?),
@@ -222,14 +227,21 @@ pub(crate) fn send_se_log_command(
         })
         .map(|timestamps| fbb.create_vector(&timestamps));
 
+    let values = match &sample_env.values {
+        SendSampleEnvLogValues::Literal(items) => items.clone(),
+        SendSampleEnvLogValues::FromNoise { length, noise } => {
+            sample_environment::generate_value(*length, noise)?
+        }
+    };
+
     let values = Some(sample_environment::make_value(
         &mut fbb,
         values_type,
-        &sample_env.values,
+        &values,
     ));
 
     let se_log_args = se00_SampleEnvironmentDataArgs {
-        name: Some(fbb.create_string(&sample_env.name.value())),
+        name: Some(fbb.create_string(&sample_env.name.value()?)),
         channel: sample_env.channel.unwrap_or(-1),
         time_delta: sample_env.time_delta.unwrap_or(0.0),
         timestamp_location,
@@ -264,7 +276,7 @@ pub(crate) fn send_alarm_command(
     let mut fbb = FlatBufferBuilder::new();
     let severity = alarm.severity.clone().into();
     let alarm_args = AlarmArgs {
-        source_name: Some(fbb.create_string(&alarm.source_name.value())),
+        source_name: Some(fbb.create_string(&alarm.source_name.value()?)),
         timestamp: get_time_since_epoch_ns(timestamp)?,
         severity,
         message: Some(fbb.create_string(&alarm.message)),

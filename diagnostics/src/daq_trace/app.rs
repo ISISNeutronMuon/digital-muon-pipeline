@@ -65,14 +65,14 @@ impl App {
             // Sort by digitiser ID.
             sorted_data.sort_by_key(|x| x.0);
 
-            if let Some((_, data)) = sorted_data.get_mut(selected_index) {
-                if data.num_channels_present != 0 {
-                    data.channel_data.index = Self::add_delta_with_wrapping(
-                        data.channel_data.index,
-                        data.num_channels_present,
-                        delta,
-                    );
-                }
+            if let Some((_, data)) = sorted_data.get_mut(selected_index)
+                && data.num_channels_present != 0
+            {
+                data.channel_data.index = Self::add_delta_with_wrapping(
+                    data.channel_data.index,
+                    data.num_channels_present,
+                    delta,
+                );
             }
         }
     }

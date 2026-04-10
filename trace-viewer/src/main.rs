@@ -1,5 +1,3 @@
-#![allow(unused_crate_dependencies)]
-
 use cfg_if::cfg_if;
 use leptos::prelude::*;
 
@@ -116,6 +114,7 @@ cfg_if! {
                 default_data : args.default,
                 refresh_session_interval_sec: args.refresh_session_interval_sec,
                 public_url: args.public_url,
+                eventlist_topics: args.topics.digitiser_event_topic.clone(),
             };
 
             // Spawn the "purge expired sessions" task.

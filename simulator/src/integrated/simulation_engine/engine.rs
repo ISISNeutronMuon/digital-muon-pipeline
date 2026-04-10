@@ -1,6 +1,5 @@
 use crate::integrated::{
     Topics,
-    build_messages::build_trace_message,
     send_messages::{
         SendError, send_aggregated_frame_event_list_message, send_alarm_command,
         send_digitiser_event_list_message, send_digitiser_trace_message, send_run_log_command,
@@ -9,16 +8,16 @@ use crate::integrated::{
     simulation::{Simulation, SimulationError},
     simulation_elements::{
         event_list::{EventList, Trace},
-        utils::{JsonFloatError, JsonIntError},
+        utils::JsonValueError,
     },
     simulation_engine::actions::{
-        Action, DigitiserAction, FrameAction, GenerateEventList, GenerateTrace,
-        SelectionModeOptions, Timestamp, TracingEvent, TracingLevel,
+        Action, DigitiserAction, FrameAction, GenerateEventList, GenerateTrace, LogAction,
+        Timestamp, TracingEvent, TracingLevel,
     },
 };
 use chrono::{DateTime, TimeDelta, Utc};
 use digital_muon_common::{Channel, DigitizerId, FrameNumber};
-use digital_muon_streaming_types::{FrameMetadata, flatbuffers::FlatBufferBuilder};
+use digital_muon_streaming_types::FrameMetadata;
 use rdkafka::producer::FutureProducer;
 use std::{collections::VecDeque, thread::sleep, time::Duration};
 use thiserror::Error;
@@ -79,10 +78,8 @@ pub(crate) enum SimulationEngineError {
     Send(#[from] SendError),
     #[error("Aggregated Frame Event List Channel Index {0} out of Range: {1}")]
     AggregatedFrameEventListChannelIndexOutOfRange(usize, usize),
-    #[error("Json Float Error: {0}")]
-    JsonFloat(#[from] JsonFloatError),
-    #[error("Json Int Error: {0}")]
-    IntFloat(#[from] JsonIntError),
+    #[error("Json Numerical Error: {0}")]
+    JsonNum(#[from] JsonValueError),
     #[error("checked_add_signed failed: {0}")]
     TimestampAdd(usize),
     #[error("checked_sub_signed failed: {0}")]
@@ -123,6 +120,7 @@ fn set_timestamp(
 ) -> Result<(), SimulationEngineError> {
     match timestamp {
         Timestamp::Now => engine.state.metadata.timestamp = Utc::now(),
+        Timestamp::To(ts) => engine.state.metadata.timestamp = *ts,
         Timestamp::AdvanceByMs(ms) => {
             engine.state.metadata.timestamp = engine
                 .state
@@ -171,40 +169,6 @@ fn generate_trace_push_to_cache(
         .simulation
         .generate_traces(event_lists.as_slice(), engine.state.metadata.frame_number)?;
     engine.trace_cache.extend(traces);
-    Ok(())
-}
-
-#[instrument(skip_all, level = "debug", err(level = "error"))]
-fn generate_trace_fbb_push_to_cache(
-    sample_rate: u64,
-    trace_cache_fbb: &mut VecDeque<FlatBufferBuilder<'_>>,
-    metadata: &FrameMetadata,
-    digitizer_id: DigitizerId,
-    channels: &[Channel],
-    simulation: &Simulation,
-    generate_trace: &GenerateTrace,
-) -> Result<(), SimulationError> {
-    let event_lists = simulation.generate_event_lists(
-        generate_trace.event_list_index,
-        metadata.frame_number,
-        generate_trace.repeat,
-    )?;
-    let mut traces =
-        VecDeque::from(simulation.generate_traces(event_lists.as_slice(), metadata.frame_number)?);
-
-    let mut fbb = FlatBufferBuilder::new();
-
-    build_trace_message(
-        &mut fbb,
-        sample_rate,
-        &mut traces,
-        metadata,
-        digitizer_id,
-        channels,
-        SelectionModeOptions::PopFront,
-    )?;
-
-    trace_cache_fbb.push_back(fbb);
     Ok(())
 }
 
@@ -291,6 +255,12 @@ pub(crate) fn run_schedule(engine: &mut SimulationEngine) -> Result<(), Simulati
                     run_frame(engine, frame_loop.schedule.as_slice())?;
                 }
             }
+            Action::LogLoop(log_loop) => {
+                for index in log_loop.start.value()?..=log_loop.end.value()? {
+                    engine.state.metadata.frame_number = index as FrameNumber;
+                    run_logloop_schedule(engine, log_loop.schedule.as_slice())?;
+                }
+            }
             Action::Comment(_) => (),
         }
     }
@@ -340,7 +310,7 @@ fn run_frame(
             FrameAction::SetTimestamp(timestamp) => set_timestamp(engine, timestamp)?,
             FrameAction::DigitiserLoop(digitiser_loop) => {
                 for digitiser in digitiser_loop.start.value()?..=digitiser_loop.end.value()? {
-                    engine.state.digitiser_index = digitiser as usize;
+                    engine.state.digitiser_index = digitiser;
                     run_digitiser(engine, &digitiser_loop.schedule)?;
                 }
             }
@@ -358,8 +328,8 @@ fn run_frame(
     )
     err(level = "error")
 )]
-pub(crate) fn run_digitiser<'a>(
-    engine: &'a mut SimulationEngine,
+pub(crate) fn run_digitiser(
+    engine: &mut SimulationEngine,
     digitiser_actions: &[DigitiserAction],
 ) -> Result<(), SimulationEngineError> {
     for action in digitiser_actions {
@@ -381,7 +351,7 @@ pub(crate) fn run_digitiser<'a>(
                     )?;
                 send_digitiser_trace_message(
                     &mut engine.externals,
-                    engine.simulation.sample_rate,
+                    engine.simulation.sample_rate.value()?,
                     &mut engine.trace_cache,
                     &engine.state.metadata,
                     digitiser.id,
@@ -423,6 +393,44 @@ pub(crate) fn run_digitiser<'a>(
                 generate_event_lists_push_to_cache(engine, generate_event)?
             }
             DigitiserAction::Comment(_) => (),
+        }
+    }
+    Ok(())
+}
+
+#[tracing::instrument(skip_all, level = "debug"
+    fields(
+        index = engine.state.metadata.frame_number,
+        num_actions = log_actions.len()
+    )
+    err(level = "error")
+)]
+pub(crate) fn run_logloop_schedule(
+    engine: &mut SimulationEngine,
+    log_actions: &[LogAction],
+) -> Result<(), SimulationEngineError> {
+    for action in log_actions {
+        match action {
+            LogAction::WaitMs(ms) => wait_ms(*ms),
+            LogAction::SendRunLogData(run_log_data) => send_run_log_command(
+                &mut engine.externals,
+                &engine.state.metadata.timestamp,
+                run_log_data,
+            )?,
+            LogAction::SendSampleEnvLog(sample_env_log) => send_se_log_command(
+                &mut engine.externals,
+                &engine.state.metadata.timestamp,
+                sample_env_log,
+            )?,
+            LogAction::SendAlarm(alarm) => {
+                send_alarm_command(
+                    &mut engine.externals,
+                    &engine.state.metadata.timestamp,
+                    alarm,
+                )?;
+            }
+            LogAction::SetTimestamp(timestamp) => set_timestamp(engine, timestamp)?,
+            LogAction::Comment(_) => (),
         }
     }
     Ok(())
