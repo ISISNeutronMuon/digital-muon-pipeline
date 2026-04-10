@@ -17,7 +17,7 @@ mod traces;
 use super::Real;
 use crate::{
     channels::LayerProcessingSettings,
-    pulse_detection::window::{convolution_filter::ConvolutionFilter, pyramid::layer::LayerLevel},
+    pulse_detection::window::{convolution_filter::ConvolutionFilter},
 };
 use layer::Layer;
 use traces::{ConvolutionCache, DetailCoefficients};
@@ -48,7 +48,7 @@ fn upsample(input: &[Real], output: &mut [Real], padding: usize) {
 pub(crate) struct PyramidFilter {
     subdivide_smoothing: ConvolutionFilter,
     refinement_smoothing: ConvolutionFilter,
-    pyramid_base: LayerLevel,
+    pyramid_base: Layer,
 }
 
 impl PyramidFilter {
@@ -61,7 +61,7 @@ impl PyramidFilter {
         let refined_padding = refinement_smoothing.kernel_size() / 2;
         
         layer_settings.pop().map(|first_layer_settings| {
-            let pyramid_base = LayerLevel::new(first_layer_settings, subdivide_padding, refined_padding, layer_settings);
+            let pyramid_base = Layer::new(first_layer_settings, subdivide_padding, refined_padding, layer_settings);
             PyramidFilter {
                 subdivide_smoothing,
                 refinement_smoothing,

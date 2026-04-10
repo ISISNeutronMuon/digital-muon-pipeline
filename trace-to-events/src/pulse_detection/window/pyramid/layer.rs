@@ -9,16 +9,16 @@ use crate::{
 
 /// Non-terminating struct of the `Layer` enum, containtaining the next `Layer` in the sequence.
 #[derive(Default, Clone)]
-pub(super) struct LayerLevel {
+pub(super) struct Layer {
     settings: LayerProcessingSettings,
     subdivided: ConvolutionCache,
     refined: ConvolutionCache,
     detail_coefficients: DetailCoefficients,
     rebuilt: ConvolutionCache,
-    next_layer: Option<Box<LayerLevel>>,
+    next_layer: Option<Box<Layer>>,
 }
 
-impl LayerLevel {
+impl Layer {
     pub(super) fn new(
         settings: LayerProcessingSettings,
         subdivide_padding: usize,
@@ -27,7 +27,7 @@ impl LayerLevel {
     ) -> Self {
         let next_settings = next_settings_tail.pop();
         let next_layer = next_settings.map(|layer_settings|
-            Box::new(LayerLevel::new(
+            Box::new(Layer::new(
                 layer_settings,
                 subdivide_padding,
                 refined_padding,
@@ -123,7 +123,7 @@ mod tests {
         assert!(settings.multiply_factor.is_none());
     }
 
-    fn assert_layer_sizes(layer_level: &LayerLevel, size: usize, _padding: usize) {
+    fn assert_layer_sizes(layer_level: &Layer, size: usize, _padding: usize) {
         assert_eq!(layer_level.detail_coefficients.len(), size);
         assert_eq!(layer_level.rebuilt.len(), size);
     }
@@ -134,7 +134,7 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let mut base = LayerLevel::new(settings, gamma.kernel_size() / 2, alpha.kernel_size() / 2, Default::default());
+        let mut base = Layer::new(settings, gamma.kernel_size() / 2, alpha.kernel_size() / 2, Default::default());
         assert_layer_settings_default(&base.settings);
         assert_layer_sizes(&base, 0, 0);
         assert!(base.next_layer.is_none());
@@ -150,7 +150,7 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let mut base = LayerLevel::new(LayerProcessingSettings::default(), gamma.kernel_size() / 2, alpha.kernel_size() / 2, vec![LayerProcessingSettings::default()]);
+        let mut base = Layer::new(LayerProcessingSettings::default(), gamma.kernel_size() / 2, alpha.kernel_size() / 2, vec![LayerProcessingSettings::default()]);
         base.init_size(SIZE);
         assert_layer_settings_default(&base.settings);
         assert_layer_sizes(&base, SIZE, 2);
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_layer_level_unconvolved() {
-        let mut layer_level = LayerLevel::new(
+        let mut layer_level = Layer::new(
             LayerProcessingSettings::default(),
             0,
             0,
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn test_layer_unconvolved() {
-        let mut layer = LayerLevel::new(LayerProcessingSettings::default(), 0, 0, vec![]);
+        let mut layer = Layer::new(LayerProcessingSettings::default(), 0, 0, vec![]);
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_two_layer_unconvolved_process() {
-        let mut layer = LayerLevel::new(
+        let mut layer = Layer::new(
             LayerProcessingSettings::default(),
             0,
             0,
@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn test_two_layer_unconvolved_rebuild() {
-        let mut layer = LayerLevel::new(
+        let mut layer = Layer::new(
             LayerProcessingSettings::default(),
             0,
             0,
