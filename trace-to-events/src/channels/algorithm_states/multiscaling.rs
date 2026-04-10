@@ -70,6 +70,19 @@ pub(crate) struct MultiscalingDetectorState {
 
 impl MultiscalingDetectorState {
     pub(crate) fn new(parameters: &MultiscalingDetectorParameters) -> Self {
+        // FIXME: Could this be handled directly by Clap? Or if not, moved elsewhere?
+        if parameters.denoise {
+            assert_eq!(parameters.number_of_layers, parameters.denoise_thresholds.len());
+        }
+        if parameters.enhance {
+            assert_eq!(parameters.number_of_layers, parameters.enhance_thresholds.len());
+            assert_eq!(parameters.number_of_layers, parameters.enhance_factors.len());
+        }
+        if parameters.multiply {
+            assert_eq!(parameters.number_of_layers, parameters.multiply_factors.len());
+        }
+
+        // Extract layer settings from cli args.
         let layers_settings = (0..parameters.number_of_layers)
             .map(|layer| LayerProcessingSettings {
                 denoise_threshold: parameters
@@ -86,6 +99,8 @@ impl MultiscalingDetectorState {
                     .then(|| parameters.multiply_factors[layer] as Real), // FIXME
             })
             .collect();
+
+        // Create `refinement_smoothing_coefs` from `subdivide_smoothing_coefs`.
         let subdivide_smoothing_coefs = parameters.subdivision_smoothing.clone();
         let fft = FftInverse::new(
             200,
@@ -99,10 +114,12 @@ impl MultiscalingDetectorState {
             refinement_smoothing_coefs.as_mut_slice(),
         );
 
+        // Create convolution filters.
         let subdivide_smoothing =
             ConvolutionFilter::new(KernelType::ManualCoefficients(subdivide_smoothing_coefs));
         let refinement_smoothing =
             ConvolutionFilter::new(KernelType::ManualCoefficients(refinement_smoothing_coefs));
+        
         let method_state = MultiscalingMethodAlgorithmState::new(&parameters.method);
         Self {
             method_state,
