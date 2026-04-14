@@ -115,7 +115,6 @@ impl Layer {
     }
 }
 
-
 #[cfg(test)]
 impl Layer {
     pub(super) fn get_subdivided(&self) -> &ConvolutionCache {
@@ -142,7 +141,9 @@ impl Layer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{pulse_detection::window::convolution_filter::KernelType, test_data::assert_iters_equal};
+    use crate::{
+        pulse_detection::window::convolution_filter::KernelType, test_data::assert_iters_equal,
+    };
     use num::Integer;
 
     fn assert_layer_settings_default(settings: &LayerProcessingSettings) {

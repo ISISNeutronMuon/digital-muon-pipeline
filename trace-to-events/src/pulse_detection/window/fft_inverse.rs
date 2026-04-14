@@ -8,10 +8,12 @@ use crate::pulse_detection::{Real, iterators::ZeroPaddingIterable, window::Slice
 
 fn find_arg_max(input: &[Real]) -> usize {
     //  Find the index of the max value of the resulting buffer.
-    input.iter()
+    input
+        .iter()
         .enumerate()
         .max_by(|r1, r2| {
-            r1.1.partial_cmp(r2.1).expect("Numbers are finite, this should never fail.")
+            r1.1.partial_cmp(r2.1)
+                .expect("Numbers are finite, this should never fail.")
         })
         .expect("Vector should be nonempty, this should never fail.")
         .0
@@ -78,8 +80,10 @@ where
         let even_mask = self.get_even_mask(input);
 
         // Pad even mask with the appropriate number of zeroes.
-        let padding_size = ((self.padded_vector_size as Real / 2.0) - even_mask.len().div_ceil(2) as Real) as usize;
-        let mut padded_even_mask = even_mask.into_iter()
+        let padding_size = ((self.padded_vector_size as Real / 2.0)
+            - even_mask.len().div_ceil(2) as Real) as usize;
+        let mut padded_even_mask = even_mask
+            .into_iter()
             .pad_zeroes(padding_size, padding_size)
             .map(|real| rustfft::num_complex::Complex::new(real, Default::default()))
             .collect::<Vec<_>>();
@@ -106,11 +110,15 @@ where
         // Truncate the buffer about the maximum element.
         // FIXME: This needs guards for reading invalid indices.
         let arg_max = find_arg_max(&padded_even_mask_recip_real);
-        let slice = &padded_even_mask_recip_real[(arg_max - self.truncation_size / 2)..(arg_max + self.truncation_size / 2 + 1)];
+        let slice = &padded_even_mask_recip_real
+            [(arg_max - self.truncation_size / 2)..(arg_max + self.truncation_size / 2 + 1)];
 
         // Write normalised values to output.
         let sum = slice.iter().sum::<Real>();
-        output.iter_mut().zip(slice.iter()).for_each(|(out, val)|*out = val/sum)
+        output
+            .iter_mut()
+            .zip(slice.iter())
+            .for_each(|(out, val)| *out = val / sum)
     }
 }
 
@@ -140,13 +148,12 @@ mod tests {
         let input = vec![0.125, 0.5, 0.75, 0.5, 0.125];
         let support = vec![-2, -1, 0, 1, 2];
         let mut output = vec![0.0; 5];
-        let fft = FftInverse::new(200, 5, support.clone(), |x|x);
+        let fft = FftInverse::new(200, 5, support.clone(), |x| x);
         fft.apply_to_slice(input.as_slice(), output.as_mut_slice());
-        const EXPECTED_OUTPUT: [Real; 5] = [ 0.0, 0.125,  0.75, 0.125,  0.0];
+        const EXPECTED_OUTPUT: [Real; 5] = [0.0, 0.125, 0.75, 0.125, 0.0];
         for (i, out) in output.into_iter().enumerate() {
             assert_approx_eq!(EXPECTED_OUTPUT[i], out);
         }
-        
     }
 
     #[test]
@@ -156,10 +163,10 @@ mod tests {
         let mut output = vec![0.0; 5];
         let fft = FftInverse::new(200, 5, support.clone(), Complex::recip);
         fft.apply_to_slice(input.as_slice(), output.as_mut_slice());
-        const EXPECTED_OUTPUT: [Real; 5] = [ 0.04112906, -0.23971773,  1.39717735, -0.23971773,  0.04112906];
+        const EXPECTED_OUTPUT: [Real; 5] =
+            [0.04112906, -0.23971773, 1.39717735, -0.23971773, 0.04112906];
         for (i, out) in output.into_iter().enumerate() {
             assert_approx_eq!(EXPECTED_OUTPUT[i], out);
         }
-        
     }
 }

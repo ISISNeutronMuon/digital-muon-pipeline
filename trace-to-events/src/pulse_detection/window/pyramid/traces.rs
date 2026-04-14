@@ -111,7 +111,8 @@ impl DetailCoefficients {
                 *val = *val*factor
             }
         }*/
-        self.0.iter_mut()
+        self.0
+            .iter_mut()
             .filter(|val| **val > threshold)
             .for_each(|val| *val *= factor);
     }
@@ -143,7 +144,6 @@ impl DerefMut for DetailCoefficients {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,7 +157,7 @@ mod tests {
         assert_eq!(cache.raw.len(), 25);
         assert_eq!(cache.convolved.len(), 15);
     }
-    
+
     #[test]
     fn test_downsample() {
         let input = vec![1.0, 2.0, 3.0, 4.0];

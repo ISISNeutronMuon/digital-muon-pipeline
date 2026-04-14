@@ -75,8 +75,10 @@ mod tests {
 
     #[test]
     fn detect_regions_no_minsize() {
-        let noise_std =
-            std_dev(&smoothing::SECOND_DERIV[((0.9 * smoothing::SECOND_DERIV.len() as Real) as usize)..]).unwrap();
+        let noise_std = std_dev(
+            &smoothing::SECOND_DERIV[((0.9 * smoothing::SECOND_DERIV.len() as Real) as usize)..],
+        )
+        .unwrap();
         let pulses = smoothing::SECOND_DERIV
             .iter()
             .enumerate()
@@ -98,8 +100,10 @@ mod tests {
 
     #[test]
     fn detect_regions_minsize_two() {
-        let noise_std =
-            std_dev(&smoothing::SECOND_DERIV[((0.9 * smoothing::SECOND_DERIV.len() as Real) as usize)..]).unwrap();
+        let noise_std = std_dev(
+            &smoothing::SECOND_DERIV[((0.9 * smoothing::SECOND_DERIV.len() as Real) as usize)..],
+        )
+        .unwrap();
         let pulses = smoothing::SECOND_DERIV
             .iter()
             .enumerate()
