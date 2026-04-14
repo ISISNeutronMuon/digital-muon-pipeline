@@ -1,19 +1,22 @@
 use super::Real;
-use crate::pulse_detection::window::{SliceWindow, convolution_filter::ConvolutionFilter};
+use crate::{
+    channels::LayerProcessingSettings,
+    pulse_detection::window::{SliceWindow, convolution_filter::ConvolutionFilter},
+};
 use std::ops::{AddAssign, Deref, DerefMut};
 
 /// A vector designed to work with [ConvolutionFilter] and the pyramid smoothing algorithm.
-/// 
+///
 /// The struct is created with a `padding` value, and consists of two `Vec`s: `raw` and `convolved`.
 /// Before the struct can be used, it should be initialised with `Self::init_size` which sets the sizes
 /// of `convolved` and `raw`, in which `raw` has `padding` many elements prepended and appended.
-/// 
+///
 /// The expected use cases for [ConvolutionCache] consist of:
 /// - When mutably dereferenced, [ConvolutionCache] returns a mut slice to [Self::raw], which the caller can write directly to,
 ///   (alternatively the caller may use helper methods [Self::downsample] and [Self::downsample]).
 /// - The convolution is then applied by calling [Self::convolve], the result of which is written to [Self::convolved].
 /// - The results of the convolution are read by immutably dereferencing [ConvolutionCache], which returns an immutable slice to [Self::convolved].
-/// 
+///
 /// # Example
 /// ```rust
 /// let mut cache = ConvolutionCache::new(10);
@@ -58,36 +61,24 @@ impl ConvolutionCache {
     }
 
     /// Adds a slice of values elementwise to the current convolved values.
-    /// 
+    ///
     /// # Parameters
     /// - detail_coefficients: the slice whose elements to sum.
-    pub(super) fn sum_slice_elementwise(&mut self, detail_coefficients: &[Real]) {
+    pub(super) fn inject_details(&mut self, detail_coefficients: &DetailCoefficients) {
         self.convolved
             .iter_mut()
             .zip(detail_coefficients.iter())
             .for_each(|(coef, det)| coef.add_assign(det));
     }
 
-    /// Sets values to the elementwise sum of two slices.
-    /// 
-    /// # Parameters
-    /// - detail_coefficients: the slice whose elements to sum.
-    pub(super) fn set_from_sum_of_slices_elementwise(&mut self, refined: &[Real], detail_coefficients: &[Real]) {
-        let iters = Iterator::zip(refined.iter(), detail_coefficients.iter());
-        self.convolved
-            .iter_mut()
-            .zip(iters)
-            .for_each(|(coef, (rfn, det))| *coef = *rfn + *det);
-    }
-
     /// Given a slice of size `2*convolved.len()`, this method downsamples `input` to [Self::raw]
     /// by sampling only the even indices of `input`.
-    /// 
+    ///
     /// Values of index `2*i` in `input` are written to index `i + padding` in [Self::raw].
     /// This ensures [Self::raw] is left and right padded with `padding` zeroes (assuming they were zero previously).
-    /// 
+    ///
     /// The size of `input` is not checked, and is assumed to be of size at least `2*convolved.len()`.
-    /// 
+    ///
     /// # Parameters
     /// - input: the slice from which the downsample.
     pub(super) fn downsample(&mut self, input: &[Real]) {
@@ -107,12 +98,12 @@ impl ConvolutionCache {
 
     /// Given a slice of size `convolved.len()/2`, this method upsamples `input` to [Self::raw]
     /// by distributing `input` to the even indices of [Self::raw].
-    /// 
+    ///
     /// Values of index `i` in `input` are written to index `2*i + padding` in [Self::raw].
     /// This ensures [Self::raw] is left and right padded with `padding` zeroes (assuming they were zero previously).
-    /// 
+    ///
     /// The size of `input` is not checked, and is assumed to be of size at most `convolved.len()/2`.
-    /// 
+    ///
     /// # Parameters
     /// - input: the slice from which the downsample.
     pub(super) fn upsample(&mut self, input: &[Real]) {
@@ -140,38 +131,46 @@ impl DerefMut for ConvolutionCache {
 }
 
 #[derive(Default, Clone)]
-pub(super) struct DetailCoefficients(Vec<Real>);
+pub(super) struct DetailCoefficients {
+    settings: LayerProcessingSettings,
+    details: Vec<Real>,
+}
 
 impl DetailCoefficients {
-    pub(super) fn new() -> Self {
-        Self(Default::default())
+    pub(super) fn new(settings: LayerProcessingSettings) -> Self {
+        Self {
+            settings,
+            ..Default::default()
+        }
     }
 
     pub(super) fn init_size(&mut self, size: usize) {
-        self.0.resize(size, Default::default());
+        self.details.resize(size, Default::default());
     }
 
-    pub(super) fn denoise(&mut self, threshold: Real) {
-        self.0
-            .iter_mut()
-            .filter(|val| val.abs() < threshold)
-            .for_each(|val| *val = Default::default());
-    }
-
-    pub(super) fn enhance(&mut self, threshold: Real, factor: Real) {
-        self.0
-            .iter_mut()
-            .filter(|val| **val > threshold)
-            .for_each(|val| *val *= factor);
-    }
-
-    pub(super) fn multiply(&mut self, factor: Real) {
-        self.0.iter_mut().for_each(|val| *val *= factor);
+    pub(super) fn process(&mut self) {
+        if let Some(denoise_threshold) = self.settings.denoise_threshold {
+            self.details
+                .iter_mut()
+                .filter(|val| val.abs() < denoise_threshold)
+                .for_each(|val| *val = Default::default());
+        }
+        if let Some((enhance_threshold, enhance_factor)) = self.settings.enhance_threshold_factor {
+            self.details
+                .iter_mut()
+                .filter(|val| **val > enhance_threshold)
+                .for_each(|val| *val *= enhance_factor);
+        }
+        if let Some(multiply_factor) = self.settings.multiply_factor {
+            self.details
+                .iter_mut()
+                .for_each(|val| *val *= multiply_factor);
+        }
     }
 
     pub(super) fn extract_from_slices(&mut self, source: &[Real], refined: &[Real]) {
         let iters = Iterator::zip(source.iter(), refined.iter());
-        self.0
+        self.details
             .iter_mut()
             .zip(iters)
             .for_each(|(coef, (src, rfn))| *coef = *src - *rfn);
@@ -182,13 +181,13 @@ impl Deref for DetailCoefficients {
     type Target = [Real];
 
     fn deref(&self) -> &Self::Target {
-        self.0.as_slice()
+        self.details.as_slice()
     }
 }
 
 impl DerefMut for DetailCoefficients {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.as_mut_slice()
+        self.details.as_mut_slice()
     }
 }
 
@@ -254,5 +253,13 @@ mod tests {
         ) {
             assert_eq!(*out, exp);
         }
+    }
+
+    #[test]
+    fn assert_layer_settings_default() {
+        let details = DetailCoefficients::default();
+        assert!(details.settings.denoise_threshold.is_none());
+        assert!(details.settings.enhance_threshold_factor.is_none());
+        assert!(details.settings.multiply_factor.is_none());
     }
 }

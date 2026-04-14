@@ -1,16 +1,4 @@
 //!
-//! # Example
-//!
-//! The following example applies a smoothing window of length five to a raw
-//! data stream.
-//! Note that a [SmoothingWindow] outputs a [Stats] type, so we need to extract
-//! the [Stats::mean] value to convert to a scalar stream.
-//! ```rust
-//!     let smoothed = raw
-//!        .window(SmoothingWindow::new(5))
-//!        .map(|(i, stats)| (i, stats.mean));
-//! ```
-//use crate::pulse_detection::window::SliceWindow;
 mod layer;
 mod traces;
 
@@ -22,18 +10,23 @@ use crate::{
 use layer::Layer;
 use traces::{ConvolutionCache, DetailCoefficients};
 
-/// Applies the pyramid filtering algorithm by [TODO].
+/// Encapsulates all state and cache for the pyramid smoothing algorithm.
 #[derive(Default, Clone)]
 pub(crate) struct PyramidFilter {
+    /// Smoothing filter to apply after downsampling.
     subdivide_smoothing: ConvolutionFilter,
+    /// Smoothing filter to apply after upsampling.
     refinement_smoothing: ConvolutionFilter,
+    /// The first layer of the pyramid.
     pyramid_base: Layer,
 }
 
 impl PyramidFilter {
     /// Create a new pyramid filter from the given vector of settings.
     /// # Parameters
-    /// - layer_settings: Vector of Layer Settings, descending from the top layer.
+    /// - layer_settings: Vector of Layer Settings, in descending order, i.e. the settings for the apex appears at the front.
+    /// - subdivide_smoothing: the smoothing filter to apply after downsampling.
+    /// - refinement_smoothing: the smoothing filter to apply after upsampling.
     pub(crate) fn new(
         mut layer_settings: Vec<LayerProcessingSettings>,
         refinement_smoothing: ConvolutionFilter,
@@ -56,10 +49,25 @@ impl PyramidFilter {
             }
         })
     }
+
+    /// Initialises the pyramid to have the given base size, and propagate
+    /// this value through the layers of the pyramid.
+    ///
+    /// # Parameters
+    /// - size: the size from which to initialise the pyramid's layers.
     pub(crate) fn init_size(&mut self, size: usize) {
         self.pyramid_base.init_size(size);
     }
 
+    /// Apply the pyramid smoothing algorithm to the given input slice.
+    ///
+    /// Note that sizes are not checked at runtime.
+    ///
+    /// # Parameters
+    /// - input: a slice of length equal to the size of the pyramid's base.
+    ///
+    /// # Return
+    /// A slice with the result of the smoothing algorithm.
     pub(crate) fn apply_to_slice(&mut self, input: &[Real]) -> &[Real] {
         self.pyramid_base
             .build(input, &self.refinement_smoothing, &self.subdivide_smoothing);
@@ -76,7 +84,10 @@ mod tests {
         pulse_detection::window::{
             SliceWindow, convolution_filter::KernelType, fft_inverse::FftInverse,
         },
-        test_data::{assert_iters_equal, pyramid},
+        test_data::{
+            assert_slices_equal,
+            pyramid::{INPUT, layer1, layer2, layer3, layer4},
+        },
     };
     use num::complex::ComplexFloat;
 
@@ -92,9 +103,9 @@ mod tests {
             subdivide_smoothing_coefs.as_mut_slice(),
         );
 
-        assert_iters_equal(
-            subdivide_smoothing_coefs.iter(),
-            [0.04112906, -0.23971773, 1.39717735, -0.23971773, 0.04112906].iter(),
+        assert_slices_equal(
+            &subdivide_smoothing_coefs,
+            &[0.04112906, -0.23971773, 1.39717735, -0.23971773, 0.04112906],
         );
 
         let layer_processing_settings = vec![
@@ -132,7 +143,7 @@ mod tests {
         pyramid.init_size(128);
 
         pyramid.pyramid_base.build(
-            &pyramid::INPUT,
+            &INPUT,
             &pyramid.refinement_smoothing,
             &pyramid.subdivide_smoothing,
         );
@@ -143,57 +154,33 @@ mod tests {
             let layer_4 = layer_3.get_next_layer().unwrap();
 
             // Test subdivided
-            assert_iters_equal(
-                layer_4.get_subdivided().iter(),
-                pyramid::layer4::SUBDIVIDED.iter(),
-            );
-            assert_iters_equal(
-                layer_3.get_subdivided().iter(),
-                pyramid::layer3::SUBDIVIDED.iter(),
-            );
-            assert_iters_equal(
-                layer_2.get_subdivided().iter(),
-                pyramid::layer2::SUBDIVIDED.iter(),
-            );
-            assert_iters_equal(
-                layer_1.get_subdivided().iter(),
-                pyramid::layer1::SUBDIVIDED.iter(),
-            );
+            assert_slices_equal(layer_4.get_subdivided(), &layer4::SUBDIVIDED);
+            assert_slices_equal(layer_3.get_subdivided(), &layer3::SUBDIVIDED);
+            assert_slices_equal(layer_2.get_subdivided(), &layer2::SUBDIVIDED);
+            assert_slices_equal(layer_1.get_subdivided(), &layer1::SUBDIVIDED);
 
             // Test refined
-            assert_iters_equal(
-                layer_4.get_refined().iter(),
-                pyramid::layer4::REFINED.iter(),
-            );
-            assert_iters_equal(
-                layer_3.get_refined().iter(),
-                pyramid::layer3::REFINED.iter(),
-            );
-            assert_iters_equal(
-                layer_2.get_refined().iter(),
-                pyramid::layer2::REFINED.iter(),
-            );
-            assert_iters_equal(
-                layer_1.get_refined().iter(),
-                pyramid::layer1::REFINED.iter(),
-            );
+            assert_slices_equal(layer_4.get_refined(), &layer4::REFINED);
+            assert_slices_equal(layer_3.get_refined(), &layer3::REFINED);
+            assert_slices_equal(layer_2.get_refined(), &layer2::REFINED);
+            assert_slices_equal(layer_1.get_refined(), &layer1::REFINED);
 
             // Test detail_coefficients before processing
-            assert_iters_equal(
-                layer_4.get_detail_coefficients().iter(),
-                pyramid::layer4::DETAIL_COEFFICIENTS.iter(),
+            assert_slices_equal(
+                layer_4.get_detail_coefficients(),
+                &layer4::DETAIL_COEFFICIENTS,
             );
-            assert_iters_equal(
-                layer_3.get_detail_coefficients().iter(),
-                pyramid::layer3::DETAIL_COEFFICIENTS.iter(),
+            assert_slices_equal(
+                layer_3.get_detail_coefficients(),
+                &layer3::DETAIL_COEFFICIENTS,
             );
-            assert_iters_equal(
-                layer_2.get_detail_coefficients().iter(),
-                pyramid::layer2::DETAIL_COEFFICIENTS.iter(),
+            assert_slices_equal(
+                layer_2.get_detail_coefficients(),
+                &layer2::DETAIL_COEFFICIENTS,
             );
-            assert_iters_equal(
-                layer_1.get_detail_coefficients().iter(),
-                pyramid::layer1::DETAIL_COEFFICIENTS.iter(),
+            assert_slices_equal(
+                layer_1.get_detail_coefficients(),
+                &layer1::DETAIL_COEFFICIENTS,
             );
         }
 
@@ -205,21 +192,21 @@ mod tests {
             let layer_4 = layer_3.get_next_layer().unwrap();
 
             // Test detail_coefficients after processing
-            assert_iters_equal(
-                layer_4.get_detail_coefficients().iter(),
-                pyramid::layer4::NEW_DETAIL_COEFFICIENTS.iter(),
+            assert_slices_equal(
+                layer_4.get_detail_coefficients(),
+                &layer4::NEW_DETAIL_COEFFICIENTS,
             );
-            assert_iters_equal(
-                layer_3.get_detail_coefficients().iter(),
-                pyramid::layer3::NEW_DETAIL_COEFFICIENTS.iter(),
+            assert_slices_equal(
+                layer_3.get_detail_coefficients(),
+                &layer3::NEW_DETAIL_COEFFICIENTS,
             );
-            assert_iters_equal(
-                layer_2.get_detail_coefficients().iter(),
-                pyramid::layer2::NEW_DETAIL_COEFFICIENTS.iter(),
+            assert_slices_equal(
+                layer_2.get_detail_coefficients(),
+                &layer2::NEW_DETAIL_COEFFICIENTS,
             );
-            assert_iters_equal(
-                layer_1.get_detail_coefficients().iter(),
-                pyramid::layer1::NEW_DETAIL_COEFFICIENTS.iter(),
+            assert_slices_equal(
+                layer_1.get_detail_coefficients(),
+                &layer1::NEW_DETAIL_COEFFICIENTS,
             );
         }
 
@@ -231,22 +218,10 @@ mod tests {
             let layer_4 = layer_3.get_next_layer().unwrap();
 
             // Test rebuilt
-            assert_iters_equal(
-                layer_4.get_refined().iter(),
-                pyramid::layer4::REBUILT.iter(),
-            );
-            assert_iters_equal(
-                layer_3.get_refined().iter(),
-                pyramid::layer3::REBUILT.iter(),
-            );
-            assert_iters_equal(
-                layer_2.get_refined().iter(),
-                pyramid::layer2::REBUILT.iter(),
-            );
-            assert_iters_equal(
-                layer_1.get_refined().iter(),
-                pyramid::layer1::REBUILT.iter(),
-            );
+            assert_slices_equal(layer_4.get_refined(), &layer4::REBUILT);
+            assert_slices_equal(layer_3.get_refined(), &layer3::REBUILT);
+            assert_slices_equal(layer_2.get_refined(), &layer2::REBUILT);
+            assert_slices_equal(layer_1.get_refined(), &layer1::REBUILT);
         }
     }
 }

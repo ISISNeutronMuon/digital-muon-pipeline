@@ -13,6 +13,10 @@ pub(crate) fn assert_iters_equal<'a>(
     }
 }
 
+pub(crate) fn assert_slices_equal<'a>(output: &'a [Real], expected_data: &'a [Real]) {
+    assert_iters_equal(output.into_iter(), expected_data.into_iter())
+}
+
 pub(crate) mod smoothing{
     use crate::pulse_detection::Real;
     pub(crate) const NUM_VALUES: usize = 85;
