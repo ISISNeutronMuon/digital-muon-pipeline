@@ -2,19 +2,39 @@ use super::Real;
 use crate::pulse_detection::window::{SliceWindow, convolution_filter::ConvolutionFilter};
 use std::ops::{AddAssign, Deref, DerefMut};
 
-///
+/// A vector designed to work with [ConvolutionFilter] and the pyramid smoothing algorithm.
+/// 
+/// The struct is created with a `padding` value, and consists of two `Vec`s: `raw` and `convolved`.
+/// Before the struct can be used, it should be initialised with `Self::init_size` which sets the sizes
+/// of `convolved` and `raw`, in which `raw` has `padding` many elements prepended and appended.
+/// 
+/// The expected use cases for [ConvolutionCache] consist of:
+/// - When mutably dereferenced, [ConvolutionCache] returns a mut slice to [Self::raw], which the caller can write directly to,
+///   (alternatively the caller may use helper methods [Self::downsample] and [Self::downsample]).
+/// - The convolution is then applied by calling [Self::convolve], the result of which is written to [Self::convolved].
+/// - The results of the convolution are read by immutably dereferencing [ConvolutionCache], which returns an immutable slice to [Self::convolved].
+/// 
+/// # Example
+/// ```rust
+/// let mut cache = ConvolutionCache::new(10);
+/// cache.init_size(100);
+/// write_stuff_to_vec(&mut cache);
+/// let convolution : ConvolutionFilter = /* some filter */;
+/// cache.convolve(&convolution)
+/// do_something_with_vec(&cache);
+/// ```
 #[derive(Default, Clone)]
 pub(super) struct ConvolutionCache {
     /// The amount of extra space to allocate to the beginning and end of the raw vector.
     padding: usize,
-    /// The memory that the convolution operator reads from.
+    /// The preconvolution memory block, the caller should write to this by mutably dereferencing the object.
     raw: Vec<Real>,
-    /// The memory that the convolution operator writes to.
+    /// The postconvolution memory block, the caller should read from this by immutably dereferencing the object.
     convolved: Vec<Real>,
 }
 
 impl ConvolutionCache {
-    ///
+    /// Create new Convolution with the given padding added to the front and end of the `raw` `Vec`.
     pub(super) fn new(padding: usize) -> Self {
         Self {
             padding,
@@ -23,23 +43,36 @@ impl ConvolutionCache {
         }
     }
 
+    /// Initialise the memory blocks with the given size.
     pub(super) fn init_size(&mut self, size: usize) {
         self.raw.resize(size + 2 * self.padding, Default::default());
         self.convolved.resize(size, Default::default());
     }
 
-    pub(super) fn convolve(&mut self, alpha: &ConvolutionFilter) {
-        alpha.apply_to_slice(self.raw.as_slice(), self.convolved.as_mut_slice());
+    // Helper Methods.
+    // Note these modify the `convolved` `Vec` directly, something the caller is prevented from doing.
+
+    /// Apply the given convolution to the object, reading from the `raw` `Vec` and writing to `convolved`.
+    pub(super) fn convolve(&mut self, convolution: &ConvolutionFilter) {
+        convolution.apply_to_slice(self.raw.as_slice(), self.convolved.as_mut_slice());
     }
 
-    pub(super) fn append_slice(&mut self, detail_coefficients: &[Real]) {
+    /// Adds a slice of values elementwise to the current convolved values.
+    /// 
+    /// # Parameters
+    /// - detail_coefficients: the slice whose elements to sum.
+    pub(super) fn sum_slice_elementwise(&mut self, detail_coefficients: &[Real]) {
         self.convolved
             .iter_mut()
             .zip(detail_coefficients.iter())
             .for_each(|(coef, det)| coef.add_assign(det));
     }
 
-    pub(super) fn sum_from_slices(&mut self, refined: &[Real], detail_coefficients: &[Real]) {
+    /// Sets values to the elementwise sum of two slices.
+    /// 
+    /// # Parameters
+    /// - detail_coefficients: the slice whose elements to sum.
+    pub(super) fn set_from_sum_of_slices_elementwise(&mut self, refined: &[Real], detail_coefficients: &[Real]) {
         let iters = Iterator::zip(refined.iter(), detail_coefficients.iter());
         self.convolved
             .iter_mut()
@@ -47,6 +80,16 @@ impl ConvolutionCache {
             .for_each(|(coef, (rfn, det))| *coef = *rfn + *det);
     }
 
+    /// Given a slice of size `2*convolved.len()`, this method downsamples `input` to [Self::raw]
+    /// by sampling only the even indices of `input`.
+    /// 
+    /// Values of index `2*i` in `input` are written to index `i + padding` in [Self::raw].
+    /// This ensures [Self::raw] is left and right padded with `padding` zeroes (assuming they were zero previously).
+    /// 
+    /// The size of `input` is not checked, and is assumed to be of size at least `2*convolved.len()`.
+    /// 
+    /// # Parameters
+    /// - input: the slice from which the downsample.
     pub(super) fn downsample(&mut self, input: &[Real]) {
         let size = input.len();
         let padding = self.padding;
@@ -62,6 +105,16 @@ impl ConvolutionCache {
         }
     }
 
+    /// Given a slice of size `convolved.len()/2`, this method upsamples `input` to [Self::raw]
+    /// by distributing `input` to the even indices of [Self::raw].
+    /// 
+    /// Values of index `i` in `input` are written to index `2*i + padding` in [Self::raw].
+    /// This ensures [Self::raw] is left and right padded with `padding` zeroes (assuming they were zero previously).
+    /// 
+    /// The size of `input` is not checked, and is assumed to be of size at most `convolved.len()/2`.
+    /// 
+    /// # Parameters
+    /// - input: the slice from which the downsample.
     pub(super) fn upsample(&mut self, input: &[Real]) {
         let padding = self.padding;
         for (i, value) in input.iter().enumerate() {
@@ -106,11 +159,6 @@ impl DetailCoefficients {
     }
 
     pub(super) fn enhance(&mut self, threshold: Real, factor: Real) {
-        /*for val in self.as_mut() {
-            if val.abs() > threshold {
-                *val = *val*factor
-            }
-        }*/
         self.0
             .iter_mut()
             .filter(|val| **val > threshold)
