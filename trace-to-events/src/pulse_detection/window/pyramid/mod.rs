@@ -60,7 +60,7 @@ impl PyramidFilter {
         self.pyramid_base.init_size(size);
     }
 
-    pub(crate) fn apply_to_slice<'a>(&mut self, input: &[Real]) -> &[Real] {
+    pub(crate) fn apply_to_slice(&mut self, input: &[Real]) -> &[Real] {
         self.pyramid_base
             .build(input, &self.refinement_smoothing, &self.subdivide_smoothing);
         self.pyramid_base.process();
@@ -143,33 +143,57 @@ mod tests {
             let layer_4 = layer_3.get_next_layer().unwrap();
 
             // Test subdivided
-            assert_iters_equal(layer_4.get_subdivided().iter(), pyramid::DECIMATED_4.iter());
-            assert_iters_equal(layer_3.get_subdivided().iter(), pyramid::DECIMATED_3.iter());
-            assert_iters_equal(layer_2.get_subdivided().iter(), pyramid::DECIMATED_2.iter());
-            assert_iters_equal(layer_1.get_subdivided().iter(), pyramid::DECIMATED_1.iter());
+            assert_iters_equal(
+                layer_4.get_subdivided().iter(),
+                pyramid::layer4::SUBDIVIDED.iter(),
+            );
+            assert_iters_equal(
+                layer_3.get_subdivided().iter(),
+                pyramid::layer3::SUBDIVIDED.iter(),
+            );
+            assert_iters_equal(
+                layer_2.get_subdivided().iter(),
+                pyramid::layer2::SUBDIVIDED.iter(),
+            );
+            assert_iters_equal(
+                layer_1.get_subdivided().iter(),
+                pyramid::layer1::SUBDIVIDED.iter(),
+            );
 
             // Test refined
-            assert_iters_equal(layer_4.get_refined().iter(), pyramid::REFINED_4.iter());
-            assert_iters_equal(layer_3.get_refined().iter(), pyramid::REFINED_3.iter());
-            assert_iters_equal(layer_2.get_refined().iter(), pyramid::REFINED_2.iter());
-            assert_iters_equal(layer_1.get_refined().iter(), pyramid::REFINED_1.iter());
+            assert_iters_equal(
+                layer_4.get_refined().iter(),
+                pyramid::layer4::REFINED.iter(),
+            );
+            assert_iters_equal(
+                layer_3.get_refined().iter(),
+                pyramid::layer3::REFINED.iter(),
+            );
+            assert_iters_equal(
+                layer_2.get_refined().iter(),
+                pyramid::layer2::REFINED.iter(),
+            );
+            assert_iters_equal(
+                layer_1.get_refined().iter(),
+                pyramid::layer1::REFINED.iter(),
+            );
 
             // Test detail_coefficients before processing
             assert_iters_equal(
                 layer_4.get_detail_coefficients().iter(),
-                pyramid::DETAIL_COEFFICIENTS_4.iter(),
+                pyramid::layer4::DETAIL_COEFFICIENTS.iter(),
             );
             assert_iters_equal(
                 layer_3.get_detail_coefficients().iter(),
-                pyramid::DETAIL_COEFFICIENTS_3.iter(),
+                pyramid::layer3::DETAIL_COEFFICIENTS.iter(),
             );
             assert_iters_equal(
                 layer_2.get_detail_coefficients().iter(),
-                pyramid::DETAIL_COEFFICIENTS_2.iter(),
+                pyramid::layer2::DETAIL_COEFFICIENTS.iter(),
             );
             assert_iters_equal(
                 layer_1.get_detail_coefficients().iter(),
-                pyramid::DETAIL_COEFFICIENTS_1.iter(),
+                pyramid::layer1::DETAIL_COEFFICIENTS.iter(),
             );
         }
 
@@ -183,19 +207,19 @@ mod tests {
             // Test detail_coefficients after processing
             assert_iters_equal(
                 layer_4.get_detail_coefficients().iter(),
-                pyramid::NEW_DETAIL_COEFFICIENTS_4.iter(),
+                pyramid::layer4::NEW_DETAIL_COEFFICIENTS.iter(),
             );
             assert_iters_equal(
                 layer_3.get_detail_coefficients().iter(),
-                pyramid::NEW_DETAIL_COEFFICIENTS_3.iter(),
+                pyramid::layer3::NEW_DETAIL_COEFFICIENTS.iter(),
             );
             assert_iters_equal(
                 layer_2.get_detail_coefficients().iter(),
-                pyramid::NEW_DETAIL_COEFFICIENTS_2.iter(),
+                pyramid::layer2::NEW_DETAIL_COEFFICIENTS.iter(),
             );
             assert_iters_equal(
                 layer_1.get_detail_coefficients().iter(),
-                pyramid::NEW_DETAIL_COEFFICIENTS_1.iter(),
+                pyramid::layer1::NEW_DETAIL_COEFFICIENTS.iter(),
             );
         }
 
@@ -207,10 +231,22 @@ mod tests {
             let layer_4 = layer_3.get_next_layer().unwrap();
 
             // Test rebuilt
-            assert_iters_equal(layer_4.get_rebuilt().iter(), pyramid::REBUILT_4.iter());
-            assert_iters_equal(layer_3.get_rebuilt().iter(), pyramid::REBUILT_3.iter());
-            assert_iters_equal(layer_2.get_rebuilt().iter(), pyramid::REBUILT_2.iter());
-            assert_iters_equal(layer_1.get_rebuilt().iter(), pyramid::REBUILT_1.iter());
+            assert_iters_equal(
+                layer_4.get_refined().iter(),
+                pyramid::layer4::REBUILT.iter(),
+            );
+            assert_iters_equal(
+                layer_3.get_refined().iter(),
+                pyramid::layer3::REBUILT.iter(),
+            );
+            assert_iters_equal(
+                layer_2.get_refined().iter(),
+                pyramid::layer2::REBUILT.iter(),
+            );
+            assert_iters_equal(
+                layer_1.get_refined().iter(),
+                pyramid::layer1::REBUILT.iter(),
+            );
         }
     }
 }

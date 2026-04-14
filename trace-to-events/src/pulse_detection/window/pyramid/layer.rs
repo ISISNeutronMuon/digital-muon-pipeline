@@ -14,7 +14,6 @@ pub(super) struct Layer {
     subdivided: ConvolutionCache,
     refined: ConvolutionCache,
     detail_coefficients: DetailCoefficients,
-    rebuilt: ConvolutionCache,
     next_layer: Option<Box<Layer>>,
 }
 
@@ -39,7 +38,6 @@ impl Layer {
             subdivided: ConvolutionCache::new(subdivide_padding),
             refined: ConvolutionCache::new(refined_padding),
             detail_coefficients: DetailCoefficients::new(),
-            rebuilt: ConvolutionCache::new(refined_padding),
             next_layer,
         }
     }
@@ -48,7 +46,6 @@ impl Layer {
         self.subdivided.init_size(size >> 1);
         self.refined.init_size(size);
         self.detail_coefficients.init_size(size);
-        self.rebuilt.init_size(size);
         if let Some(next_layer) = self.next_layer.as_mut() {
             next_layer.init_size(size >> 1);
         }
@@ -103,15 +100,11 @@ impl Layer {
             next_layer.rebuild(refinement_smoothing);
 
             // Rebuilt is the sum of the next layer's `rebuilt` (upsampled and convolved), and the current detail_coefficients.
-            self.rebuilt.upsample(&next_layer.rebuilt);
-            self.rebuilt.convolve(refinement_smoothing);
-            self.rebuilt.append_slice(&self.detail_coefficients);
-        } else {
-            // Apex case (rebuilt case is the sum of refined and detail_coefficient).
-            self.rebuilt
-                .sum_from_slices(&self.refined, &self.detail_coefficients);
+            self.refined.upsample(&next_layer.refined);
+            self.refined.convolve(refinement_smoothing);
         }
-        &self.rebuilt
+        self.refined.sum_slice_elementwise(&self.detail_coefficients);
+        &self.refined
     }
 }
 
@@ -127,10 +120,6 @@ impl Layer {
 
     pub(super) fn get_detail_coefficients(&self) -> &DetailCoefficients {
         &self.detail_coefficients
-    }
-
-    pub(super) fn get_rebuilt(&self) -> &ConvolutionCache {
-        &self.rebuilt
     }
 
     pub(super) fn get_next_layer(&self) -> Option<&Box<Layer>> {
@@ -154,7 +143,7 @@ mod tests {
 
     fn assert_layer_sizes(layer_level: &Layer, size: usize, _padding: usize) {
         assert_eq!(layer_level.detail_coefficients.len(), size);
-        assert_eq!(layer_level.rebuilt.len(), size);
+        assert_eq!(layer_level.refined.len(), size);
     }
 
     #[test]
@@ -311,14 +300,14 @@ mod tests {
         layer.build(DATA.as_slice(), &alpha, &gamma);
         layer.rebuild(&alpha);
 
-        let output = layer.rebuilt.as_ref().into_iter();
+        let output = layer.refined.as_ref().into_iter();
         let expected_data = DATA.iter();
         assert_iters_equal(output, expected_data);
 
         match layer.next_layer {
             None => unreachable!(),
             Some(layer) => {
-                let output = layer.rebuilt.as_ref().into_iter();
+                let output = layer.refined.as_ref().into_iter();
                 let expected_data = DATA.iter().step_by(2);
                 assert_iters_equal(output, expected_data);
 

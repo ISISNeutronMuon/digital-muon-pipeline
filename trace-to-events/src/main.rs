@@ -10,7 +10,6 @@ mod channels;
 mod parameters;
 mod processing;
 mod pulse_detection;
-#[rustfmt::skip]
 #[cfg(test)]
 mod test_data;
 
