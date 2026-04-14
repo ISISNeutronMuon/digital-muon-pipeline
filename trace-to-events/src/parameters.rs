@@ -113,41 +113,41 @@ pub(crate) struct SmoothingDetectorParameters {
 /// Encapsulates the parameters specific to the Multiscaling detector.
 #[derive(Default, Debug, Clone, Parser)]
 pub(crate) struct MultiscalingDetectorParameters {
-    ///
+    /// Coefficients of the smoothing kernel to apply on downsampling.
     #[clap(
         long,
         default_value = "0.125,0.5,0.75,0.5,0.125",
         value_delimiter = ','
     )]
     pub(crate) subdivision_smoothing: Vec<Real>,
-    ///
+    /// Support of the `subdivision_smoothing` kernel.
     #[clap(long, default_value = "-2,-1,0,1,2", value_delimiter = ',')]
     pub(crate) smoothing_support: Vec<i32>,
-    ///
+    /// Number of pyramid layers.
     #[clap(long, default_value = "4")]
     pub(crate) number_of_layers: usize,
-    ///
+    /// Applies denoise processing if true.
     #[clap(long, default_value = "true")]
     pub(crate) denoise: bool,
-    ///
+    /// Layer denoise thresholds (if `denoise` is given, then provide `number_of_layers` values in descending order, starting from apex layer).
     #[clap(long, default_value = "2,2,2,2", value_delimiter = ',')]
     pub(crate) denoise_thresholds: Vec<Real>,
-    ///
+    /// Applies enhance processing if true.
     #[clap(long, default_value = "false")]
     pub(crate) enhance: bool,
-    ///
+    /// Layer enhance thresholds (if `enhance` is given, then provide `number_of_layers` values in descending order, starting from apex layer).
     #[clap(long, default_value = "1,1,1,1", value_delimiter = ',')]
     pub(crate) enhance_thresholds: Vec<Real>,
-    ///
+    /// Layer enhance factors (if `enhance` is given, then provide `number_of_layers` values in descending order, starting from apex layer).
     #[clap(long, default_value = "1.1,1.1,1.1,1.1", value_delimiter = ',')]
     pub(crate) enhance_factors: Vec<Real>,
-    ///
+    /// Applies multiply processing if true.
     #[clap(long)]
     pub(crate) multiply: bool,
-    ///
+    /// Layer multiplication factors (if `multiply` is given, then provide `number_of_layers` values in descending order, starting from apex layer).
     #[clap(long, default_value = "1.1,1.1,1.1,1.1", value_delimiter = ',')]
     pub(crate) multiply_factors: Vec<Real>,
-    ///
+    /// The underlying detector method to apply after the multiscaling smoothing has been applied.
     #[command(subcommand)]
     pub(crate) method: MultiscalingDetectorMethod,
 }

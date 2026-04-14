@@ -65,7 +65,7 @@ pub(crate) struct MultiscalingDetectorState {
     /// This cache is persisted to avoid reallocations on every channel trace.
     pub(crate) cache: MultiscalingDetectorCache,
     /// The state of the underlying algorithm.
-    pub(crate) method_state: MultiscalingMethodAlgorithmState,
+    pub(crate) method_state: Box<MultiscalingMethodAlgorithmState>,
 }
 
 impl MultiscalingDetectorState {
@@ -132,7 +132,7 @@ impl MultiscalingDetectorState {
         let refinement_smoothing =
             ConvolutionFilter::new(KernelType::ManualCoefficients(refinement_smoothing_coefs));
 
-        let method_state = MultiscalingMethodAlgorithmState::new(&parameters.method);
+        let method_state = Box::new(MultiscalingMethodAlgorithmState::new(&parameters.method));
         Self {
             method_state,
             cache: MultiscalingDetectorCache {
@@ -157,7 +157,7 @@ pub(crate) struct MultiscalingDetectorCache {
     expected_size: Option<usize>,
     /// Memory in which to write the pre-convolution trace data.
     pub(crate) input_values: Vec<Real>,
-    ///
+    /// Filter which to apply to `input_values`.
     pub(crate) pyramid: PyramidFilter,
 }
 

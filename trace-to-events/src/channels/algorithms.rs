@@ -208,7 +208,7 @@ pub(super) fn find_multiscaling_events(
         .pyramid
         .apply_to_slice(&cache.input_values)
         //.expect("Pyramid should be configured correctly, this should never fail.")
-        .into_iter()
+        .iter()
         .cloned();
 
     // Pass the smoothed trace on to the method.
