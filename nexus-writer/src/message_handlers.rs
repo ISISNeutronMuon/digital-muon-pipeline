@@ -20,6 +20,7 @@ use digital_muon_streaming_types::{
     },
     ecs_6s4t_run_stop_generated::{root_as_run_stop, run_stop_buffer_has_identifier},
     ecs_al00_alarm_generated::{alarm_buffer_has_identifier, root_as_alarm},
+    ecs_ev44_events_generated::{event_44_message_buffer_has_identifier, root_as_event_44_message},
     ecs_f144_logdata_generated::{f_144_log_data_buffer_has_identifier, root_as_f_144_log_data},
     ecs_pl72_run_start_generated::{root_as_run_start, run_start_buffer_has_identifier},
     ecs_se00_data_generated::{
@@ -43,6 +44,8 @@ pub(crate) fn process_payload_on_frame_event_list_topic(
 ) {
     if frame_assembled_event_list_message_buffer_has_identifier(payload) {
         push_frame_event_list(nexus_engine, message_kafka_timestamp_ms, payload);
+    } else if event_44_message_buffer_has_identifier(payload) {
+        push_ev44_event_data(nexus_engine, message_kafka_timestamp_ms, payload);
     } else {
         warn!("Incorrect message identifier on frame event list topic");
     }
@@ -208,6 +211,28 @@ fn push_frame_event_list(
                 .ok();
             if let Err(e) = nexus_engine.push_frame_event_list(data) {
                 warn!("Failed to save frame assembled event list to file: {}", e);
+            }
+        }
+        Err(e) => report_parse_message_failure(e),
+    }
+}
+
+/// Decode, validate and process a flatbuffer `Event` message
+/// # Parameters
+/// - nexus_engine: the engine to push the message to.
+/// - kafka_message_timestamp_ms: the timestamp in milliseconds as reported in the Kafka message header. Only used for tracing.
+/// - payload: the byte-stream of the message.
+#[tracing::instrument(skip_all, fields(kafka_message_timestamp_ms=kafka_message_timestamp_ms, has_run))]
+fn push_ev44_event_data(
+    nexus_engine: &mut NexusEngine<EngineDependencies>,
+    kafka_message_timestamp_ms: i64,
+    payload: &[u8],
+) {
+    increment_message_received_counter(MessageKind::Event);
+    match spanned_root_as(root_as_event_44_message, payload) {
+        Ok(data) => {
+            if let Err(e) = nexus_engine.push_ev44_event_data(&data) {
+                warn!("Event Data ({data:?}) failed. Error: {e}");
             }
         }
         Err(e) => report_parse_message_failure(e),

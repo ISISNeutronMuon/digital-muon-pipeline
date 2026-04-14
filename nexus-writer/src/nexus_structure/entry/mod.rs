@@ -7,6 +7,7 @@ mod sample;
 mod selog;
 
 use super::{NexusGroup, NexusMessageHandler, NexusSchematic};
+use crate::run_engine::run_messages::PushEv44EventData;
 use crate::{
     hdf5_handlers::{DatasetExt, GroupExt, HasAttributesExt, NexusHDF5Result},
     nexus::{DATETIME_FORMAT, DatasetUnitExt, NexusClass, NexusUnits},
@@ -301,6 +302,13 @@ impl NexusMessageHandler<UpdatePeriodList<'_>> for Entry {
 impl NexusMessageHandler<PushRunLog<'_>> for Entry {
     fn handle_message(&mut self, message: &PushRunLog<'_>) -> NexusHDF5Result<()> {
         self.run_logs.handle_message(message)
+    }
+}
+
+// Direct `PushEv44EventData` to the group(s) that need it
+impl NexusMessageHandler<PushEv44EventData<'_>> for Entry {
+    fn handle_message(&mut self, message: &PushEv44EventData<'_>) -> NexusHDF5Result<()> {
+        self.detector_1.handle_message(message)
     }
 }
 

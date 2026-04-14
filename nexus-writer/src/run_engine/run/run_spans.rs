@@ -73,6 +73,9 @@ pub(crate) trait RunSpan: SpannedAggregator {
     /// Links the span instrumenting a function processing a `SELog` message to a child span of the run.
     fn link_sample_environment_log_span(&mut self);
 
+    /// Links the span instrumenting a function processing an `Event` message to a child span of the run.
+    fn link_events_span(&mut self);
+
     /// Links the span instrumenting a function processing a `Alarm` message to a child span of the run.
     fn link_alarm_span(&mut self);
 
@@ -130,6 +133,10 @@ impl<I: NexusFileInterface> RunSpan for Run<I> {
 
     fn link_sample_environment_log_span(&mut self) {
         self.link_span(|| info_span!("Sample Environment Log"));
+    }
+
+    fn link_events_span(&mut self) {
+        self.link_span(|| info_span!("Event Data"));
     }
 
     fn link_alarm_span(&mut self) {

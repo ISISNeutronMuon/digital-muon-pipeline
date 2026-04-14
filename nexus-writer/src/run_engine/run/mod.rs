@@ -10,13 +10,15 @@ use super::{
         SampleEnvironmentLog, SetEndTime, UpdatePeriodList,
     },
 };
+use crate::run_engine::run_messages::PushEv44EventData;
 use crate::{error::NexusWriterResult, hdf5_handlers::NexusHDF5Result, nexus::NexusFileInterface};
 use chrono::{Duration, Utc};
 use digital_muon_common::spanned::SpanOnce;
 use digital_muon_streaming_types::{
     aev2_frame_assembled_event_v2_generated::FrameAssembledEventListMessage,
     ecs_6s4t_run_stop_generated::RunStop, ecs_al00_alarm_generated::Alarm,
-    ecs_f144_logdata_generated::f144_LogData, ecs_pl72_run_start_generated::RunStart,
+    ecs_ev44_events_generated::Event44Message, ecs_f144_logdata_generated::f144_LogData,
+    ecs_pl72_run_start_generated::RunStart,
 };
 pub(crate) use run_parameters::{NexusConfiguration, RunParameters, RunStopParameters};
 pub(crate) use run_spans::RunSpan;
@@ -128,7 +130,7 @@ impl<I: NexusFileInterface> Run<I> {
         )
         .in_scope(|| match std::fs::rename(from_path, to_path) {
             Ok(()) => {
-                info!("File Move Succesful.");
+                info!("File Move Successful.");
                 Ok(())
             }
             Err(e) => {
@@ -197,6 +199,25 @@ impl<I: NexusFileInterface> Run<I> {
             origin: &self.parameters.collect_from,
             settings: nexus_settings.get_chunk_sizes(),
         })?;
+        self.file.flush()?;
+
+        self.parameters.update_last_modified();
+        Ok(())
+    }
+
+    /// Takes `event` message and attempts to append it to the run.
+    /// # Parameters
+    ///  - nexus_settings: settings pertaining to local storage and hdf5 file properties
+    ///  - events: message to push.
+    #[tracing::instrument(skip_all, level = "debug", err(level = "warn"))]
+    pub(crate) fn push_ev44_events(
+        &mut self,
+        nexus_settings: &NexusSettings,
+        events: &Event44Message,
+    ) -> NexusWriterResult<()> {
+        self.link_events_span();
+        self.file
+            .handle_message(&PushEv44EventData { message: events })?;
         self.file.flush()?;
 
         self.parameters.update_last_modified();

@@ -40,3 +40,4 @@ schema!(ecs_df12_det_spec_map_generated);
 schema!(ecs_f144_logdata_generated);
 schema!(ecs_pl72_run_start_generated);
 schema!(ecs_se00_data_generated);
+schema!(ecs_ev44_events_generated);

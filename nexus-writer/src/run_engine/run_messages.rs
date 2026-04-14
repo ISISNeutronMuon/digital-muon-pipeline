@@ -4,10 +4,12 @@
 //! the message to an instance of `T` via `T::handle_message(m)` where `m : M`.
 use super::{ChunkSizeSettings, NexusConfiguration, NexusDateTime, RunParameters};
 use crate::nexus::NexusMessageHandler;
+
 use digital_muon_streaming_types::{
     aev2_frame_assembled_event_v2_generated::FrameAssembledEventListMessage,
-    ecs_al00_alarm_generated::Alarm, ecs_f144_logdata_generated::f144_LogData,
-    ecs_pl72_run_start_generated::RunStart, ecs_se00_data_generated::se00_SampleEnvironmentData,
+    ecs_al00_alarm_generated::Alarm, ecs_ev44_events_generated::Event44Message,
+    ecs_f144_logdata_generated::f144_LogData, ecs_pl72_run_start_generated::RunStart,
+    ecs_se00_data_generated::se00_SampleEnvironmentData,
 };
 use std::ops::Deref;
 
@@ -48,6 +50,10 @@ pub(crate) struct PushRunStart<'a>(pub(crate) RunStart<'a>);
 pub(crate) struct PushFrameEventList<'a> {
     /// The frame event list message to push.
     pub(crate) message: &'a FrameAssembledEventListMessage<'a>,
+}
+
+pub(crate) struct PushEv44EventData<'a> {
+    pub(crate) message: &'a Event44Message<'a>,
 }
 
 /// Tells [nexus_structure] to update the periods list in the `Periods` hdf5 group.
@@ -139,5 +145,6 @@ pub(crate) trait HandlesAllNexusMessages:
     + for<'a> NexusMessageHandler<PushInternallyGeneratedLogWarning<'a>>
     + for<'a> NexusMessageHandler<PushAlarm<'a>>
     + for<'a> NexusMessageHandler<SetEndTime<'a>>
+    + for<'a> NexusMessageHandler<PushEv44EventData<'a>>
 {
 }
