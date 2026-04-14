@@ -28,10 +28,6 @@ impl ConvolutionCache {
         self.convolved.resize(size, Default::default());
     }
 
-    pub(super) fn get_padding(&self) -> usize {
-        self.padding
-    }
-
     pub(super) fn convolve(&mut self, alpha: &ConvolutionFilter) {
         alpha.apply_to_slice(self.raw.as_slice(), self.convolved.as_mut_slice());
     }
@@ -49,6 +45,30 @@ impl ConvolutionCache {
             .iter_mut()
             .zip(iters)
             .for_each(|(coef, (rfn, det))| *coef = *rfn + *det);
+    }
+
+    pub(super) fn downsample(&mut self, input: &[Real]) {
+        let size = input.len();
+        let padding = self.padding;
+        for (i, o) in self
+            .iter_mut()
+            .skip(padding)
+            .take(size.div_ceil(2))
+            .enumerate()
+        {
+            *o = *input
+                .get(2 * i)
+                .expect("Slice element should exist, this should never fail.");
+        }
+    }
+
+    pub(super) fn upsample(&mut self, input: &[Real]) {
+        let padding = self.padding;
+        for (i, value) in input.iter().enumerate() {
+            *self
+                .get_mut(2 * i + padding)
+                .expect("Slice element should exist, this should never fail.") = *value;
+        }
     }
 }
 
@@ -86,9 +106,13 @@ impl DetailCoefficients {
     }
 
     pub(super) fn enhance(&mut self, threshold: Real, factor: Real) {
-        self.0
-            .iter_mut()
-            .filter(|val| val.abs() > threshold)
+        /*for val in self.as_mut() {
+            if val.abs() > threshold {
+                *val = *val*factor
+            }
+        }*/
+        self.0.iter_mut()
+            .filter(|val| **val > threshold)
             .for_each(|val| *val *= factor);
     }
 
@@ -119,6 +143,7 @@ impl DerefMut for DetailCoefficients {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -131,5 +156,55 @@ mod tests {
         cache.init_size(15);
         assert_eq!(cache.raw.len(), 25);
         assert_eq!(cache.convolved.len(), 15);
+    }
+    
+    #[test]
+    fn test_downsample() {
+        let input = vec![1.0, 2.0, 3.0, 4.0];
+        let mut cache = ConvolutionCache::new(3);
+        cache.init_size(2);
+        cache.downsample(input.as_slice());
+        for (out, exp) in Iterator::zip(
+            cache.as_mut().into_iter(),
+            [0.0, 0.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0].into_iter(),
+        ) {
+            assert_eq!(*out, exp);
+        }
+
+        let input = vec![1.0, 2.0, 4.0];
+        let mut cache = ConvolutionCache::new(2);
+        cache.init_size(2);
+        cache.downsample(input.as_slice());
+        for (out, exp) in Iterator::zip(
+            cache.as_mut().into_iter(),
+            [0.0, 0.0, 1.0, 4.0, 0.0, 0.0].into_iter(),
+        ) {
+            assert_eq!(*out, exp);
+        }
+    }
+
+    #[test]
+    fn test_upsample() {
+        let input = vec![1.0, 2.0, 3.0, 4.0];
+        let mut cache = ConvolutionCache::new(1);
+        cache.init_size(6);
+        cache.upsample(input.as_slice());
+        for (out, exp) in Iterator::zip(
+            cache.as_mut().into_iter(),
+            [0.0, 1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0, 0.0, 0.0].into_iter(),
+        ) {
+            assert_eq!(*out, exp);
+        }
+
+        let input = vec![1.0, 2.0, 4.0];
+        let mut cache = ConvolutionCache::new(2);
+        cache.init_size(6);
+        cache.upsample(input.as_slice());
+        for (out, exp) in Iterator::zip(
+            cache.as_mut().into_iter(),
+            [0.0, 0.0, 1.0, 0.0, 2.0, 0.0, 4.0, 0.0, 0.0, 0.0].into_iter(),
+        ) {
+            assert_eq!(*out, exp);
+        }
     }
 }

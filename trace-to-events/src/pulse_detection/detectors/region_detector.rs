@@ -70,20 +70,20 @@ mod tests {
             EventsIterable, Real, detectors::local_arg_min_detector::LocalArgMinDetector,
             utils::std_dev,
         },
-        test_data::SECOND_DERIV,
+        test_data::smoothing,
     };
 
     #[test]
     fn detect_regions_no_minsize() {
         let noise_std =
-            std_dev(&SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..]).unwrap();
-        let pulses = SECOND_DERIV
+            std_dev(&smoothing::SECOND_DERIV[((0.9 * smoothing::SECOND_DERIV.len() as Real) as usize)..]).unwrap();
+        let pulses = smoothing::SECOND_DERIV
             .iter()
             .enumerate()
             .map(|(i, v)| (i, *v))
             .events(RegionDetector::new(-noise_std * 5.0, None))
             .flat_map(|region| {
-                SECOND_DERIV
+                smoothing::SECOND_DERIV
                     .iter()
                     .cloned()
                     .enumerate()
@@ -99,14 +99,14 @@ mod tests {
     #[test]
     fn detect_regions_minsize_two() {
         let noise_std =
-            std_dev(&SECOND_DERIV[((0.9 * SECOND_DERIV.len() as Real) as usize)..]).unwrap();
-        let pulses = SECOND_DERIV
+            std_dev(&smoothing::SECOND_DERIV[((0.9 * smoothing::SECOND_DERIV.len() as Real) as usize)..]).unwrap();
+        let pulses = smoothing::SECOND_DERIV
             .iter()
             .enumerate()
             .map(|(i, v)| (i, *v))
             .events(RegionDetector::new(-noise_std * 5.0, Some(5)))
             .flat_map(|region| {
-                SECOND_DERIV
+                smoothing::SECOND_DERIV
                     .iter()
                     .cloned()
                     .enumerate()

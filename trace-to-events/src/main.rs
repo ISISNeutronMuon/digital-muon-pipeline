@@ -11,6 +11,7 @@ mod parameters;
 mod processing;
 mod pulse_detection;
 #[cfg(test)]
+#[rustfmt::skip]
 mod test_data;
 
 use crate::processing::DigitiserMessageProcessor;

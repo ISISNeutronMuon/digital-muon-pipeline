@@ -3,7 +3,7 @@ use crate::{
     channels::LayerProcessingSettings,
     pulse_detection::window::{
         convolution_filter::ConvolutionFilter,
-        pyramid::{ConvolutionCache, DetailCoefficients, downsample, upsample},
+        pyramid::{ConvolutionCache, DetailCoefficients},
     },
 };
 
@@ -54,26 +54,31 @@ impl Layer {
         }
     }
 
-    pub(super) fn process(
+    pub(super) fn build(
         &mut self,
         source: &[Real],
         refinement_smoothing: &ConvolutionFilter,
         subdivide_smoothing: &ConvolutionFilter,
     ) {
         // Downsample from source.
-        let padding = self.subdivided.get_padding();
-        downsample(source, &mut self.subdivided, padding);
+        self.subdivided.downsample(source);
         self.subdivided.convolve(subdivide_smoothing);
 
         // Upsample from the next layer's subdivided.
-        let padding = self.refined.get_padding();
-        upsample(&self.subdivided, &mut self.refined, padding);
+        self.refined.upsample(&self.subdivided);
         self.refined.convolve(refinement_smoothing);
 
         // Extract detail coefficients.
         self.detail_coefficients
             .extract_from_slices(source, &self.refined);
 
+        //  Recurse method to next layer.
+        if let Some(next_layer) = &mut self.next_layer {
+            next_layer.build(&self.subdivided, refinement_smoothing, subdivide_smoothing);
+        }
+    }
+
+    pub(super) fn process(&mut self) {
         // Process detail coefficients.
         if let Some(denoise_threshold) = self.settings.denoise_threshold {
             self.detail_coefficients.denoise(denoise_threshold);
@@ -88,7 +93,7 @@ impl Layer {
 
         //  Recurse method to next layer.
         if let Some(next_layer) = &mut self.next_layer {
-            next_layer.process(&self.subdivided, refinement_smoothing, subdivide_smoothing);
+            next_layer.process();
         }
     }
 
@@ -98,8 +103,7 @@ impl Layer {
             next_layer.rebuild(refinement_smoothing);
 
             // Rebuilt is the sum of the next layer's `rebuilt` (upsampled and convolved), and the current detail_coefficients.
-            let padding = self.rebuilt.get_padding();
-            upsample(&next_layer.rebuilt, &mut self.rebuilt, padding);
+            self.rebuilt.upsample(&next_layer.rebuilt);
             self.rebuilt.convolve(refinement_smoothing);
             self.rebuilt.append_slice(&self.detail_coefficients);
         } else {
@@ -111,10 +115,34 @@ impl Layer {
     }
 }
 
+
+#[cfg(test)]
+impl Layer {
+    pub(super) fn get_subdivided(&self) -> &ConvolutionCache {
+        &self.subdivided
+    }
+
+    pub(super) fn get_refined(&self) -> &ConvolutionCache {
+        &self.refined
+    }
+
+    pub(super) fn get_detail_coefficients(&self) -> &DetailCoefficients {
+        &self.detail_coefficients
+    }
+
+    pub(super) fn get_rebuilt(&self) -> &ConvolutionCache {
+        &self.rebuilt
+    }
+
+    pub(super) fn get_next_layer(&self) -> Option<&Box<Layer>> {
+        self.next_layer.as_ref()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::window::convolution_filter::KernelType;
+    use crate::{pulse_detection::window::convolution_filter::KernelType, test_data::assert_iters_equal};
     use num::Integer;
 
     fn assert_layer_settings_default(settings: &LayerProcessingSettings) {
@@ -181,17 +209,6 @@ mod tests {
         5.0, 4.0, 3.2, 1.1, 9.1, 4.0, 2.1, 1.5, 0.0, 2.0, 1.0, 3.0, 5.0, 4.0, 3.2, 1.1, 3.1, 2.0,
     ];
 
-    fn assert_iters_equal<'a>(
-        output: impl ExactSizeIterator<Item = &'a Real>,
-        expected_data: impl ExactSizeIterator<Item = &'a Real>,
-    ) {
-        assert_eq!(output.len(), expected_data.len());
-
-        for (out, exp) in Iterator::zip(output, expected_data) {
-            assert_eq!(out, exp);
-        }
-    }
-
     #[test]
     fn test_layer_level_unconvolved() {
         let mut layer_level =
@@ -199,7 +216,7 @@ mod tests {
         layer_level.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
-        layer_level.process(DATA.as_slice(), &alpha, &gamma);
+        layer_level.build(DATA.as_slice(), &alpha, &gamma);
 
         let output = layer_level.subdivided.as_ref().into_iter();
         let expected_data = DATA.iter().step_by(2);
@@ -219,7 +236,7 @@ mod tests {
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
-        layer.process(DATA.as_slice(), &alpha, &gamma);
+        layer.build(DATA.as_slice(), &alpha, &gamma);
 
         let output = layer.subdivided.as_ref().into_iter();
         let expected_data = DATA.iter().step_by(2);
@@ -246,7 +263,7 @@ mod tests {
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
-        layer.process(DATA.as_slice(), &alpha, &gamma);
+        layer.build(DATA.as_slice(), &alpha, &gamma);
 
         let output = layer.subdivided.as_ref().into_iter();
         let expected_data = DATA.iter().step_by(2);
@@ -290,7 +307,7 @@ mod tests {
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
-        layer.process(DATA.as_slice(), &alpha, &gamma);
+        layer.build(DATA.as_slice(), &alpha, &gamma);
         layer.rebuild(&alpha);
 
         let output = layer.rebuilt.as_ref().into_iter();
