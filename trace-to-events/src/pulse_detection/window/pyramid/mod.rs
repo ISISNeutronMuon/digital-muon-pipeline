@@ -23,18 +23,18 @@ mod tests {
 
     #[test]
     fn test_pyramid() {
-        let refinement_smoothing_coefs = vec![0.125, 0.5, 0.75, 0.5, 0.125];
+        let upsample_smoothing_coefs = vec![0.125, 0.5, 0.75, 0.5, 0.125];
         let support = vec![-2, -1, 0, 1, 2];
-        let mut subdivide_smoothing_coefs = vec![0.0; 5];
+        let mut downsample_smoothing_coefs = vec![0.0; 5];
 
         let fft = FftInverse::new(200, 5, support.clone(), ComplexFloat::recip);
         fft.apply_to_slice(
-            refinement_smoothing_coefs.as_slice(),
-            subdivide_smoothing_coefs.as_mut_slice(),
+            upsample_smoothing_coefs.as_slice(),
+            downsample_smoothing_coefs.as_mut_slice(),
         );
 
         assert_slices_equal(
-            &subdivide_smoothing_coefs,
+            &downsample_smoothing_coefs,
             &[0.04112906, -0.23971773, 1.39717735, -0.23971773, 0.04112906],
         );
 
@@ -60,23 +60,23 @@ mod tests {
                 multiply_factor: Some(0.1),
             },
         ];
-        let refinement_smoothing =
-            ConvolutionFilter::new(KernelType::ManualCoefficients(refinement_smoothing_coefs));
-        let subdivide_smoothing =
-            ConvolutionFilter::new(KernelType::ManualCoefficients(subdivide_smoothing_coefs));
+        let upsample_smoothing =
+            ConvolutionFilter::new(KernelType::ManualCoefficients(upsample_smoothing_coefs));
+        let downsample_smoothing =
+            ConvolutionFilter::new(KernelType::ManualCoefficients(downsample_smoothing_coefs));
             
         let mut pyramid_base = PyramidLayer::new(
             layer_processing_settings,
-            refinement_smoothing.kernel_size()/2,
-            subdivide_smoothing.kernel_size()/2,
+            downsample_smoothing.kernel_size()/2,
+            upsample_smoothing.kernel_size()/2,
         )
         .unwrap();
         pyramid_base.init_size(128);
 
         pyramid_base.build(
             &INPUT,
-            &refinement_smoothing,
-            &subdivide_smoothing,
+            &downsample_smoothing,
+            &upsample_smoothing,
         );
         {
             let layer_1 = &pyramid_base;
@@ -141,7 +141,7 @@ mod tests {
             );
         }
 
-        pyramid_base.rebuild(&refinement_smoothing);
+        pyramid_base.rebuild(&upsample_smoothing);
         {
             let layer_1 = &pyramid_base;
             let layer_2 = layer_1.get_next_layer().unwrap();
