@@ -1,10 +1,10 @@
-use super::Real;
+//! A layer in the pyramid smoothing algorithm performs the rescaling, smoothing,
+//! and detail extraction at a specific resolution, as well as linking to the next layer.
 use crate::{
     channels::LayerProcessingSettings,
-    pulse_detection::window::{
-        convolution_filter::ConvolutionFilter,
-        pyramid::{ConvolutionCache, DetailCoefficients},
-    },
+    pulse_detection::{Real, window::{
+        convolution_filter::ConvolutionFilter, pyramid::traces::{ConvolutionCache, DetailCoefficients},
+    }},
 };
 
 /// Linked list element the [PyramidFilter] structure.
@@ -12,7 +12,7 @@ use crate::{
 /// The `size` of the layer, is taken to mean the size [Self::refined] and [Self::detail_coefficients].
 /// [Self::subdived] is has size half of the layer's size.
 #[derive(Default, Clone)]
-pub(super) struct Layer {
+pub(crate) struct PyramidLayer {
     /// Cache to which an input is downsampled.
     subdivided: ConvolutionCache,
     /// Cache to which the
@@ -20,10 +20,10 @@ pub(super) struct Layer {
     /// Vector from which details are recorded and processed.
     detail_coefficients: DetailCoefficients,
     /// None if this layer is the apex, otherwise a layer of size half of this one.
-    next_layer: Option<Box<Layer>>,
+    next_layer: Option<Box<PyramidLayer>>,
 }
 
-impl Layer {
+impl PyramidLayer {
     /// Creates a new layer of the pyramid smoothing algorithm.
     ///
     /// # Parameters
@@ -31,27 +31,24 @@ impl Layer {
     /// - subdivide_padding:
     /// - refined_padding:
     /// - next_settings_tail:
-    pub(super) fn new(
-        settings: LayerProcessingSettings,
+    pub(crate) fn new(
+        mut next_settings: Vec<LayerProcessingSettings>,
         subdivide_padding: usize,
         refined_padding: usize,
-        mut next_settings_tail: Vec<LayerProcessingSettings>,
-    ) -> Self {
-        let next_settings_head = next_settings_tail.pop();
-        let next_layer = next_settings_head.map(|next_settings_head| {
-            Box::new(Layer::new(
-                next_settings_head,
-                subdivide_padding,
-                refined_padding,
-                next_settings_tail,
-            ))
-        });
-        Self {
-            subdivided: ConvolutionCache::new(subdivide_padding),
-            refined: ConvolutionCache::new(refined_padding),
-            detail_coefficients: DetailCoefficients::new(settings),
-            next_layer,
-        }
+    ) -> Option<Box<Self>> {
+        let this_settings = next_settings.pop();
+        this_settings.map(|this_settings|
+            Box::new(Self {
+                subdivided: ConvolutionCache::new(subdivide_padding),
+                refined: ConvolutionCache::new(refined_padding),
+                detail_coefficients: DetailCoefficients::new(this_settings),
+                next_layer: PyramidLayer::new(
+                    next_settings,
+                    subdivide_padding,
+                    refined_padding,
+                )
+            })
+        )
     }
 
     /// Initialises the layer to have the given size, and recursively propagate
@@ -62,7 +59,7 @@ impl Layer {
     ///
     /// # Parameters
     /// - size: the size from which to initialise the layer's fields.
-    pub(super) fn init_size(&mut self, size: usize) {
+    pub(crate) fn init_size(&mut self, size: usize) {
         self.subdivided.init_size(size >> 1);
         self.refined.init_size(size);
         self.detail_coefficients.init_size(size);
@@ -83,7 +80,7 @@ impl Layer {
     /// - [Self::subdivided] is upsampled to [Self::refined] and then a convolution applied.
     /// - [Self::detail_coefficients] is computed as the difference between `source` and [Self::refined].
     /// - If this layer is not the apex, then [Self::subdivided] is recursively passed as `source` to the next layer.
-    pub(super) fn build(
+    pub(crate) fn build(
         &mut self,
         source: &[Real],
         refinement_smoothing: &ConvolutionFilter,
@@ -111,7 +108,7 @@ impl Layer {
     /// Should be called after [Self::build].
     ///
     /// Calls [DetailCoefficient::process] and propagates the method recursively.
-    pub(super) fn process(&mut self) {
+    pub(crate) fn process(&mut self) {
         // Process detail coefficients.
         self.detail_coefficients.process();
 
@@ -132,7 +129,7 @@ impl Layer {
     ///    - The result of the recursion is upsampled to [Self::refined] and then a convolution applied.
     /// - [Self::refined] has the values of [Self::detail_coefficients] added to it elementwise.
     /// - A slice to [Self::refined] is returned.
-    pub(super) fn rebuild(&mut self, refinement_smoothing: &ConvolutionFilter) -> &[Real] {
+    pub(crate) fn rebuild(&mut self, refinement_smoothing: &ConvolutionFilter) -> &[Real] {
         if let Some(next_layer) = &mut self.next_layer {
             // Propagate rebuild
             let next_layer_rebuilt = next_layer.rebuild(refinement_smoothing);
@@ -147,7 +144,7 @@ impl Layer {
 }
 
 #[cfg(test)]
-impl Layer {
+impl PyramidLayer {
     pub(super) fn get_subdivided(&self) -> &ConvolutionCache {
         &self.subdivided
     }
@@ -160,22 +157,24 @@ impl Layer {
         &self.detail_coefficients
     }
 
-    pub(super) fn get_next_layer(&self) -> Option<&Box<Layer>> {
+    pub(super) fn get_next_layer(&self) -> Option<&Box<PyramidLayer>> {
         self.next_layer.as_ref()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use super::*;
     use crate::{
         pulse_detection::window::convolution_filter::KernelType, test_data::assert_iters_equal,
     };
     use num::Integer;
 
-    fn assert_layer_sizes(layer_level: &Layer, size: usize, _padding: usize) {
-        assert_eq!(layer_level.detail_coefficients.len(), size);
-        assert_eq!(layer_level.refined.len(), size);
+    fn assert_layer_sizes(layer_level: &PyramidLayer, size: usize, _padding: usize) {
+        assert_eq!(layer_level.detail_coefficients.deref().len(), size);
+        assert_eq!(layer_level.refined.deref().len(), size);
     }
 
     #[test]
@@ -184,12 +183,11 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let mut base = Layer::new(
-            settings,
+        let mut base = PyramidLayer::new(
+            vec![settings],
             gamma.kernel_size() / 2,
-            alpha.kernel_size() / 2,
-            Default::default(),
-        );
+            alpha.kernel_size() / 2
+        ).unwrap();
         assert_layer_sizes(&base, 0, 0);
         assert!(base.next_layer.is_none());
 
@@ -203,12 +201,11 @@ mod tests {
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![0.0, 0.0, 0.0]));
 
-        let mut base = Layer::new(
-            LayerProcessingSettings::default(),
+        let mut base = PyramidLayer::new(
+            vec![LayerProcessingSettings::default(); 2],
             gamma.kernel_size() / 2,
             alpha.kernel_size() / 2,
-            vec![LayerProcessingSettings::default()],
-        );
+        ).unwrap();
         base.init_size(SIZE);
         assert_layer_sizes(&base, SIZE, 2);
         assert!(base.next_layer.is_some());
@@ -228,116 +225,92 @@ mod tests {
     ];
 
     #[test]
-    fn test_layer_level_unconvolved() {
-        let mut layer_level =
-            Layer::new(LayerProcessingSettings::default(), 0, 0, Default::default());
-        layer_level.init_size(SIZE);
-        let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
-        let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
-        layer_level.build(DATA.as_slice(), &alpha, &gamma);
-
-        let output = layer_level.subdivided.as_ref().into_iter();
-        let expected_data = DATA.iter().step_by(2);
-        assert_iters_equal(output, expected_data.into_iter());
-
-        let output = layer_level.refined.as_ref().into_iter();
-        let expected_data = DATA
-            .iter()
-            .enumerate()
-            .map(|(i, v)| if i.is_even() { v } else { &0.0 });
-        assert_iters_equal(output, expected_data);
-    }
-
-    #[test]
     fn test_layer_unconvolved() {
-        let mut layer = Layer::new(LayerProcessingSettings::default(), 0, 0, vec![]);
+        let mut layer =
+            PyramidLayer::new(vec![LayerProcessingSettings::default()], 0, 0).unwrap();
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         layer.build(DATA.as_slice(), &alpha, &gamma);
 
-        let output = layer.subdivided.as_ref().into_iter();
+        let output: &[Real] = &layer.subdivided;
         let expected_data = DATA.iter().step_by(2);
-        assert_iters_equal(output, expected_data);
+        assert_iters_equal(output.iter(), expected_data.into_iter());
 
-        let output = layer.refined.as_ref().into_iter();
+        let output: &[Real] = &layer.refined;
         let expected_data = DATA
             .iter()
             .enumerate()
-            .map(|(i, v)| if i.is_even() { v } else { &0.0 });
-        assert_iters_equal(output, expected_data);
-
-        assert!(layer.next_layer.is_none());
+            .map(|(i, v) : (usize, _)| if i.is_even() { v } else { &0.0 });
+        assert_iters_equal(output.iter(), expected_data);
     }
 
     #[test]
     fn test_two_layer_unconvolved_process() {
-        let mut layer = Layer::new(
-            LayerProcessingSettings::default(),
+        let mut layer = PyramidLayer::new(
+            vec![LayerProcessingSettings::default(); 2],
             0,
             0,
-            vec![LayerProcessingSettings::default()],
-        );
+        ).unwrap();
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         layer.build(DATA.as_slice(), &alpha, &gamma);
 
-        let output = layer.subdivided.as_ref().into_iter();
+        let output: &[Real] = &layer.subdivided;
         let expected_data = DATA.iter().step_by(2);
-        assert_iters_equal(output, expected_data);
+        assert_iters_equal(output.iter(), expected_data);
 
-        let output = layer.refined.as_ref().into_iter();
+        let output: &[Real] = &layer.refined;
         let expected_data = DATA
             .iter()
             .enumerate()
-            .map(|(i, v)| if i.is_even() { v } else { &0.0 });
-        assert_iters_equal(output, expected_data);
+            .map(|(i, v): (usize, _)| if i.is_even() { v } else { &0.0 });
+        assert_iters_equal(output.iter(), expected_data);
 
         match layer.next_layer {
             None => unreachable!(),
-            Some(layer_level) => {
-                let output = layer_level.subdivided.as_ref().into_iter();
+            Some(layer) => {
+                let output: &[Real] = &layer.subdivided;
                 let expected_data = DATA.iter().step_by(4);
-                assert_iters_equal(output, expected_data);
+                assert_iters_equal(output.iter(), expected_data);
 
-                let output = layer_level.refined.as_ref().into_iter();
+                let output: &[Real] = &layer.refined;
                 let expected_data = DATA
                     .iter()
                     .step_by(2)
                     .enumerate()
-                    .map(|(i, v)| if i.is_even() { v } else { &0.0 });
-                assert_iters_equal(output, expected_data);
+                    .map(|(i, v): (usize, _)| if i.is_even() { v } else { &0.0 });
+                assert_iters_equal(output.iter(), expected_data);
 
-                assert!(layer_level.next_layer.is_none());
+                assert!(layer.next_layer.is_none());
             }
         }
     }
 
     #[test]
     fn test_two_layer_unconvolved_rebuild() {
-        let mut layer = Layer::new(
-            LayerProcessingSettings::default(),
+        let mut layer = PyramidLayer::new(
+            vec![LayerProcessingSettings::default(); 2],
             0,
             0,
-            vec![LayerProcessingSettings::default()],
-        );
+        ).unwrap();
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         layer.build(DATA.as_slice(), &alpha, &gamma);
         layer.rebuild(&alpha);
 
-        let output = layer.refined.as_ref().into_iter();
+        let output: &[Real] = &layer.refined;
         let expected_data = DATA.iter();
-        assert_iters_equal(output, expected_data);
+        assert_iters_equal(output.iter(), expected_data);
 
         match layer.next_layer {
             None => unreachable!(),
             Some(layer) => {
-                let output = layer.refined.as_ref().into_iter();
+                let output: &[Real] = &layer.refined;
                 let expected_data = DATA.iter().step_by(2);
-                assert_iters_equal(output, expected_data);
+                assert_iters_equal(output.iter(), expected_data);
 
                 assert!(matches!(layer.next_layer, None));
             }

@@ -1,3 +1,4 @@
+//! Provides objects for persisting state for the multiscaling smoothing algorithm.
 use crate::{
     channels::algorithm_states::{DifferentialThresholdDiscriminatorState, SmoothingDetectorState},
     parameters::{MultiscalingDetectorMethod, MultiscalingDetectorParameters},
@@ -5,10 +6,7 @@ use crate::{
         Real,
         threshold_detector::ThresholdDuration,
         window::{
-            SliceWindow,
-            convolution_filter::{ConvolutionFilter, KernelType},
-            fft_inverse::FftInverse,
-            pyramid::PyramidFilter,
+            SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}, fft_inverse::FftInverse, pyramid::PyramidLayer
         },
     },
 };
@@ -27,6 +25,7 @@ pub(crate) enum MultiscalingMethodAlgorithmState {
 
 impl MultiscalingMethodAlgorithmState {
     /// Creates a new `ChannelAlgorithmState` object defined from `mode`. The state object is specific to the detector chosen.
+    /// 
     /// # Parameters
     /// - mode: the `Mode` enum to create the state object from.
     pub(crate) fn new(mode: &MultiscalingDetectorMethod) -> Self {
@@ -52,23 +51,37 @@ impl MultiscalingMethodAlgorithmState {
     }
 }
 
+/// Encapsulates settings used to during the processing phase of the multiscaling algorithm.
+/// 
+/// Processing consists of denoising, enhancing, and multiplication, operating in that order.
 #[derive(Default, Clone)]
 pub(crate) struct LayerProcessingSettings {
+    /// If present, then absolute trace values below this threshold are set to zero.
     pub(crate) denoise_threshold: Option<Real>,
+    /// If present, then (signed) trace values above this threshold (first value) are multiplied by the factor (second value).
     pub(crate) enhance_threshold_factor: Option<(Real, Real)>,
+    /// If present, then trace values are multiplied by this factor.
     pub(crate) multiply_factor: Option<Real>,
 }
 
 /// Encapsulates all settings and objects in the smoothing algorithm which persist across digitiser messages.
 #[derive(Clone)]
 pub(crate) struct MultiscalingDetectorState {
+    /// Smoothing filter to apply after downsampling.
+    pub(crate) subdivide_smoothing: ConvolutionFilter,
+    /// Smoothing filter to apply after upsampling.
+    pub(crate) refinement_smoothing: ConvolutionFilter,
     /// This cache is persisted to avoid reallocations on every channel trace.
     pub(crate) cache: MultiscalingDetectorCache,
-    /// The state of the underlying algorithm.
+    /// The state of the underlying algorithm (boxed to placate `cargo clippy`).
     pub(crate) method_state: Box<MultiscalingMethodAlgorithmState>,
 }
 
 impl MultiscalingDetectorState {
+    /// Creates new instance of detector state.
+    /// 
+    /// # Parameters
+    /// - parameters: settings given in the command line.
     pub(crate) fn new(parameters: &MultiscalingDetectorParameters) -> Self {
         // FIXME: Could this be handled directly by Clap? Or if not, moved elsewhere?
         if parameters.denoise {
@@ -133,17 +146,20 @@ impl MultiscalingDetectorState {
             ConvolutionFilter::new(KernelType::ManualCoefficients(refinement_smoothing_coefs));
 
         let method_state = Box::new(MultiscalingMethodAlgorithmState::new(&parameters.method));
+        let cache = MultiscalingDetectorCache {
+            pyramid: PyramidLayer::new(
+                layers_settings,
+                subdivide_smoothing.kernel_size() >> 1,
+                refinement_smoothing.kernel_size() >> 1,
+            )
+            .expect("Pyramid should be configured correctly, this should never fail."),
+            ..Default::default()
+        };
         Self {
+            refinement_smoothing,
+            subdivide_smoothing,
             method_state,
-            cache: MultiscalingDetectorCache {
-                pyramid: PyramidFilter::new(
-                    layers_settings,
-                    refinement_smoothing,
-                    subdivide_smoothing,
-                )
-                .expect("Pyramid should be configured correctly, this should never fail."),
-                ..Default::default()
-            },
+            cache
         }
     }
 }
@@ -153,12 +169,12 @@ impl MultiscalingDetectorState {
 /// to avoid repeated memory reallocation.
 #[derive(Default, Clone)]
 pub(crate) struct MultiscalingDetectorCache {
-    /// Value of `trace.len()`
+    /// Value of `trace.len()`.
     expected_size: Option<usize>,
     /// Memory in which to write the pre-convolution trace data.
     pub(crate) input_values: Vec<Real>,
     /// Filter which to apply to `input_values`.
-    pub(crate) pyramid: PyramidFilter,
+    pub(crate) pyramid: Box::<PyramidLayer>,
 }
 
 impl MultiscalingDetectorCache {

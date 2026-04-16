@@ -1,3 +1,4 @@
+//! Provides objects for persisting state algorithm-agnostic state.
 use crate::{
     channels::{
         algorithm_states::{
@@ -128,6 +129,8 @@ impl ChannelState {
             ChannelAlgorithmState::Multiscaling(state) => find_multiscaling_events(
                 trace,
                 &mut state.cache,
+                &state.refinement_smoothing,
+                &state.subdivide_smoothing,
                 sample_time,
                 self.polarity_sign,
                 self.baseline,

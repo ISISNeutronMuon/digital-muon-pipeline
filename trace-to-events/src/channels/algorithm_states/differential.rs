@@ -1,3 +1,4 @@
+//! Provides objects for persisting state for the differential detector algorithm.
 use crate::{
     parameters::{DifferentialThresholdDiscriminatorParameters, PeakHeightBasis, PeakHeightMode},
     pulse_detection::{
@@ -5,6 +6,7 @@ use crate::{
         window::FiniteDifferences,
     },
 };
+
 /// Encapsulates settings to determine how peak heights should be calculated.
 #[derive(Clone)]
 pub(crate) struct PeakHeightParameters {

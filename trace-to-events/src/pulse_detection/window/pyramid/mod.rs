@@ -1,80 +1,10 @@
-//!
+//! The pyramid filter window smooths a trace signal by downscaling, upscaling, and smoothing,
+//! over several different resolutions number of times. This allows noise at different
+//! frequencies to be isolated and removed before a different detection algorithm is applied.
 mod layer;
 mod traces;
 
-use super::Real;
-use crate::{
-    channels::LayerProcessingSettings,
-    pulse_detection::window::convolution_filter::ConvolutionFilter,
-};
-use layer::Layer;
-use traces::{ConvolutionCache, DetailCoefficients};
-
-/// Encapsulates all state and cache for the pyramid smoothing algorithm.
-#[derive(Default, Clone)]
-pub(crate) struct PyramidFilter {
-    /// Smoothing filter to apply after downsampling.
-    subdivide_smoothing: ConvolutionFilter,
-    /// Smoothing filter to apply after upsampling.
-    refinement_smoothing: ConvolutionFilter,
-    /// The first layer of the pyramid.
-    pyramid_base: Layer,
-}
-
-impl PyramidFilter {
-    /// Create a new pyramid filter from the given vector of settings.
-    /// # Parameters
-    /// - layer_settings: Vector of Layer Settings, in descending order, i.e. the settings for the apex appears at the front.
-    /// - subdivide_smoothing: the smoothing filter to apply after downsampling.
-    /// - refinement_smoothing: the smoothing filter to apply after upsampling.
-    pub(crate) fn new(
-        mut layer_settings: Vec<LayerProcessingSettings>,
-        refinement_smoothing: ConvolutionFilter,
-        subdivide_smoothing: ConvolutionFilter,
-    ) -> Option<Self> {
-        let subdivide_padding = subdivide_smoothing.kernel_size() / 2;
-        let refined_padding = refinement_smoothing.kernel_size() / 2;
-
-        layer_settings.pop().map(|first_layer_settings| {
-            let pyramid_base = Layer::new(
-                first_layer_settings,
-                subdivide_padding,
-                refined_padding,
-                layer_settings,
-            );
-            PyramidFilter {
-                subdivide_smoothing,
-                refinement_smoothing,
-                pyramid_base,
-            }
-        })
-    }
-
-    /// Initialises the pyramid to have the given base size, and propagate
-    /// this value through the layers of the pyramid.
-    ///
-    /// # Parameters
-    /// - size: the size from which to initialise the pyramid's layers.
-    pub(crate) fn init_size(&mut self, size: usize) {
-        self.pyramid_base.init_size(size);
-    }
-
-    /// Apply the pyramid smoothing algorithm to the given input slice.
-    ///
-    /// Note that sizes are not checked at runtime.
-    ///
-    /// # Parameters
-    /// - input: a slice of length equal to the size of the pyramid's base.
-    ///
-    /// # Return
-    /// A slice with the result of the smoothing algorithm.
-    pub(crate) fn apply_to_slice(&mut self, input: &[Real]) -> &[Real] {
-        self.pyramid_base
-            .build(input, &self.refinement_smoothing, &self.subdivide_smoothing);
-        self.pyramid_base.process();
-        self.pyramid_base.rebuild(&self.refinement_smoothing)
-    }
-}
+pub(crate) use layer::PyramidLayer;
 
 #[cfg(test)]
 mod tests {
@@ -82,7 +12,7 @@ mod tests {
     use crate::{
         channels::LayerProcessingSettings,
         pulse_detection::window::{
-            SliceWindow, convolution_filter::KernelType, fft_inverse::FftInverse,
+            SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}, fft_inverse::FftInverse,
         },
         test_data::{
             assert_slices_equal,
@@ -134,21 +64,22 @@ mod tests {
             ConvolutionFilter::new(KernelType::ManualCoefficients(refinement_smoothing_coefs));
         let subdivide_smoothing =
             ConvolutionFilter::new(KernelType::ManualCoefficients(subdivide_smoothing_coefs));
-        let mut pyramid = PyramidFilter::new(
+            
+        let mut pyramid_base = PyramidLayer::new(
             layer_processing_settings,
-            refinement_smoothing,
-            subdivide_smoothing,
+            refinement_smoothing.kernel_size()/2,
+            subdivide_smoothing.kernel_size()/2,
         )
         .unwrap();
-        pyramid.init_size(128);
+        pyramid_base.init_size(128);
 
-        pyramid.pyramid_base.build(
+        pyramid_base.build(
             &INPUT,
-            &pyramid.refinement_smoothing,
-            &pyramid.subdivide_smoothing,
+            &refinement_smoothing,
+            &subdivide_smoothing,
         );
         {
-            let layer_1 = &pyramid.pyramid_base;
+            let layer_1 = &pyramid_base;
             let layer_2 = layer_1.get_next_layer().unwrap();
             let layer_3 = layer_2.get_next_layer().unwrap();
             let layer_4 = layer_3.get_next_layer().unwrap();
@@ -184,9 +115,9 @@ mod tests {
             );
         }
 
-        pyramid.pyramid_base.process();
+        pyramid_base.process();
         {
-            let layer_1 = &pyramid.pyramid_base;
+            let layer_1 = &pyramid_base;
             let layer_2 = layer_1.get_next_layer().unwrap();
             let layer_3 = layer_2.get_next_layer().unwrap();
             let layer_4 = layer_3.get_next_layer().unwrap();
@@ -210,9 +141,9 @@ mod tests {
             );
         }
 
-        pyramid.pyramid_base.rebuild(&pyramid.refinement_smoothing);
+        pyramid_base.rebuild(&refinement_smoothing);
         {
-            let layer_1 = &pyramid.pyramid_base;
+            let layer_1 = &pyramid_base;
             let layer_2 = layer_1.get_next_layer().unwrap();
             let layer_3 = layer_2.get_next_layer().unwrap();
             let layer_4 = layer_3.get_next_layer().unwrap();

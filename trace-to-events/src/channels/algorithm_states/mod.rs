@@ -1,3 +1,4 @@
+//! Provides objects for persisting state for a specific algorithm.
 mod differential;
 mod multiscaling;
 mod smoothing;

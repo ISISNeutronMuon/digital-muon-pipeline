@@ -1,10 +1,8 @@
 //! Provides algorithm-specific functions and which extract and return lists of muon events using specified settings.
 use core::f64;
-
 use crate::{
     channels::{
-        MultiscalingDetectorCache, PeakHeightParameters, SmoothingDetectorCache,
-        algorithm_states::MultiscalingMethodAlgorithmState,
+        algorithm_states::{MultiscalingDetectorCache, MultiscalingMethodAlgorithmState, PeakHeightParameters, SmoothingDetectorCache},
     },
     parameters::{PeakHeightBasis, SmoothingDetectorParameters},
     pulse_detection::{
@@ -186,16 +184,17 @@ pub(super) fn find_smoothing_events(
 /// FIXME
 /// # Parameters
 /// - trace: raw trace data.
-/// - fin_diff_gaussian: the composite convolution filter applying the smoothing filer and taking the second derivative.
-/// - cache: provides `Vec` objects which are used to write intermediate calculations.
+/// - cache: provides pyramid layers that is used by the multiscaling algorithm.
 /// - sample_time: sample time in ns.
 /// - polarity_sign: the polarity of the trace signal.
 /// - baseline: the baseline of the trace signal.
-/// - parameters: settings to use for the smoothing detector.
+/// - method_state: the state of the underlying detection method.
 #[tracing::instrument(skip_all, level = "trace")]
 pub(super) fn find_multiscaling_events(
     trace: impl Clone + ExactSizeIterator<Item = Real> + DoubleEndedIterator,
     cache: &mut MultiscalingDetectorCache,
+    refinement_smoothing: &ConvolutionFilter,
+    subdivide_smoothing: &ConvolutionFilter,
     sample_time: Real,
     polarity_sign: Real,
     baseline: Real,
@@ -204,15 +203,14 @@ pub(super) fn find_multiscaling_events(
     cache.ensure_cache_lengths(trace.len());
     cache.write_input_values(trace);
 
-    let smoothed_trace = cache
-        .pyramid
-        .apply_to_slice(&cache.input_values)
-        //.expect("Pyramid should be configured correctly, this should never fail.")
+    cache.pyramid.build(&cache.input_values, refinement_smoothing, subdivide_smoothing);
+    cache.pyramid.process();
+    let smoothed_trace = cache.pyramid.rebuild(refinement_smoothing)
         .iter()
         .cloned();
 
     // Pass the smoothed trace on to the method.
-    match method_state {
+    let (time, mut intensity) = match method_state {
         MultiscalingMethodAlgorithmState::FixedThreshold { parameters } => {
             find_fixed_threshold_events(
                 smoothed_trace,
@@ -242,5 +240,10 @@ pub(super) fn find_multiscaling_events(
             baseline,
             &state.parameters,
         ),
-    }
+    };
+    for (index,val) in intensity.iter_mut().enumerate() {
+        let time_index = (*time.get(index).expect("") as Real / sample_time) as usize;
+        *val = *cache.input_values.get(time_index).expect("") as Intensity
+    };
+    (time, intensity)
 }

@@ -1,3 +1,4 @@
+//! Provides objects for persisting state for the second-order smoothing algorithm.
 use crate::{
     parameters::SmoothingDetectorParameters,
     pulse_detection::{

@@ -1,7 +1,6 @@
-use super::Real;
 use crate::{
     channels::LayerProcessingSettings,
-    pulse_detection::window::{SliceWindow, convolution_filter::ConvolutionFilter},
+    pulse_detection::{Real, window::{SliceWindow, convolution_filter::ConvolutionFilter}},
 };
 use std::ops::{AddAssign, Deref, DerefMut};
 
@@ -109,7 +108,7 @@ impl ConvolutionCache {
     pub(super) fn upsample(&mut self, input: &[Real]) {
         let padding = self.padding;
         for (i, value) in input.iter().enumerate() {
-            *self
+            *self.deref_mut()
                 .get_mut(2 * i + padding)
                 .expect("Slice element should exist, this should never fail.") = *value;
         }
@@ -193,6 +192,7 @@ impl DerefMut for DetailCoefficients {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
