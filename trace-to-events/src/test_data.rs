@@ -14,7 +14,7 @@ pub(crate) fn assert_iters_equal<'a>(
 }
 
 pub(crate) fn assert_slices_equal<'a>(output: &'a [Real], expected_data: &'a [Real]) {
-    assert_iters_equal(output.into_iter(), expected_data.into_iter())
+    assert_iters_equal(output.iter(), expected_data.iter())
 }
 
 pub(crate) mod smoothing{
@@ -32,7 +32,7 @@ pub(crate) mod smoothing{
 /// - Input Source: lines 4000 to 4127 (inclusive) from `https://github.com/ralna/trace-fitting/Anthony_b2b_exp_Muon.txt`.
 /// - Parameters: these are the same as used in `test_pyramid` in `pulse_detection/window/pyramid/mod.rs`.
 /// - Note that was necessary to slightly modify `multiscale_preprocessing` to force it to use different enhancement_thresholds
-/// and enhancement_factors for each layer during the enhance processing phase.
+///   and enhancement_factors for each layer during the enhance processing phase.
 pub(crate) mod pyramid {
     use crate::pulse_detection::Real;
 

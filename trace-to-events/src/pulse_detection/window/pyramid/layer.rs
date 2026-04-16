@@ -156,8 +156,8 @@ impl PyramidLayer {
         &self.detail_coefficients
     }
 
-    pub(super) fn get_next_layer(&self) -> Option<&Box<PyramidLayer>> {
-        self.next_layer.as_ref()
+    pub(super) fn get_next_layer(&self) -> Option<&PyramidLayer> {
+        self.next_layer.as_deref()
     }
 }
 
@@ -211,9 +211,9 @@ mod tests {
         assert_layer_sizes(&base, SIZE, 2);
         assert!(base.next_layer.is_some());
         match base.next_layer.as_ref() {
-            Some(layer_level) => {
-                assert_layer_sizes(&layer_level, SIZE >> 1, 2);
-                assert!(layer_level.next_layer.is_none());
+            Some(layer) => {
+                assert_layer_sizes(layer, SIZE >> 1, 2);
+                assert!(layer.next_layer.is_none());
             }
             None => unreachable!(),
         }
@@ -306,7 +306,7 @@ mod tests {
                 let expected_data = DATA.iter().step_by(2);
                 assert_iters_equal(output.iter(), expected_data);
 
-                assert!(matches!(layer.next_layer, None));
+                assert!(layer.next_layer.is_none());
             }
         }
     }

@@ -216,7 +216,7 @@ mod tests {
         cache.init_size(2);
         cache.downsample(input.as_slice());
         for (out, exp) in Iterator::zip(
-            cache.as_mut().into_iter(),
+            cache.as_mut().iter_mut(),
             [0.0, 0.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0].into_iter(),
         ) {
             assert_eq!(*out, exp);
@@ -227,7 +227,7 @@ mod tests {
         cache.init_size(2);
         cache.downsample(input.as_slice());
         for (out, exp) in Iterator::zip(
-            cache.as_mut().into_iter(),
+            cache.as_mut().iter_mut(),
             [0.0, 0.0, 1.0, 4.0, 0.0, 0.0].into_iter(),
         ) {
             assert_eq!(*out, exp);
@@ -241,7 +241,7 @@ mod tests {
         cache.init_size(6);
         cache.upsample(input.as_slice());
         for (out, exp) in Iterator::zip(
-            cache.as_mut().into_iter(),
+            cache.as_mut().iter_mut(),
             [0.0, 1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0, 0.0, 0.0].into_iter(),
         ) {
             assert_eq!(*out, exp);
@@ -252,7 +252,7 @@ mod tests {
         cache.init_size(6);
         cache.upsample(input.as_slice());
         for (out, exp) in Iterator::zip(
-            cache.as_mut().into_iter(),
+            cache.as_mut().iter_mut(),
             [0.0, 0.0, 1.0, 0.0, 2.0, 0.0, 4.0, 0.0, 0.0, 0.0].into_iter(),
         ) {
             assert_eq!(*out, exp);
