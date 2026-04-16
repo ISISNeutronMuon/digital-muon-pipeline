@@ -193,8 +193,8 @@ pub(super) fn find_smoothing_events(
 pub(super) fn find_multiscaling_events(
     trace: impl Clone + ExactSizeIterator<Item = Real> + DoubleEndedIterator,
     cache: &mut MultiscalingDetectorCache,
-    refinement_smoothing: &ConvolutionFilter,
-    subdivide_smoothing: &ConvolutionFilter,
+    downsample_smoothing: &ConvolutionFilter,
+    upsample_smoothing: &ConvolutionFilter,
     sample_time: Real,
     polarity_sign: Real,
     baseline: Real,
@@ -203,9 +203,10 @@ pub(super) fn find_multiscaling_events(
     cache.ensure_cache_lengths(trace.len());
     cache.write_input_values(trace);
 
-    cache.pyramid.build(&cache.input_values, refinement_smoothing, subdivide_smoothing);
+    // Apply three stages of the pyramid algorithm.
+    cache.pyramid.build(&cache.input_values, downsample_smoothing, upsample_smoothing);
     cache.pyramid.process();
-    let smoothed_trace = cache.pyramid.rebuild(refinement_smoothing)
+    let smoothed_trace = cache.pyramid.rebuild(upsample_smoothing)
         .iter()
         .cloned();
 
@@ -241,6 +242,10 @@ pub(super) fn find_multiscaling_events(
             &state.parameters,
         ),
     };
+    // Extract the index of the event from the time value.
+    // FIXME: this is a hacky way to do this, however fixing
+    // this requires changing the other algorithms, so it 
+    // will be saved for a future PR.
     for (index,val) in intensity.iter_mut().enumerate() {
         let time_index = (*time.get(index).expect("") as Real / sample_time) as usize;
         *val = *cache.input_values.get(time_index).expect("") as Intensity

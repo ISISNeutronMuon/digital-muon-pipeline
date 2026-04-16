@@ -129,8 +129,8 @@ impl ChannelState {
             ChannelAlgorithmState::Multiscaling(state) => find_multiscaling_events(
                 trace,
                 &mut state.cache,
-                &state.refinement_smoothing,
-                &state.subdivide_smoothing,
+                &state.downsample_smoothing,
+                &state.upsample_smoothing,
                 sample_time,
                 self.polarity_sign,
                 self.baseline,

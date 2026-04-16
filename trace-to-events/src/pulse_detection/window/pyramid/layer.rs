@@ -27,25 +27,24 @@ impl PyramidLayer {
     /// Creates a new layer of the pyramid smoothing algorithm.
     ///
     /// # Parameters
-    /// - settings:
-    /// - subdivide_padding:
-    /// - refined_padding:
-    /// - next_settings_tail:
+    /// - next_settings: 
+    /// - downsample_padding: the amount of extra space to include for downsampling.
+    /// - upsample_padding: the amount of extra space to include for upsampling.
     pub(crate) fn new(
         mut next_settings: Vec<LayerProcessingSettings>,
-        subdivide_padding: usize,
-        refined_padding: usize,
+        downsample_padding: usize,
+        upsample_padding: usize,
     ) -> Option<Box<Self>> {
         let this_settings = next_settings.pop();
         this_settings.map(|this_settings|
             Box::new(Self {
-                subdivided: ConvolutionCache::new(subdivide_padding),
-                refined: ConvolutionCache::new(refined_padding),
+                subdivided: ConvolutionCache::new(downsample_padding),
+                refined: ConvolutionCache::new(upsample_padding),
                 detail_coefficients: DetailCoefficients::new(this_settings),
                 next_layer: PyramidLayer::new(
                     next_settings,
-                    subdivide_padding,
-                    refined_padding,
+                    downsample_padding,
+                    upsample_padding,
                 )
             })
         )
@@ -83,16 +82,16 @@ impl PyramidLayer {
     pub(crate) fn build(
         &mut self,
         source: &[Real],
-        refinement_smoothing: &ConvolutionFilter,
-        subdivide_smoothing: &ConvolutionFilter,
+        downsample_smoothing: &ConvolutionFilter,
+        upsample_smoothing: &ConvolutionFilter,
     ) {
         // Downsample from source.
         self.subdivided.downsample(source);
-        self.subdivided.convolve(subdivide_smoothing);
+        self.subdivided.convolve(downsample_smoothing);
 
         // Upsample from the next layer's subdivided.
         self.refined.upsample(&self.subdivided);
-        self.refined.convolve(refinement_smoothing);
+        self.refined.convolve(upsample_smoothing);
 
         // Extract detail coefficients.
         self.detail_coefficients
@@ -100,7 +99,7 @@ impl PyramidLayer {
 
         //  Recurse method to next layer.
         if let Some(next_layer) = &mut self.next_layer {
-            next_layer.build(&self.subdivided, refinement_smoothing, subdivide_smoothing);
+            next_layer.build(&self.subdivided, downsample_smoothing, upsample_smoothing);
         }
     }
 

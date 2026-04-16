@@ -68,9 +68,9 @@ pub(crate) struct LayerProcessingSettings {
 #[derive(Clone)]
 pub(crate) struct MultiscalingDetectorState {
     /// Smoothing filter to apply after downsampling.
-    pub(crate) subdivide_smoothing: ConvolutionFilter,
+    pub(crate) downsample_smoothing: ConvolutionFilter,
     /// Smoothing filter to apply after upsampling.
-    pub(crate) refinement_smoothing: ConvolutionFilter,
+    pub(crate) upsample_smoothing: ConvolutionFilter,
     /// This cache is persisted to avoid reallocations on every channel trace.
     pub(crate) cache: MultiscalingDetectorCache,
     /// The state of the underlying algorithm (boxed to placate `cargo clippy`).
@@ -126,38 +126,38 @@ impl MultiscalingDetectorState {
             .collect();
 
         // Create `refinement_smoothing_coefs` from `subdivide_smoothing_coefs`.
-        let subdivide_smoothing_coefs = parameters.subdivision_smoothing.clone();
+        let downsample_smoothing_coefs = parameters.subdivision_smoothing.clone();
         let fft = FftInverse::new(
             200,
             20,
             parameters.smoothing_support.clone(),
             ComplexFloat::recip,
         );
-        let mut refinement_smoothing_coefs = vec![0.0; 20];
+        let mut upsample_smoothing_coefs = vec![0.0; 20];
         fft.apply_to_slice(
-            subdivide_smoothing_coefs.as_slice(),
-            refinement_smoothing_coefs.as_mut_slice(),
+            downsample_smoothing_coefs.as_slice(),
+            upsample_smoothing_coefs.as_mut_slice(),
         );
 
         // Create convolution filters.
-        let subdivide_smoothing =
-            ConvolutionFilter::new(KernelType::ManualCoefficients(subdivide_smoothing_coefs));
-        let refinement_smoothing =
-            ConvolutionFilter::new(KernelType::ManualCoefficients(refinement_smoothing_coefs));
+        let downsample_smoothing =
+            ConvolutionFilter::new(KernelType::ManualCoefficients(downsample_smoothing_coefs));
+        let upsample_smoothing =
+            ConvolutionFilter::new(KernelType::ManualCoefficients(upsample_smoothing_coefs));
 
         let method_state = Box::new(MultiscalingMethodAlgorithmState::new(&parameters.method));
         let cache = MultiscalingDetectorCache {
             pyramid: PyramidLayer::new(
                 layers_settings,
-                subdivide_smoothing.kernel_size() >> 1,
-                refinement_smoothing.kernel_size() >> 1,
+                downsample_smoothing.kernel_size() >> 1,
+                upsample_smoothing.kernel_size() >> 1,
             )
             .expect("Pyramid should be configured correctly, this should never fail."),
             ..Default::default()
         };
         Self {
-            refinement_smoothing,
-            subdivide_smoothing,
+            downsample_smoothing,
+            upsample_smoothing,
             method_state,
             cache
         }
