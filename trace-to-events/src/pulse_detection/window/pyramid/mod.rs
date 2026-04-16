@@ -12,7 +12,9 @@ mod tests {
     use crate::{
         channels::LayerProcessingSettings,
         pulse_detection::window::{
-            SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}, fft_inverse::FftInverse,
+            SliceWindow,
+            convolution_filter::{ConvolutionFilter, KernelType},
+            fft_inverse::FftInverse,
         },
         test_data::{
             assert_slices_equal,
@@ -64,20 +66,16 @@ mod tests {
             ConvolutionFilter::new(KernelType::ManualCoefficients(upsample_smoothing_coefs));
         let downsample_smoothing =
             ConvolutionFilter::new(KernelType::ManualCoefficients(downsample_smoothing_coefs));
-            
+
         let mut pyramid_base = PyramidLayer::new(
             layer_processing_settings,
-            downsample_smoothing.kernel_size()/2,
-            upsample_smoothing.kernel_size()/2,
+            downsample_smoothing.kernel_size() / 2,
+            upsample_smoothing.kernel_size() / 2,
         )
         .unwrap();
         pyramid_base.init_size(128);
 
-        pyramid_base.build(
-            &INPUT,
-            &downsample_smoothing,
-            &upsample_smoothing,
-        );
+        pyramid_base.build(&INPUT, &downsample_smoothing, &upsample_smoothing);
         {
             let layer_1 = &pyramid_base;
             let layer_2 = layer_1.get_next_layer().unwrap();

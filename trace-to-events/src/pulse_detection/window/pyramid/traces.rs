@@ -1,10 +1,13 @@
 use crate::{
     channels::LayerProcessingSettings,
-    pulse_detection::{Real, window::{SliceWindow, convolution_filter::ConvolutionFilter}},
+    pulse_detection::{
+        Real,
+        window::{SliceWindow, convolution_filter::ConvolutionFilter},
+    },
 };
 use std::ops::{AddAssign, Deref, DerefMut};
 
-/// A vector designed to work with [ConvolutionFilter] and the pyramid smoothing algorithm.
+/// A pair of vectors designed to work with [ConvolutionFilter] and the pyramid smoothing algorithm.
 ///
 /// The struct is created with a `padding` value, and consists of two `Vec`s: `raw` and `convolved`.
 /// Before the struct can be used, it should be initialised with `Self::init_size` which sets the sizes
@@ -108,7 +111,8 @@ impl ConvolutionCache {
     pub(super) fn upsample(&mut self, input: &[Real]) {
         let padding = self.padding;
         for (i, value) in input.iter().enumerate() {
-            *self.deref_mut()
+            *self
+                .deref_mut()
                 .get_mut(2 * i + padding)
                 .expect("Slice element should exist, this should never fail.") = *value;
         }

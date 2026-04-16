@@ -119,10 +119,16 @@ pub(crate) struct MultiscalingDetectorParameters {
         default_value = "0.125,0.5,0.75,0.5,0.125",
         value_delimiter = ','
     )]
-    pub(crate) subdivision_smoothing: Vec<Real>,
-    /// Support of the `subdivision_smoothing` kernel.
+    pub(crate) downsampling_smoothing: Vec<Real>,
+    /// Support of the `downsampling_smoothing` kernel used to compute the `upsampling_smoothing` kernel.
     #[clap(long, default_value = "-2,-1,0,1,2", value_delimiter = ',')]
     pub(crate) smoothing_support: Vec<i32>,
+    /// Amount of padding to use when calculating the `upsampling_smoothing` kernel.
+    #[clap(long, default_value = "200")]
+    pub(crate) fft_padding: usize,
+    /// Size of the computed `upsampling_smoothing` kernel.
+    #[clap(long, default_value = "20")]
+    pub(crate) fft_truncation: usize,
     /// Number of pyramid layers.
     #[clap(long, default_value = "4")]
     pub(crate) number_of_layers: usize,
@@ -178,6 +184,6 @@ pub(crate) enum Mode {
     DifferentialThresholdDiscriminator(DifferentialThresholdDiscriminatorParameters),
     /// Detects events using a smoothed second derivative. Event lists consist of time and voltage values.
     SmoothingDetector(SmoothingDetectorParameters),
-    /// Detects events using a smoothed second derivative. Event lists consist of time and voltage values.
+    /// Detects events using one of the other methods after applying multiscaling pyramid smoothing. Event lists consist of time and voltage values.
     Multiscaling(MultiscalingDetectorParameters),
 }

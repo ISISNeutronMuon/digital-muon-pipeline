@@ -6,7 +6,10 @@ use crate::{
         Real,
         threshold_detector::ThresholdDuration,
         window::{
-            SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}, fft_inverse::FftInverse, pyramid::PyramidLayer
+            SliceWindow,
+            convolution_filter::{ConvolutionFilter, KernelType},
+            fft_inverse::FftInverse,
+            pyramid::PyramidLayer,
         },
     },
 };
@@ -25,7 +28,7 @@ pub(crate) enum MultiscalingMethodAlgorithmState {
 
 impl MultiscalingMethodAlgorithmState {
     /// Creates a new `ChannelAlgorithmState` object defined from `mode`. The state object is specific to the detector chosen.
-    /// 
+    ///
     /// # Parameters
     /// - mode: the `Mode` enum to create the state object from.
     pub(crate) fn new(mode: &MultiscalingDetectorMethod) -> Self {
@@ -52,7 +55,7 @@ impl MultiscalingMethodAlgorithmState {
 }
 
 /// Encapsulates settings used to during the processing phase of the multiscaling algorithm.
-/// 
+///
 /// Processing consists of denoising, enhancing, and multiplication, operating in that order.
 #[derive(Default, Clone)]
 pub(crate) struct LayerProcessingSettings {
@@ -73,13 +76,13 @@ pub(crate) struct MultiscalingDetectorState {
     pub(crate) upsample_smoothing: ConvolutionFilter,
     /// This cache is persisted to avoid reallocations on every channel trace.
     pub(crate) cache: MultiscalingDetectorCache,
-    /// The state of the underlying algorithm (boxed to placate `cargo clippy`).
-    pub(crate) method_state: Box<MultiscalingMethodAlgorithmState>,
+    /// The state of the underlying algorithm.
+    pub(crate) method_state: MultiscalingMethodAlgorithmState,
 }
 
 impl MultiscalingDetectorState {
     /// Creates new instance of detector state.
-    /// 
+    ///
     /// # Parameters
     /// - parameters: settings given in the command line.
     pub(crate) fn new(parameters: &MultiscalingDetectorParameters) -> Self {
@@ -112,28 +115,28 @@ impl MultiscalingDetectorState {
             .map(|layer| LayerProcessingSettings {
                 denoise_threshold: parameters
                     .denoise
-                    .then(|| parameters.denoise_thresholds[layer] as Real),
+                    .then(|| parameters.denoise_thresholds[layer]),
                 enhance_threshold_factor: parameters.enhance.then(|| {
                     (
-                        parameters.enhance_thresholds[layer] as Real,
-                        parameters.enhance_factors[layer] as Real,
+                        parameters.enhance_thresholds[layer],
+                        parameters.enhance_factors[layer],
                     )
                 }),
                 multiply_factor: parameters
                     .multiply
-                    .then(|| parameters.multiply_factors[layer] as Real), // FIXME
+                    .then(|| parameters.multiply_factors[layer]),
             })
             .collect();
 
-        // Create `refinement_smoothing_coefs` from `subdivide_smoothing_coefs`.
-        let downsample_smoothing_coefs = parameters.subdivision_smoothing.clone();
+        // Create `upsample_smoothing_coefs` from `downsample_smoothing_coefs`.
+        let downsample_smoothing_coefs = parameters.downsampling_smoothing.clone();
         let fft = FftInverse::new(
-            200,
-            20,
+            parameters.fft_padding,
+            parameters.fft_truncation,
             parameters.smoothing_support.clone(),
             ComplexFloat::recip,
         );
-        let mut upsample_smoothing_coefs = vec![0.0; 20];
+        let mut upsample_smoothing_coefs = vec![Default::default(); parameters.fft_truncation];
         fft.apply_to_slice(
             downsample_smoothing_coefs.as_slice(),
             upsample_smoothing_coefs.as_mut_slice(),
@@ -145,7 +148,7 @@ impl MultiscalingDetectorState {
         let upsample_smoothing =
             ConvolutionFilter::new(KernelType::ManualCoefficients(upsample_smoothing_coefs));
 
-        let method_state = Box::new(MultiscalingMethodAlgorithmState::new(&parameters.method));
+        let method_state = MultiscalingMethodAlgorithmState::new(&parameters.method);
         let cache = MultiscalingDetectorCache {
             pyramid: PyramidLayer::new(
                 layers_settings,
@@ -159,7 +162,7 @@ impl MultiscalingDetectorState {
             downsample_smoothing,
             upsample_smoothing,
             method_state,
-            cache
+            cache,
         }
     }
 }
@@ -174,7 +177,7 @@ pub(crate) struct MultiscalingDetectorCache {
     /// Memory in which to write the pre-convolution trace data.
     pub(crate) input_values: Vec<Real>,
     /// Filter which to apply to `input_values`.
-    pub(crate) pyramid: Box::<PyramidLayer>,
+    pub(crate) pyramid: Box<PyramidLayer>,
 }
 
 impl MultiscalingDetectorCache {

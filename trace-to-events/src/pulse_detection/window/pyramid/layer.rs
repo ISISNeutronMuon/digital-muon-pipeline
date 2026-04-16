@@ -2,9 +2,13 @@
 //! and detail extraction at a specific resolution, as well as linking to the next layer.
 use crate::{
     channels::LayerProcessingSettings,
-    pulse_detection::{Real, window::{
-        convolution_filter::ConvolutionFilter, pyramid::traces::{ConvolutionCache, DetailCoefficients},
-    }},
+    pulse_detection::{
+        Real,
+        window::{
+            convolution_filter::ConvolutionFilter,
+            pyramid::traces::{ConvolutionCache, DetailCoefficients},
+        },
+    },
 };
 
 /// Linked list element the [PyramidFilter] structure.
@@ -15,7 +19,7 @@ use crate::{
 pub(crate) struct PyramidLayer {
     /// Cache to which an input is downsampled.
     subdivided: ConvolutionCache,
-    /// Cache to which the
+    /// Cache to which the downsampled trace is upsampled, and where the processed details are rebuilt.
     refined: ConvolutionCache,
     /// Vector from which details are recorded and processed.
     detail_coefficients: DetailCoefficients,
@@ -24,30 +28,26 @@ pub(crate) struct PyramidLayer {
 }
 
 impl PyramidLayer {
-    /// Creates a new layer of the pyramid smoothing algorithm.
+    /// Creates a new layer of the pyramid smoothing algorithm and all subsequent layers.
     ///
     /// # Parameters
-    /// - next_settings: 
+    /// - layer_settings: vector of [LayerProcessingSettings] in descending order, i.e. starting with the apex.
     /// - downsample_padding: the amount of extra space to include for downsampling.
     /// - upsample_padding: the amount of extra space to include for upsampling.
     pub(crate) fn new(
-        mut next_settings: Vec<LayerProcessingSettings>,
+        mut layer_settings: Vec<LayerProcessingSettings>,
         downsample_padding: usize,
         upsample_padding: usize,
     ) -> Option<Box<Self>> {
-        let this_settings = next_settings.pop();
-        this_settings.map(|this_settings|
+        let this_settings = layer_settings.pop();
+        this_settings.map(|this_settings| {
             Box::new(Self {
                 subdivided: ConvolutionCache::new(downsample_padding),
                 refined: ConvolutionCache::new(upsample_padding),
                 detail_coefficients: DetailCoefficients::new(this_settings),
-                next_layer: PyramidLayer::new(
-                    next_settings,
-                    downsample_padding,
-                    upsample_padding,
-                )
+                next_layer: PyramidLayer::new(layer_settings, downsample_padding, upsample_padding),
             })
-        )
+        })
     }
 
     /// Initialises the layer to have the given size, and recursively propagate
@@ -71,8 +71,8 @@ impl PyramidLayer {
     ///
     /// # Parameters
     /// - source: an input vector whose length of equal to the layer's size.
-    /// - refinement_smoothing: the smoothing filter to be applied after upsampling.
-    /// - subdivide_smoothing: the smoothing filter to be applied after downsampling.
+    /// - downsample_smoothing: the smoothing filter to be applied after downsampling.
+    /// - upsample_smoothing: the smoothing filter to be applied after upsampling.
     ///
     /// Given the slice `source` of the appropriate length:
     /// - `source` is downsampled to [Self::subdivided] and then a convolution applied.
@@ -185,8 +185,9 @@ mod tests {
         let mut base = PyramidLayer::new(
             vec![settings],
             gamma.kernel_size() / 2,
-            alpha.kernel_size() / 2
-        ).unwrap();
+            alpha.kernel_size() / 2,
+        )
+        .unwrap();
         assert_layer_sizes(&base, 0, 0);
         assert!(base.next_layer.is_none());
 
@@ -204,7 +205,8 @@ mod tests {
             vec![LayerProcessingSettings::default(); 2],
             gamma.kernel_size() / 2,
             alpha.kernel_size() / 2,
-        ).unwrap();
+        )
+        .unwrap();
         base.init_size(SIZE);
         assert_layer_sizes(&base, SIZE, 2);
         assert!(base.next_layer.is_some());
@@ -225,8 +227,7 @@ mod tests {
 
     #[test]
     fn test_layer_unconvolved() {
-        let mut layer =
-            PyramidLayer::new(vec![LayerProcessingSettings::default()], 0, 0).unwrap();
+        let mut layer = PyramidLayer::new(vec![LayerProcessingSettings::default()], 0, 0).unwrap();
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
@@ -240,17 +241,14 @@ mod tests {
         let expected_data = DATA
             .iter()
             .enumerate()
-            .map(|(i, v) : (usize, _)| if i.is_even() { v } else { &0.0 });
+            .map(|(i, v): (usize, _)| if i.is_even() { v } else { &0.0 });
         assert_iters_equal(output.iter(), expected_data);
     }
 
     #[test]
     fn test_two_layer_unconvolved_process() {
-        let mut layer = PyramidLayer::new(
-            vec![LayerProcessingSettings::default(); 2],
-            0,
-            0,
-        ).unwrap();
+        let mut layer =
+            PyramidLayer::new(vec![LayerProcessingSettings::default(); 2], 0, 0).unwrap();
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
@@ -289,11 +287,8 @@ mod tests {
 
     #[test]
     fn test_two_layer_unconvolved_rebuild() {
-        let mut layer = PyramidLayer::new(
-            vec![LayerProcessingSettings::default(); 2],
-            0,
-            0,
-        ).unwrap();
+        let mut layer =
+            PyramidLayer::new(vec![LayerProcessingSettings::default(); 2], 0, 0).unwrap();
         layer.init_size(SIZE);
         let alpha = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));
         let gamma = ConvolutionFilter::new(KernelType::ManualCoefficients(vec![1.0]));

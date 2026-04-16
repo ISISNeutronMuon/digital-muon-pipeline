@@ -1,8 +1,8 @@
 //! Provides algorithm-specific functions and which extract and return lists of muon events using specified settings.
-use core::f64;
 use crate::{
-    channels::{
-        algorithm_states::{MultiscalingDetectorCache, MultiscalingMethodAlgorithmState, PeakHeightParameters, SmoothingDetectorCache},
+    channels::algorithm_states::{
+        MultiscalingDetectorCache, MultiscalingMethodAlgorithmState, PeakHeightParameters,
+        SmoothingDetectorCache,
     },
     parameters::{PeakHeightBasis, SmoothingDetectorParameters},
     pulse_detection::{
@@ -140,7 +140,7 @@ pub(super) fn find_smoothing_events(
         cache.output_values.as_mut_slice(),
     );
 
-    let percentile = ((trace.len() as f64 * parameters.noise_centile) / 100.0) as usize;
+    let percentile = ((trace.len() as Real * parameters.noise_centile) / 100.0) as usize;
     let noise_std = std_dev(&cache.output_values[percentile..])
         .expect("std_dev should exist, this should never fail.");
     tracing::Span::current().record("std_dev", noise_std);
@@ -185,10 +185,13 @@ pub(super) fn find_smoothing_events(
 /// # Parameters
 /// - trace: raw trace data.
 /// - cache: provides pyramid layers that is used by the multiscaling algorithm.
+/// - downsample_smoothing: the smoothing filter to be applied after downsampling.
+/// - upsample_smoothing: the smoothing filter to be applied after upsampling.
 /// - sample_time: sample time in ns.
 /// - polarity_sign: the polarity of the trace signal.
 /// - baseline: the baseline of the trace signal.
 /// - method_state: the state of the underlying detection method.
+#[allow(clippy::too_many_arguments)] // FIXME: This can be addressed in a future PR in which several args can be consolidated.
 #[tracing::instrument(skip_all, level = "trace")]
 pub(super) fn find_multiscaling_events(
     trace: impl Clone + ExactSizeIterator<Item = Real> + DoubleEndedIterator,
@@ -204,11 +207,13 @@ pub(super) fn find_multiscaling_events(
     cache.write_input_values(trace);
 
     // Apply three stages of the pyramid algorithm.
-    cache.pyramid.build(&cache.input_values, downsample_smoothing, upsample_smoothing);
+    cache.pyramid.build(
+        &cache.input_values,
+        downsample_smoothing,
+        upsample_smoothing,
+    );
     cache.pyramid.process();
-    let smoothed_trace = cache.pyramid.rebuild(upsample_smoothing)
-        .iter()
-        .cloned();
+    let smoothed_trace = cache.pyramid.rebuild(upsample_smoothing).iter().cloned();
 
     // Pass the smoothed trace on to the method.
     let (time, mut intensity) = match method_state {
@@ -244,11 +249,71 @@ pub(super) fn find_multiscaling_events(
     };
     // Extract the index of the event from the time value.
     // FIXME: this is a hacky way to do this, however fixing
-    // this requires changing the other algorithms, so it 
+    // this requires changing the other algorithms, so it
     // will be saved for a future PR.
-    for (index,val) in intensity.iter_mut().enumerate() {
+    for (index, val) in intensity.iter_mut().enumerate() {
         let time_index = (*time.get(index).expect("") as Real / sample_time) as usize;
         *val = *cache.input_values.get(time_index).expect("") as Intensity
-    };
+    }
     (time, intensity)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        channels::algorithm_states::MultiscalingDetectorState,
+        parameters::{
+            FixedThresholdDiscriminatorParameters, MultiscalingDetectorMethod,
+            MultiscalingDetectorParameters,
+        },
+        test_data::{assert_iters_equal, pyramid::INPUT},
+    };
+
+    #[test]
+    fn test_pyramid() {
+        let mut state = MultiscalingDetectorState::new(&MultiscalingDetectorParameters {
+            downsampling_smoothing: vec![0.125, 0.5, 0.75, 0.5, 0.125],
+            smoothing_support: vec![-2, -1, 0, 1, 2],
+            fft_padding: 200,
+            fft_truncation: 5,
+            number_of_layers: 4,
+            denoise: true,
+            denoise_thresholds: vec![2.0, 5.0, 7.0, 20.0],
+            enhance: true,
+            enhance_thresholds: vec![40.0, 30.0, 35.0, 50.0],
+            enhance_factors: vec![1.5, 1.375, 1.25, 1.125],
+            multiply: true,
+            multiply_factors: vec![1.0, 0.7, 0.2, 0.1],
+            method: MultiscalingDetectorMethod::FixedThresholdDiscriminator(
+                FixedThresholdDiscriminatorParameters {
+                    threshold: 10.0,
+                    duration: 2,
+                    cool_off: 0,
+                },
+            ),
+        });
+        let input = INPUT.map(|x| x * 1000.0).into_iter();
+        let (times, intensities) = find_multiscaling_events(
+            input,
+            &mut state.cache,
+            &state.downsample_smoothing,
+            &state.upsample_smoothing,
+            1.0,
+            1.0,
+            0.0,
+            &mut state.method_state,
+        );
+        let times = times.into_iter().map(|x| x as Real).collect::<Vec<_>>();
+        let intensities = intensities
+            .into_iter()
+            .map(|x| x as Real)
+            .collect::<Vec<_>>();
+        let expected_times = [11.0, 27.0, 36.0, 43.0, 59.0];
+        let expected_intensities = [41.0, 69.0, 25.0, 22.0, 14.0];
+        assert_iters_equal(times.iter(), expected_times.iter());
+        assert_iters_equal(intensities.iter(), expected_intensities.iter());
+        println!("{times:?}");
+        println!("{intensities:?}");
+    }
 }
