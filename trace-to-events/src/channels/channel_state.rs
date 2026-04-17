@@ -1,17 +1,9 @@
 //! Provides objects for persisting state algorithm-agnostic state.
 use crate::{
-    channels::{
-        algorithm_states::{
-            DifferentialThresholdDiscriminatorState, MultiscalingDetectorState,
-            SmoothingDetectorState, ThresholdDetectorState,
+    channels::algorithm_states::{
+            AlgorithmState, DifferentialThresholdDiscriminatorState, MultiscalingDetectorState, SmoothingDetectorState, ThresholdDetectorState
         },
-        algorithms::{
-            find_differential_threshold_events, find_fixed_threshold_events,
-            find_multiscaling_events, find_smoothing_events,
-        },
-    },
-    parameters::{DetectorSettings, Mode, Polarity},
-    pulse_detection::{Real, threshold_detector::ThresholdDuration},
+    parameters::{DetectorSettings, Mode, Polarity}, pulse_detection::Real,
 };
 use digital_muon_common::{Intensity, Time};
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
@@ -95,42 +87,29 @@ impl ChannelState {
             .into_iter()
             .map(|x| x as Real);
         let result = match &mut self.algorithm {
-            ChannelAlgorithmState::FixedThreshold(parameters) => find_fixed_threshold_events(
+            ChannelAlgorithmState::FixedThreshold(state) => state.find_events(
                 trace,
                 sample_time,
                 self.polarity_sign,
-                self.baseline,
-                parameters,
+                self.baseline
             ),
-            ChannelAlgorithmState::DifferentialThreshold(parameters) => {
-                find_differential_threshold_events(
-                    trace,
-                    sample_time,
-                    self.polarity_sign,
-                    self.baseline,
-                    &parameters.finite_differences,
-                    &parameters.parameters,
-                    &parameters.peak_height,
-                )
-            }
-            ChannelAlgorithmState::Smoothing(parameters) => find_smoothing_events(
+            ChannelAlgorithmState::DifferentialThreshold(state) => state.find_events(
                 trace,
-                &parameters.fin_diff_gaussian,
-                &mut parameters.cache,
                 sample_time,
                 self.polarity_sign,
-                self.baseline,
-                &parameters.parameters,
+                self.baseline
             ),
-            ChannelAlgorithmState::Multiscaling(state) => find_multiscaling_events(
+            ChannelAlgorithmState::Smoothing(state) => state.find_events(
                 trace,
-                &mut state.cache,
-                &state.downsample_smoothing,
-                &state.upsample_smoothing,
                 sample_time,
                 self.polarity_sign,
-                self.baseline,
-                &mut state.method_state,
+                self.baseline
+            ),
+            ChannelAlgorithmState::Multiscaling(state) => state.find_events(
+                trace,
+                sample_time,
+                self.polarity_sign,
+                self.baseline
             ),
         };
         tracing::Span::current().record("num_pulses", result.0.len());
