@@ -13,10 +13,9 @@ use super::{
 use crate::{error::NexusWriterResult, hdf5_handlers::NexusHDF5Result, nexus::NexusFileInterface};
 use chrono::{Duration, Utc};
 use digital_muon_common::spanned::SpanOnce;
-use digital_muon_streaming_types::{
-    aev2_frame_assembled_event_v2_generated::FrameAssembledEventListMessage,
-    ecs_6s4t_run_stop_generated::RunStop, ecs_al00_alarm_generated::Alarm,
-    ecs_f144_logdata_generated::f144_LogData, ecs_pl72_run_start_generated::RunStart,
+use digital_muon_streaming_types::aev2_frame_assembled_event_v2_generated::FrameAssembledEventListMessage;
+use isis_streaming_data_types::flatbuffers_generated::{
+    alarm_al00::Alarm, logdata_f144::f144_LogData, run_start_pl72::RunStart, run_stop_6s4t::RunStop,
 };
 pub(crate) use run_parameters::{NexusConfiguration, RunParameters, RunStopParameters};
 pub(crate) use run_spans::RunSpan;

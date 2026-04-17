@@ -1,5 +1,5 @@
 use clap::ValueEnum;
-use digital_muon_streaming_types::ecs_al00_alarm_generated::Severity;
+use isis_streaming_data_types::flatbuffers_generated::alarm_al00::Severity;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize, ValueEnum)]

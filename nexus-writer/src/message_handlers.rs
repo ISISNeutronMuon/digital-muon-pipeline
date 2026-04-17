@@ -18,14 +18,16 @@ use digital_muon_streaming_types::{
         frame_assembled_event_list_message_buffer_has_identifier,
         root_as_frame_assembled_event_list_message,
     },
-    ecs_6s4t_run_stop_generated::{root_as_run_stop, run_stop_buffer_has_identifier},
-    ecs_al00_alarm_generated::{alarm_buffer_has_identifier, root_as_alarm},
-    ecs_f144_logdata_generated::{f_144_log_data_buffer_has_identifier, root_as_f_144_log_data},
-    ecs_pl72_run_start_generated::{root_as_run_start, run_start_buffer_has_identifier},
-    ecs_se00_data_generated::{
+    flatbuffers::InvalidFlatbuffer,
+};
+use isis_streaming_data_types::flatbuffers_generated::{
+    alarm_al00::{alarm_buffer_has_identifier, root_as_alarm},
+    data_se00::{
         root_as_se_00_sample_environment_data, se_00_sample_environment_data_buffer_has_identifier,
     },
-    flatbuffers::InvalidFlatbuffer,
+    logdata_f144::{f_144_log_data_buffer_has_identifier, root_as_f_144_log_data},
+    run_start_pl72::{root_as_run_start, run_start_buffer_has_identifier},
+    run_stop_6s4t::{root_as_run_stop, run_stop_buffer_has_identifier},
 };
 use metrics::counter;
 use tracing::{instrument, warn, warn_span};

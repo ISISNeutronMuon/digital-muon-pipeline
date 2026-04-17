@@ -10,6 +10,7 @@ clap.workspace = true
 git-version.workspace = true
 glob.workspace = true
 hdf5.workspace = true
+isis_streaming_data_types.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 miette = { workspace = true, features = ["fancy"] }

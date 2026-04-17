@@ -1,14 +1,13 @@
 use clap::ValueEnum;
-use digital_muon_streaming_types::{
-    ecs_f144_logdata_generated::{
-        ArrayByte, ArrayByteArgs, ArrayDouble, ArrayDoubleArgs, ArrayFloat, ArrayFloatArgs,
-        ArrayInt, ArrayIntArgs, ArrayLong, ArrayLongArgs, ArrayShort, ArrayShortArgs, ArrayUByte,
-        ArrayUByteArgs, ArrayUInt, ArrayUIntArgs, ArrayULong, ArrayULongArgs, ArrayUShort,
-        ArrayUShortArgs, Byte, ByteArgs, Double, DoubleArgs, Float, FloatArgs, Int, IntArgs, Long,
-        LongArgs, Short, ShortArgs, UByte, UByteArgs, UInt, UIntArgs, ULong, ULongArgs, UShort,
-        UShortArgs, Value,
-    },
-    flatbuffers::{FlatBufferBuilder, Push, UnionWIPOffset, Vector, WIPOffset},
+use digital_muon_streaming_types::flatbuffers::{
+    FlatBufferBuilder, Push, UnionWIPOffset, Vector, WIPOffset,
+};
+use isis_streaming_data_types::flatbuffers_generated::logdata_f144::{
+    ArrayByte, ArrayByteArgs, ArrayDouble, ArrayDoubleArgs, ArrayFloat, ArrayFloatArgs, ArrayInt,
+    ArrayIntArgs, ArrayLong, ArrayLongArgs, ArrayShort, ArrayShortArgs, ArrayUByte, ArrayUByteArgs,
+    ArrayUInt, ArrayUIntArgs, ArrayULong, ArrayULongArgs, ArrayUShort, ArrayUShortArgs, Byte,
+    ByteArgs, Double, DoubleArgs, Float, FloatArgs, Int, IntArgs, Long, LongArgs, Short, ShortArgs,
+    UByte, UByteArgs, UInt, UIntArgs, ULong, ULongArgs, UShort, UShortArgs, Value,
 };
 use serde::Deserialize;
 use std::str::FromStr;
@@ -180,14 +179,11 @@ pub(crate) fn make_value(
 
 #[cfg(test)]
 mod tests {
-    use digital_muon_streaming_types::{
-        ecs_f144_logdata_generated::{
-            f144_LogData, f144_LogDataArgs, finish_f_144_log_data_buffer, root_as_f_144_log_data,
-        },
-        flatbuffers::InvalidFlatbuffer,
-    };
-
     use super::*;
+    use digital_muon_streaming_types::flatbuffers::InvalidFlatbuffer;
+    use isis_streaming_data_types::flatbuffers_generated::logdata_f144::{
+        f144_LogData, f144_LogDataArgs, finish_f_144_log_data_buffer, root_as_f_144_log_data,
+    };
 
     fn process<'a>(
         fbb: &'a mut FlatBufferBuilder,

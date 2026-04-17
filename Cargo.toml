@@ -32,6 +32,7 @@ git-version = "0.3.9"
 glob = "0.3.3"
 hdf5 = { package = "hdf5-metno", version = "0.11.0", features = ["static"] }
 itertools = "0.14.0"
+isis_streaming_data_types = "0.1.1"
 lazy_static = "1.5.0"
 leptos = { version = "0.8.4", features = ["tracing"] }
 leptos_meta = "0.8.5"

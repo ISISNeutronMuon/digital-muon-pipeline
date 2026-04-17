@@ -3,12 +3,12 @@
 //! This trait assists writing of flatbuffer log messages into a [Dataset].
 use super::{DatasetExt, DatasetFlatbuffersExt, NexusHDF5Error, NexusHDF5Result};
 use crate::nexus::LogMessage;
-use digital_muon_streaming_types::{
-    ecs_f144_logdata_generated::f144_LogData, ecs_se00_data_generated::se00_SampleEnvironmentData,
-};
 use hdf5::{
     Dataset,
     types::{FloatSize, IntSize, TypeDescriptor, VarLenArray},
+};
+use isis_streaming_data_types::flatbuffers_generated::{
+    data_se00::se00_SampleEnvironmentData, logdata_f144::f144_LogData,
 };
 
 /// Extracts a value of type [Self] from a [f144_LogData] reference, returning the given error if conversion fails.

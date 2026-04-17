@@ -4,8 +4,8 @@ use crate::{
     run_engine::NexusDateTime,
 };
 use chrono::Utc;
-use digital_muon_streaming_types::{
-    ecs_6s4t_run_stop_generated::RunStop, ecs_pl72_run_start_generated::RunStart,
+use isis_streaming_data_types::flatbuffers_generated::{
+    run_start_pl72::RunStart, run_stop_6s4t::RunStop,
 };
 use std::path::{Path, PathBuf};
 

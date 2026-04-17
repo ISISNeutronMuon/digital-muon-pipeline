@@ -4,10 +4,10 @@
 //! the message to an instance of `T` via `T::handle_message(m)` where `m : M`.
 use super::{ChunkSizeSettings, NexusConfiguration, NexusDateTime, RunParameters};
 use crate::nexus::NexusMessageHandler;
-use digital_muon_streaming_types::{
-    aev2_frame_assembled_event_v2_generated::FrameAssembledEventListMessage,
-    ecs_al00_alarm_generated::Alarm, ecs_f144_logdata_generated::f144_LogData,
-    ecs_pl72_run_start_generated::RunStart, ecs_se00_data_generated::se00_SampleEnvironmentData,
+use digital_muon_streaming_types::aev2_frame_assembled_event_v2_generated::FrameAssembledEventListMessage;
+use isis_streaming_data_types::flatbuffers_generated::{
+    alarm_al00::Alarm, data_se00::se00_SampleEnvironmentData, logdata_f144::f144_LogData,
+    run_start_pl72::RunStart,
 };
 use std::ops::Deref;
 

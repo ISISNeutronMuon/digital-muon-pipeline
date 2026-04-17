@@ -4,16 +4,16 @@ use super::{
 };
 use chrono::{DateTime, Utc};
 use digital_muon_common::tracer::FutureRecordTracerExt;
-use digital_muon_streaming_types::{
-    ecs_6s4t_run_stop_generated::{RunStop, RunStopArgs, finish_run_stop_buffer},
-    ecs_al00_alarm_generated::{Alarm, AlarmArgs, finish_alarm_buffer},
-    ecs_f144_logdata_generated::{f144_LogData, f144_LogDataArgs, finish_f_144_log_data_buffer},
-    ecs_pl72_run_start_generated::{RunStart, RunStartArgs, finish_run_start_buffer},
-    ecs_se00_data_generated::{
+use digital_muon_streaming_types::flatbuffers::FlatBufferBuilder;
+use isis_streaming_data_types::flatbuffers_generated::{
+    alarm_al00::{Alarm, AlarmArgs, finish_alarm_buffer},
+    data_se00::{
         finish_se_00_sample_environment_data_buffer, se00_SampleEnvironmentData,
         se00_SampleEnvironmentDataArgs,
     },
-    flatbuffers::FlatBufferBuilder,
+    logdata_f144::{f144_LogData, f144_LogDataArgs, finish_f_144_log_data_buffer},
+    run_start_pl72::{RunStart, RunStartArgs, finish_run_start_buffer},
+    run_stop_6s4t::{RunStop, RunStopArgs, finish_run_stop_buffer},
 };
 use rdkafka::{
     producer::{FutureProducer, FutureRecord},

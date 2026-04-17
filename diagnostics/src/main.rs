@@ -4,13 +4,12 @@ mod kafka_tail;
 
 use clap::{Args, Parser, Subcommand};
 use digital_muon_common::CommonKafkaOpts;
-use digital_muon_streaming_types::{
-    dat2_digitizer_analog_trace_v2_generated::{
-        digitizer_analog_trace_message_buffer_has_identifier,
-        root_as_digitizer_analog_trace_message,
-    },
-    ecs_6s4t_run_stop_generated::{root_as_run_stop, run_stop_buffer_has_identifier},
-    ecs_pl72_run_start_generated::{root_as_run_start, run_start_buffer_has_identifier},
+use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::{
+    digitizer_analog_trace_message_buffer_has_identifier, root_as_digitizer_analog_trace_message,
+};
+use isis_streaming_data_types::flatbuffers_generated::{
+    run_start_pl72::{root_as_run_start, run_start_buffer_has_identifier},
+    run_stop_6s4t::{root_as_run_stop, run_stop_buffer_has_identifier},
 };
 use tracing::{info, warn};
 
