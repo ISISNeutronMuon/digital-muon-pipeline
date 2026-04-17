@@ -7,11 +7,11 @@ mod error;
 mod group;
 
 use crate::run_engine::NexusDateTime;
-use digital_muon_streaming_types::{
-    ecs_f144_logdata_generated::f144_LogData, ecs_se00_data_generated::se00_SampleEnvironmentData,
-};
 pub(crate) use error::{ConvertResult, NexusHDF5Error, NexusHDF5Result};
 use hdf5::{Attribute, Dataset, Group, H5Type, types::TypeDescriptor};
+use isis_streaming_data_types::flatbuffers_generated::{
+    data_se00::se00_SampleEnvironmentData, logdata_f144::f144_LogData,
+};
 
 /// This is implemented by hdf5 types [Group] and [Dataset], both can have attributes set
 /// and this trait provides a common interface for them both.

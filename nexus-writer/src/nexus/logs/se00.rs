@@ -7,12 +7,12 @@ use crate::{
     },
     run_engine::{NexusDateTime, run_messages::SampleEnvironmentLog},
 };
-use digital_muon_streaming_types::ecs_se00_data_generated::{
-    ValueUnion, se00_SampleEnvironmentData,
-};
 use hdf5::{
     Dataset,
     types::{FloatSize, IntSize, TypeDescriptor},
+};
+use isis_streaming_data_types::flatbuffers_generated::data_se00::{
+    ValueUnion, se00_SampleEnvironmentData,
 };
 use tracing::{trace, warn};
 

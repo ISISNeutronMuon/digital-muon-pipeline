@@ -13,12 +13,6 @@ fn main() {
         "dat2_digitizer_analog_trace_v2.fbs",
         "dev2_digitizer_event_v2.fbs",
         "frame_metadata_v2.fbs",
-        "ecs_6s4t_run_stop.fbs",
-        "ecs_df12_det_spec_map.fbs",
-        "ecs_pl72_run_start.fbs",
-        "ecs_f144_logdata.fbs",
-        "ecs_se00_data.fbs",
-        "ecs_al00_alarm.fbs",
     ];
     let inputs: Vec<PathBuf> = inputs.iter().map(|i| schema_dir.join(i)).collect();
     let inputs: Vec<&Path> = inputs.iter().map(|i| i.as_path()).collect();

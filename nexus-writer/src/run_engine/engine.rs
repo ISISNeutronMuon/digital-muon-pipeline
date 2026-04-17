@@ -9,12 +9,11 @@ use crate::{
 };
 use chrono::Duration;
 use digital_muon_common::spanned::SpannedAggregator;
-use digital_muon_streaming_types::{
-    aev2_frame_assembled_event_v2_generated::FrameAssembledEventListMessage,
-    ecs_6s4t_run_stop_generated::RunStop, ecs_al00_alarm_generated::Alarm,
-    ecs_f144_logdata_generated::f144_LogData, ecs_pl72_run_start_generated::RunStart,
-};
+use digital_muon_streaming_types::aev2_frame_assembled_event_v2_generated::FrameAssembledEventListMessage;
 use glob::glob;
+use isis_streaming_data_types::flatbuffers_generated::{
+    alarm_al00::Alarm, logdata_f144::f144_LogData, run_start_pl72::RunStart, run_stop_6s4t::RunStop,
+};
 #[cfg(test)]
 use std::collections::vec_deque;
 use std::{collections::VecDeque, ffi::OsStr};
@@ -377,14 +376,12 @@ mod test {
             finish_frame_assembled_event_list_message_buffer,
             root_as_frame_assembled_event_list_message,
         },
-        ecs_6s4t_run_stop_generated::{
-            RunStop, RunStopArgs, finish_run_stop_buffer, root_as_run_stop,
-        },
-        ecs_pl72_run_start_generated::{
-            RunStart, RunStartArgs, finish_run_start_buffer, root_as_run_start,
-        },
         flatbuffers::{FlatBufferBuilder, InvalidFlatbuffer},
         frame_metadata_v2_generated::{FrameMetadataV2, FrameMetadataV2Args, GpsTime},
+    };
+    use isis_streaming_data_types::flatbuffers_generated::{
+        run_start_pl72::{RunStart, RunStartArgs, finish_run_start_buffer, root_as_run_start},
+        run_stop_6s4t::{RunStop, RunStopArgs, finish_run_stop_buffer, root_as_run_stop},
     };
 
     fn create_start<'a, 'b: 'a>(

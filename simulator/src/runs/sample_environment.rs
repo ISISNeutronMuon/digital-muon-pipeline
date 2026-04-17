@@ -1,18 +1,17 @@
+use crate::integrated::simulation_elements::{noise::NoiseSource, utils::JsonValueError};
 use clap::ValueEnum;
 use digital_muon_common::Time;
-use digital_muon_streaming_types::{
-    ecs_se00_data_generated::{
-        DoubleArray, DoubleArrayArgs, FloatArray, FloatArrayArgs, Int8Array, Int8ArrayArgs,
-        Int16Array, Int16ArrayArgs, Int32Array, Int32ArrayArgs, Int64Array, Int64ArrayArgs,
-        Location, UInt8Array, UInt8ArrayArgs, UInt16Array, UInt16ArrayArgs, UInt32Array,
-        UInt32ArrayArgs, UInt64Array, UInt64ArrayArgs, ValueUnion,
-    },
-    flatbuffers::{FlatBufferBuilder, Push, UnionWIPOffset, Vector, WIPOffset},
+use digital_muon_streaming_types::flatbuffers::{
+    FlatBufferBuilder, Push, UnionWIPOffset, Vector, WIPOffset,
+};
+use isis_streaming_data_types::flatbuffers_generated::data_se00::{
+    DoubleArray, DoubleArrayArgs, FloatArray, FloatArrayArgs, Int8Array, Int8ArrayArgs, Int16Array,
+    Int16ArrayArgs, Int32Array, Int32ArrayArgs, Int64Array, Int64ArrayArgs, Location, UInt8Array,
+    UInt8ArrayArgs, UInt16Array, UInt16ArrayArgs, UInt32Array, UInt32ArrayArgs, UInt64Array,
+    UInt64ArrayArgs, ValueUnion,
 };
 use serde::Deserialize;
 use std::str::FromStr;
-
-use crate::integrated::simulation_elements::{noise::NoiseSource, utils::JsonValueError};
 
 #[derive(Clone, Debug, Deserialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
@@ -154,15 +153,12 @@ pub(crate) fn make_value(
 
 #[cfg(test)]
 mod tests {
-    use digital_muon_streaming_types::{
-        ecs_se00_data_generated::{
-            finish_se_00_sample_environment_data_buffer, root_as_se_00_sample_environment_data,
-            se00_SampleEnvironmentData, se00_SampleEnvironmentDataArgs,
-        },
-        flatbuffers::InvalidFlatbuffer,
-    };
-
     use super::*;
+    use digital_muon_streaming_types::flatbuffers::InvalidFlatbuffer;
+    use isis_streaming_data_types::flatbuffers_generated::data_se00::{
+        finish_se_00_sample_environment_data_buffer, root_as_se_00_sample_environment_data,
+        se00_SampleEnvironmentData, se00_SampleEnvironmentDataArgs,
+    };
 
     fn process<'a>(
         fbb: &'a mut FlatBufferBuilder,
