@@ -2,6 +2,7 @@
 mod differential;
 mod multiscaling;
 mod smoothing;
+mod threshold;
 
 pub(crate) use differential::{DifferentialThresholdDiscriminatorState, PeakHeightParameters};
 pub(crate) use multiscaling::{
@@ -9,3 +10,4 @@ pub(crate) use multiscaling::{
     MultiscalingMethodAlgorithmState,
 };
 pub(crate) use smoothing::{SmoothingDetectorCache, SmoothingDetectorState};
+pub(crate) use threshold::ThresholdDetectorState;

@@ -2,7 +2,7 @@
 use crate::{
     channels::algorithm_states::{
         MultiscalingDetectorCache, MultiscalingMethodAlgorithmState, PeakHeightParameters,
-        SmoothingDetectorCache,
+        SmoothingDetectorCache, ThresholdDetectorState,
     },
     parameters::{PeakHeightBasis, SmoothingDetectorParameters},
     pulse_detection::{
@@ -15,7 +15,7 @@ use crate::{
             region_detector::RegionDetector,
         },
         iterators::PaddingIterable,
-        threshold_detector::{ThresholdDetector, ThresholdDuration},
+        threshold_detector::ThresholdDetector,
         utils::{global_arg_min, std_dev},
         window::{FiniteDifferences, SliceWindow, convolution_filter::ConvolutionFilter},
     },
@@ -35,7 +35,7 @@ pub(super) fn find_fixed_threshold_events(
     sample_time: Real,
     polarity_sign: Real,
     baseline: Real,
-    parameters: &ThresholdDuration,
+    state: &mut ThresholdDetectorState,
 ) -> (Vec<Time>, Vec<Intensity>) {
     let raw = trace.enumerate().map(|(i, v)| {
         (
@@ -44,7 +44,7 @@ pub(super) fn find_fixed_threshold_events(
         )
     });
 
-    let pulses = raw.clone().events(ThresholdDetector::new(parameters));
+    let pulses = raw.clone().events(ThresholdDetector::new(&state.parameters));
 
     let mut time = Vec::<Time>::new();
     let mut voltage = Vec::<Intensity>::new();
@@ -217,13 +217,13 @@ pub(super) fn find_multiscaling_events(
 
     // Pass the smoothed trace on to the method.
     let (time, mut intensity) = match method_state {
-        MultiscalingMethodAlgorithmState::FixedThreshold { parameters } => {
+        MultiscalingMethodAlgorithmState::FixedThreshold(state) => {
             find_fixed_threshold_events(
                 smoothed_trace,
                 sample_time,
                 polarity_sign,
                 baseline,
-                parameters,
+                state,
             )
         }
         MultiscalingMethodAlgorithmState::DifferentialThreshold(state) => {

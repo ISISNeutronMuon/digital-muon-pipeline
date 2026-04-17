@@ -1,6 +1,6 @@
 //! Provides objects for persisting state for the multiscaling smoothing algorithm.
 use crate::{
-    channels::algorithm_states::{DifferentialThresholdDiscriminatorState, SmoothingDetectorState},
+    channels::algorithm_states::{DifferentialThresholdDiscriminatorState, SmoothingDetectorState, ThresholdDetectorState},
     parameters::{MultiscalingDetectorMethod, MultiscalingDetectorParameters},
     pulse_detection::{
         Real,
@@ -19,7 +19,7 @@ use num::complex::ComplexFloat;
 #[derive(Clone)]
 pub(crate) enum MultiscalingMethodAlgorithmState {
     /// Encapsulates channel state used by the Fixed Threshold algorithm.
-    FixedThreshold { parameters: ThresholdDuration },
+    FixedThreshold(ThresholdDetectorState),
     /// Encapsulates channel state used by the Differential Threshold algorithm.
     DifferentialThreshold(DifferentialThresholdDiscriminatorState),
     /// Encapsulates channel state used by the Smoothing algorithm.
@@ -33,15 +33,7 @@ impl MultiscalingMethodAlgorithmState {
     /// - mode: the `Mode` enum to create the state object from.
     pub(crate) fn new(mode: &MultiscalingDetectorMethod) -> Self {
         match mode {
-            MultiscalingDetectorMethod::FixedThresholdDiscriminator(parameters) => {
-                Self::FixedThreshold {
-                    parameters: ThresholdDuration {
-                        threshold: parameters.threshold,
-                        duration: parameters.duration,
-                        cool_off: parameters.cool_off,
-                    },
-                }
-            }
+            MultiscalingDetectorMethod::FixedThresholdDiscriminator(parameters) => Self::FixedThreshold(ThresholdDetectorState::new(parameters)),
             MultiscalingDetectorMethod::DifferentialThresholdDiscriminator(parameters) => {
                 Self::DifferentialThreshold(DifferentialThresholdDiscriminatorState::new(
                     parameters,

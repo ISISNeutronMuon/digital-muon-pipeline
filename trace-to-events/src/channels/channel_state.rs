@@ -3,7 +3,7 @@ use crate::{
     channels::{
         algorithm_states::{
             DifferentialThresholdDiscriminatorState, MultiscalingDetectorState,
-            SmoothingDetectorState,
+            SmoothingDetectorState, ThresholdDetectorState,
         },
         algorithms::{
             find_differential_threshold_events, find_fixed_threshold_events,
@@ -20,7 +20,7 @@ use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::Chan
 #[derive(Clone)]
 enum ChannelAlgorithmState {
     /// Encapsulates channel state used by the Fixed Threshold algorithm.
-    FixedThreshold { parameters: ThresholdDuration },
+    FixedThreshold(ThresholdDetectorState),
     /// Encapsulates channel state used by the Differential Threshold algorithm.
     DifferentialThreshold(DifferentialThresholdDiscriminatorState),
     /// Encapsulates channel state used by the Smoothing algorithm.
@@ -35,13 +35,9 @@ impl ChannelAlgorithmState {
     /// - mode: the `Mode` enum to create the state object from.
     pub(crate) fn new(mode: &Mode) -> Self {
         match mode {
-            Mode::FixedThresholdDiscriminator(parameters) => Self::FixedThreshold {
-                parameters: ThresholdDuration {
-                    threshold: parameters.threshold,
-                    duration: parameters.duration,
-                    cool_off: parameters.cool_off,
-                },
-            },
+            Mode::FixedThresholdDiscriminator(parameters) => Self::FixedThreshold(
+                ThresholdDetectorState::new(parameters),
+            ),
             Mode::DifferentialThresholdDiscriminator(parameters) => Self::DifferentialThreshold(
                 DifferentialThresholdDiscriminatorState::new(parameters),
             ),
@@ -99,7 +95,7 @@ impl ChannelState {
             .into_iter()
             .map(|x| x as Real);
         let result = match &mut self.algorithm {
-            ChannelAlgorithmState::FixedThreshold { parameters } => find_fixed_threshold_events(
+            ChannelAlgorithmState::FixedThreshold(parameters) => find_fixed_threshold_events(
                 trace,
                 sample_time,
                 self.polarity_sign,
