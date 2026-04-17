@@ -15,7 +15,9 @@
 
 pub(crate) mod baseline;
 pub(crate) mod convolution_filter;
+pub(crate) mod fft_inverse;
 pub(crate) mod finite_differences;
+pub(crate) mod pyramid;
 pub(crate) mod smoothing_window;
 
 use super::{Real, RealArray, Stats, Temporal};

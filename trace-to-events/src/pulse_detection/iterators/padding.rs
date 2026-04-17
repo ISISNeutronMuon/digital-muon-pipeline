@@ -1,5 +1,32 @@
 //! Provides event iterators and traits for converting trace data iterators into event iterators.
+use std::iter::once;
+
 use crate::pulse_detection::Real;
+
+/// Should be implemented for any iterator which supports the `events` method.
+pub(crate) trait ZeroPaddingIterable: Iterator {
+    fn pad_zeroes(
+        self,
+        left_padding: usize,
+        right_padding: usize,
+    ) -> impl Iterator<Item = Self::Item> + Clone;
+}
+
+impl<I> ZeroPaddingIterable for I
+where
+    I: Iterator<Item = Real> + Clone,
+{
+    fn pad_zeroes(
+        self,
+        left_padding: usize,
+        right_padding: usize,
+    ) -> impl Iterator<Item = Real> + Clone {
+        let left_padding = once(Default::default()).cycle().take(left_padding);
+        let right_padding = once(Default::default()).cycle().take(right_padding);
+
+        left_padding.chain(self).chain(right_padding)
+    }
+}
 
 /// Should be implemented for any iterator which supports the `events` method.
 pub(crate) trait PaddingIterable:
@@ -31,7 +58,7 @@ where
 
         let right_padding = self.clone().rev().take(right_padding);
 
-        left_padding.chain(self.clone()).chain(right_padding)
+        left_padding.chain(self).chain(right_padding)
     }
 }
 

@@ -32,6 +32,7 @@ pub(crate) enum KernelType {
         left: Box<KernelType>,
         right: Box<KernelType>,
     },
+    ManualCoefficients(Vec<Real>),
 }
 
 impl Default for KernelType {
@@ -84,6 +85,7 @@ impl KernelType {
                     })
                     .collect()
             }
+            KernelType::ManualCoefficients(coefs) => coefs,
         }
     }
 }
@@ -172,7 +174,7 @@ mod tests {
     use super::*;
     use crate::{
         pulse_detection::iterators::{PaddingIterable, WindowIterable},
-        test_data::{SMOOTHED_VALUED, VALUES},
+        test_data::smoothing,
     };
     use assert_approx_eq::assert_approx_eq;
     use digital_muon_common::Intensity;
@@ -330,7 +332,7 @@ mod tests {
     #[test]
     fn test_gaussian_convolution() {
         let gaussian_filter = ConvolutionFilter::new(KernelType::Gaussian { sigma: 2.0 });
-        let y_iter = VALUES.into_iter();
+        let y_iter = smoothing::VALUES.into_iter();
         let padded_iter = y_iter
             .clone()
             .pad_reflect(
@@ -342,9 +344,9 @@ mod tests {
 
         let smooth = padded_iter.window(gaussian_filter).collect::<Vec<_>>();
 
-        assert_eq!(SMOOTHED_VALUED.len(), smooth.len());
+        assert_eq!(smoothing::SMOOTHED_VALUED.len(), smooth.len());
 
-        for ((_, y1), y2) in smooth.iter().zip(SMOOTHED_VALUED.iter()) {
+        for ((_, y1), y2) in smooth.iter().zip(smoothing::SMOOTHED_VALUED.iter()) {
             assert_eq!(y1, y2);
         }
     }

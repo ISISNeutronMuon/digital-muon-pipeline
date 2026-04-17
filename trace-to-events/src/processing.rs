@@ -149,9 +149,8 @@ impl DigitiserMessageProcessor {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Mode, Polarity, parameters::FixedThresholdDiscriminatorParameters};
-
     use super::*;
+    use crate::{Mode, Polarity, parameters::FixedThresholdDiscriminatorParameters};
     use chrono::Utc;
     use digital_muon_common::Intensity;
     use digital_muon_streaming_types::{

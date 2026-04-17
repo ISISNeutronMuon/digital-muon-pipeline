@@ -110,6 +110,71 @@ pub(crate) struct SmoothingDetectorParameters {
     pub(crate) use_local_for_sizes_ge: Option<usize>,
 }
 
+/// Encapsulates the parameters specific to the Multiscaling detector.
+#[derive(Default, Debug, Clone, Parser)]
+pub(crate) struct MultiscalingDetectorParameters {
+    /// Coefficients of the smoothing kernel to apply on downsampling.
+    #[clap(
+        long,
+        default_value = "0.125,0.5,0.75,0.5,0.125",
+        value_delimiter = ','
+    )]
+    pub(crate) downsampling_smoothing: Vec<Real>,
+    /// Support of the `downsampling_smoothing` kernel used to compute the `upsampling_smoothing` kernel.
+    #[clap(long, default_value = "-2,-1,0,1,2", value_delimiter = ',')]
+    pub(crate) smoothing_support: Vec<i32>,
+    /// Amount of padding to use when calculating the `upsampling_smoothing` kernel.
+    #[clap(long, default_value = "200")]
+    pub(crate) fft_padding: usize,
+    /// Size of the computed `upsampling_smoothing` kernel.
+    #[clap(long, default_value = "20")]
+    pub(crate) fft_truncation: usize,
+    /// Number of pyramid layers.
+    #[clap(long, default_value = "4")]
+    pub(crate) number_of_layers: usize,
+    /// Applies denoise processing if true.
+    #[clap(long, default_value = "true")]
+    pub(crate) denoise: bool,
+    /// Layer denoise thresholds (if `denoise` is given, then provide `number_of_layers` values in descending order, starting from apex layer).
+    #[clap(long, default_value = "2,2,2,2", value_delimiter = ',')]
+    pub(crate) denoise_thresholds: Vec<Real>,
+    /// Applies enhance processing if true.
+    #[clap(long, default_value = "false")]
+    pub(crate) enhance: bool,
+    /// Layer enhance thresholds (if `enhance` is given, then provide `number_of_layers` values in descending order, starting from apex layer).
+    #[clap(long, default_value = "1,1,1,1", value_delimiter = ',')]
+    pub(crate) enhance_thresholds: Vec<Real>,
+    /// Layer enhance factors (if `enhance` is given, then provide `number_of_layers` values in descending order, starting from apex layer).
+    #[clap(long, default_value = "1.1,1.1,1.1,1.1", value_delimiter = ',')]
+    pub(crate) enhance_factors: Vec<Real>,
+    /// Applies multiply processing if true.
+    #[clap(long)]
+    pub(crate) multiply: bool,
+    /// Layer multiplication factors (if `multiply` is given, then provide `number_of_layers` values in descending order, starting from apex layer).
+    #[clap(long, default_value = "1.1,1.1,1.1,1.1", value_delimiter = ',')]
+    pub(crate) multiply_factors: Vec<Real>,
+    /// The underlying detector method to apply after the multiscaling smoothing has been applied.
+    #[command(subcommand)]
+    pub(crate) method: MultiscalingDetectorMethod,
+}
+
+/// Encapsulates the parameters specific to the Smoothing detector.
+#[derive(Debug, Clone, Parser)]
+pub(crate) enum MultiscalingDetectorMethod {
+    /// Detects events using a fixed threshold discriminator. Event lists consist of time and voltage values.
+    FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters),
+    /// Detects events using a differential threshold discriminator. Event lists consist of time and voltage values.
+    DifferentialThresholdDiscriminator(DifferentialThresholdDiscriminatorParameters),
+    /// Detects events using a smoothed second derivative. Event lists consist of time and voltage values.
+    SmoothingDetector(SmoothingDetectorParameters),
+}
+
+impl Default for MultiscalingDetectorMethod {
+    fn default() -> Self {
+        Self::FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters::default())
+    }
+}
+
 /// Specifies which detector is to be used, and wraps the detector-specific options in each variant.
 #[derive(Subcommand, Debug)]
 pub(crate) enum Mode {
@@ -119,4 +184,6 @@ pub(crate) enum Mode {
     DifferentialThresholdDiscriminator(DifferentialThresholdDiscriminatorParameters),
     /// Detects events using a smoothed second derivative. Event lists consist of time and voltage values.
     SmoothingDetector(SmoothingDetectorParameters),
+    /// Detects events using one of the other methods after applying multiscaling pyramid smoothing. Event lists consist of time and voltage values.
+    Multiscaling(MultiscalingDetectorParameters),
 }
