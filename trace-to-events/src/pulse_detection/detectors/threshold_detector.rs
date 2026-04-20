@@ -54,7 +54,7 @@ pub(crate) type ThresholdEvent = (Real, Data);
 
 impl Detector for ThresholdDetector {
     type TracePointType = (Real, Real);
-    type EventPointType = (Real, Data);
+    type EventOutputType = (Real, Data);
 
     fn signal(&mut self, time: Real, value: Real) -> Option<ThresholdEvent> {
         match self.time_crossed {
@@ -115,7 +115,7 @@ impl Detector for ThresholdDetector {
         }
     }
 
-    fn finish(&mut self) -> Option<Self::EventPointType> {
+    fn finish(&mut self) -> Option<Self::EventOutputType> {
         let result = self.temp_time;
         self.temp_time = None;
         result.map(|time| {
@@ -132,7 +132,7 @@ impl Detector for ThresholdDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::{EventsIterable, Real};
+    use crate::{pulse_detection::{EventsIterable, Real}, test_data::{pyramid::INPUT, assert_iters_equal}};
 
     #[test]
     fn zero_data() {
@@ -259,5 +259,25 @@ mod tests {
         assert_eq!(iter.next(), Some((4.0, Data { pulse_height: -1.0 })));
         assert_eq!(iter.next(), Some((8.0, Data { pulse_height: -2.0 })));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_real_data() {
+        let parameters = ThresholdDuration {
+            threshold: 3.0,
+            duration: 2,
+            cool_off: 0,
+        };
+        let detector = ThresholdDetector::new(&parameters);
+        let events = INPUT
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as Real, 200.0*v as Real))
+            .events(detector)
+            .collect::<Vec<_>>();
+        let expected_times = [0.0, 49.0, 60.0, 122.0];
+        let expected_heights = [26.456692913385837, 4.40944881889764, 3.62204724409448, 28.03149606299212];
+        assert_iters_equal(events.iter().map(|x|&x.0), expected_times.iter());
+        assert_iters_equal(events.iter().map(|x|&x.1.pulse_height), expected_heights.iter());
     }
 }

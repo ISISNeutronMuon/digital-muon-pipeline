@@ -8,6 +8,8 @@ use std::fmt::Debug;
 /// whereas TraceValue is time-agnostic.
 pub(crate) trait EventData: Default + Clone + Debug {}
 
+impl EventData for () {}
+
 /// Abstracts types that are outputted by the various filters.
 ///
 /// To implement this a type must contain time and event data.
@@ -23,4 +25,12 @@ where
 {
     type TimeType = T;
     type EventType = E;
+}
+
+impl<T> EventPoint for T
+where
+    T: Temporal
+{
+    type TimeType = T;
+    type EventType = ();
 }

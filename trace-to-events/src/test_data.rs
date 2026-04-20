@@ -1,5 +1,6 @@
 #![cfg_attr(rustfmt, rustfmt_skip)]
 use assert_approx_eq::assert_approx_eq;
+use digital_muon_common::Intensity;
 use crate::pulse_detection::Real;
 
 pub(crate) fn assert_iters_equal<'a>(
@@ -15,6 +16,26 @@ pub(crate) fn assert_iters_equal<'a>(
 
 pub(crate) fn assert_slices_equal<'a>(output: &'a [Real], expected_data: &'a [Real]) {
     assert_iters_equal(output.iter(), expected_data.iter())
+}
+
+pub(crate) fn b2bexp(
+    x: Real,
+    ampl: Real,
+    spread: Real,
+    x0: Real,
+    rising: Real,
+    falling: Real,
+) -> Intensity {
+    let normalising_factor = ampl * 0.5 * (rising * falling) / (rising + falling);
+    let rising_spread = rising * spread.powi(2);
+    let falling_spread = falling * spread.powi(2);
+    let x_shift = x - x0;
+    let rising_exp = Real::exp(rising * 0.5 * (rising_spread + 2.0 * x_shift));
+    let rising_erfc = libm::erfc((rising_spread + x_shift) / (Real::sqrt(2.0) * spread));
+    let falling_exp = Real::exp(falling * 0.5 * (falling_spread - 2.0 * x_shift));
+    let falling_erfc = libm::erfc((falling_spread - x_shift) / (Real::sqrt(2.0) * spread));
+    (normalising_factor * (rising_exp * rising_erfc + falling_exp * falling_erfc))
+        as Intensity
 }
 
 pub(crate) mod smoothing{

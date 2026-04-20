@@ -20,7 +20,7 @@ where
     I: Iterator<Item = D::TracePointType>,
     D: Detector,
 {
-    type Item = D::EventPointType;
+    type Item = D::EventOutputType;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {

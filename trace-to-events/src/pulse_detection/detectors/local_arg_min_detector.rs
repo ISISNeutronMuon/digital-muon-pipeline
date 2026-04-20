@@ -1,11 +1,5 @@
 //! This detector registers an event whenever the input stream achieves a local minima.
 use super::{Detector, Real};
-use crate::pulse_detection::EventPoint;
-
-impl EventPoint for usize {
-    type TimeType = usize;
-    type EventType = usize;
-}
 
 /// The time-dependent event of the local minima detector.
 pub(crate) type LocalArgMinEvent = usize;
@@ -65,9 +59,9 @@ pub(crate) struct LocalArgMinDetector {
 
 impl Detector for LocalArgMinDetector {
     type TracePointType = (usize, Real);
-    type EventPointType = LocalArgMinEvent;
+    type EventOutputType = LocalArgMinEvent;
 
-    fn signal(&mut self, time: usize, value: Real) -> Option<LocalArgMinEvent> {
+    fn signal(&mut self, time: usize, value: Real) -> Option<Self::EventOutputType> {
         if self.cache.is_empty() {
             self.default = Some(time);
         }
@@ -83,7 +77,7 @@ impl Detector for LocalArgMinDetector {
         event
     }
 
-    fn finish(&mut self) -> Option<Self::EventPointType> {
+    fn finish(&mut self) -> Option<Self::EventOutputType> {
         self.default.take()
     }
 }

@@ -213,9 +213,9 @@ impl DifferentialThresholdDetector {
 
 impl Detector for DifferentialThresholdDetector {
     type TracePointType = (Real, TraceArray<2, Real>);
-    type EventPointType = ThresholdEvent;
+    type EventOutputType = ThresholdEvent;
 
-    fn signal(&mut self, time: Real, value: TraceArray<2, Real>) -> Option<ThresholdEvent> {
+    fn signal(&mut self, time: Real, value: TraceArray<2, Real>) -> Option<Self::EventOutputType> {
         self.update_state(time, value);
 
         if let Some(mut event) = self.try_take_completed_event() {
@@ -229,7 +229,7 @@ impl Detector for DifferentialThresholdDetector {
         }
     }
 
-    fn finish(&mut self) -> Option<Self::EventPointType> {
+    fn finish(&mut self) -> Option<Self::EventOutputType> {
         self.partial_event
             .take()
             .map(|partial_event| partial_event.into_event());
@@ -240,7 +240,7 @@ impl Detector for DifferentialThresholdDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pulse_detection::{EventsIterable, Real, WindowIterable, window::FiniteDifferences};
+    use crate::{pulse_detection::{EventsIterable, Real, WindowIterable, window::FiniteDifferences}, test_data::{pyramid::INPUT, assert_iters_equal}};
     use digital_muon_common::Intensity;
 
     fn pipeline(
@@ -301,6 +301,24 @@ mod tests {
         assert_eq!(iter.next(), some_new_event(3.0, 2.0, 6.0));
         assert_eq!(iter.next(), some_new_event(6.0, 1.0, 7.0));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_real_data() {
+        let parameters = DifferentialThresholdParameters {
+            begin_threshold: 2.5,
+            end_threshold: 0.0,
+            ..Default::default()
+        };
+        let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+        let data = INPUT.iter().map(|x|(x*1000.0) as Intensity).collect::<Vec<_>>();
+        let events = pipeline(data.as_slice(), detector).collect::<Vec<_>>();
+        let expected_times = [19.0, 49.0, 56.0, 60.0, 74.0, 76.0, 90.0, 97.0, 111.0, 116.0];
+        let expected_bases = [33.0, 14.0, 18.0, 14.0, 10.0, 14.0, 6.0, 10.0, 6.0, 6.0];
+        let expected_peaks = [132.0, 22.0, 22.0, 18.0, 14.0, 18.0, 10.0, 14.0, 10.0, 10.0];
+        assert_iters_equal(events.iter().map(|x|&x.0), expected_times.iter());
+        assert_iters_equal(events.iter().map(|x|&x.1.base_height), expected_bases.iter());
+        assert_iters_equal(events.iter().map(|x|&x.1.peak_height), expected_peaks.iter());
     }
 
     mod begin_duration {
@@ -525,27 +543,8 @@ mod tests {
     }
 
     mod b2b {
+        use crate::test_data::b2bexp;
         use super::*;
-
-        fn b2bexp(
-            x: Real,
-            ampl: Real,
-            spread: Real,
-            x0: Real,
-            rising: Real,
-            falling: Real,
-        ) -> Intensity {
-            let normalising_factor = ampl * 0.5 * (rising * falling) / (rising + falling);
-            let rising_spread = rising * spread.powi(2);
-            let falling_spread = falling * spread.powi(2);
-            let x_shift = x - x0;
-            let rising_exp = Real::exp(rising * 0.5 * (rising_spread + 2.0 * x_shift));
-            let rising_erfc = libm::erfc((rising_spread + x_shift) / (Real::sqrt(2.0) * spread));
-            let falling_exp = Real::exp(falling * 0.5 * (falling_spread - 2.0 * x_shift));
-            let falling_erfc = libm::erfc((falling_spread - x_shift) / (Real::sqrt(2.0) * spread));
-            (normalising_factor * (rising_exp * rising_erfc + falling_exp * falling_erfc))
-                as Intensity
-        }
 
         #[test]
         fn test_b2bexp() {
