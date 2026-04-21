@@ -14,7 +14,7 @@
 
 use num::{Integer, integer::binomial};
 
-use crate::pulse_detection::window::SliceWindow;
+use crate::pulse_detection::window::{SliceWindow, TimeShift};
 
 use super::{Real, Window};
 use std::collections::VecDeque;
@@ -126,6 +126,17 @@ impl ConvolutionFilter {
         sum
     }
 }
+impl TimeShift<Real> for ConvolutionFilter {
+    fn apply_time_shift(&self, time: Real) -> Real {
+        time - (self.size - 1.) / 2.0
+    }
+}
+
+impl TimeShift<usize> for ConvolutionFilter {
+    fn apply_time_shift(&self, time: usize) -> usize {
+        time - (self.kernel.len() - 1) / 2
+    }
+}
 
 impl Window for ConvolutionFilter {
     type TimeType = Real;
@@ -149,10 +160,6 @@ impl Window for ConvolutionFilter {
         } else {
             None
         }
-    }
-
-    fn apply_time_shift(&self, time: Real) -> Real {
-        time - (self.size - 1.) / 2.0
     }
 }
 

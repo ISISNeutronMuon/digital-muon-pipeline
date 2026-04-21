@@ -13,6 +13,8 @@
 //!        .window(FiniteDifference::<2>::new())
 //!        .map(|(i,fd)| (i, fd[1]));
 //! ```
+use crate::pulse_detection::{Temporal, window::TimeShift};
+
 use super::{Real, RealArray, Window};
 use num::integer::binomial;
 use std::collections::VecDeque;
@@ -55,6 +57,12 @@ impl<const N: usize> FiniteDifferences<N> {
     }
 }
 
+impl<const N: usize, T: Temporal> TimeShift<T> for FiniteDifferences<N> {
+    fn apply_time_shift(&self, time: T) -> T {
+        time
+    }
+}
+
 impl<const N: usize> Window for FiniteDifferences<N> {
     type TimeType = Real;
     type InputType = Real;
@@ -77,10 +85,6 @@ impl<const N: usize> Window for FiniteDifferences<N> {
     fn output(&self) -> Option<Self::OutputType> {
         (self.values.len() + 1 == N)
             .then_some(RealArray::new(self.diffs.as_slice().try_into().ok()?))
-    }
-
-    fn apply_time_shift(&self, time: Self::TimeType) -> Self::TimeType {
-        time
     }
 }
 

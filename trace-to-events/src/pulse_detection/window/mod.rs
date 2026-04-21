@@ -24,7 +24,13 @@ use super::{Real, RealArray, Stats, Temporal};
 pub(crate) use finite_differences::FiniteDifferences;
 
 /// Consumes values from a waveform, and outputs a waveform after processing.
-pub(crate) trait Window: Clone {
+pub(crate) trait TimeShift<TimeType: Temporal>: Clone {
+    /// Shifts the time value by half the window's size.
+    fn apply_time_shift(&self, time: TimeType) -> TimeType;
+}
+
+/// Consumes values from a waveform, and outputs a waveform after processing.
+pub(crate) trait Window: TimeShift<Self::TimeType> {
     type TimeType: Temporal;
     type InputType: Copy;
     type OutputType;
@@ -34,9 +40,6 @@ pub(crate) trait Window: Clone {
 
     /// Extracts the window's current processed value.
     fn output(&self) -> Option<Self::OutputType>;
-
-    /// Shifts the time value by half the window's size.
-    fn apply_time_shift(&self, time: Self::TimeType) -> Self::TimeType;
 }
 
 /// Consumes values from a waveform, and outputs a waveform after processing.[TODO]
