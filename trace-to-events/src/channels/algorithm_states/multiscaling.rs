@@ -251,7 +251,7 @@ mod tests {
             FixedThresholdDiscriminatorParameters, MultiscalingDetectorMethod,
             MultiscalingDetectorParameters,
         },
-        test_data::{assert_iters_equal, pyramid::INPUT},
+        test_data::{assert_iters_approx_equal, assert_iters_equal, pyramid::INPUT},
     };
 
     #[test]
@@ -285,11 +285,9 @@ mod tests {
             .into_iter()
             .map(|x| x as Real)
             .collect::<Vec<_>>();
-        let expected_times = [11.0, 27.0, 36.0, 43.0, 59.0];
-        let expected_intensities = [41.0, 69.0, 25.0, 22.0, 14.0];
+        let expected_times = [11.0, 27.0, 36.0, 43.0, 59.0, 126.0];
+        let expected_intensities = [41.0, 69.0, 25.0, 22.0, 14.0, 112.0];
         assert_iters_equal(times.iter(), expected_times.iter());
-        assert_iters_equal(intensities.iter(), expected_intensities.iter());
-        println!("{times:?}");
-        println!("{intensities:?}");
+        assert_iters_approx_equal(intensities.iter(), expected_intensities.iter());
     }
 }

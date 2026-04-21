@@ -1,6 +1,10 @@
 use digital_muon_common::{Intensity, Time};
 
-use crate::{channels::algorithm_states::AlgorithmState, parameters::FixedThresholdDiscriminatorParameters, pulse_detection::{EventsIterable, Real, threshold_detector::{ThresholdDetector, ThresholdDuration}}};
+use crate::{
+    channels::algorithm_states::{AlgorithmState, AlgorithmStateIterator},
+    parameters::FixedThresholdDiscriminatorParameters,
+    pulse_detection::{EventsIterable, Real, threshold_detector::{ThresholdDetector, ThresholdDetectorParameters}}
+};
 
 /// Memory which is used in the smoothing algorithm.
 /// These are persisted and overwritten each channel trace,
@@ -35,7 +39,7 @@ impl ThresholdDetectorCache {
 #[derive(Clone)]
 pub(crate) struct ThresholdDetectorState {
     /// Parameters for the threshold detector.
-    pub(crate) parameters: ThresholdDuration,
+    pub(crate) parameters: ThresholdDetectorParameters,
     /// This cache is persisted to avoid reallocations on every channel trace.
     pub(crate) cache: ThresholdDetectorCache,
 }
@@ -43,10 +47,10 @@ pub(crate) struct ThresholdDetectorState {
 impl ThresholdDetectorState {
     pub(crate) fn new(parameters: &FixedThresholdDiscriminatorParameters) -> Self {
         Self {
-            parameters: ThresholdDuration {
+            parameters: ThresholdDetectorParameters {
                 threshold: parameters.threshold,
-                duration: parameters.duration,
-                cool_off: parameters.cool_off,
+                duration: parameters.duration.into(),
+                cool_off: parameters.cool_off.into(),
             },
             cache: Default::default(),
         }
@@ -63,9 +67,9 @@ impl AlgorithmState for ThresholdDetectorState {
         baseline: Real,
     ) -> (Vec<Time>, Vec<Intensity>) {
         self.cache.ensure_time_data_written(trace.len(), sample_time);
-        let raw = self.cache.time
-            .iter()
-            .cloned()
+        let raw = (0..self.cache.time.len())
+            .into_iter()
+            //.cloned()
             .zip(trace
                 .map(|v|polarity_sign * (v as Real - baseline))
             );
@@ -75,7 +79,7 @@ impl AlgorithmState for ThresholdDetectorState {
         let mut time = Vec::<Time>::new();
         let mut voltage = Vec::<Intensity>::new();
         for pulse in pulses {
-            time.push(pulse.0 as Time);
+            time.push(*self.cache.time.get(pulse.0).expect("") as Time);
             voltage.push(pulse.1.pulse_height as Intensity);
         }
         (time, voltage)

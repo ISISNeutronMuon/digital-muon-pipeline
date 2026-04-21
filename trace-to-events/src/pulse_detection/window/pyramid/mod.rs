@@ -17,7 +17,7 @@ mod tests {
             fft_inverse::FftInverse,
         },
         test_data::{
-            assert_slices_equal,
+            assert_slices_approx_equal,
             pyramid::{INPUT, layer1, layer2, layer3, layer4},
         },
     };
@@ -35,7 +35,7 @@ mod tests {
             downsample_smoothing_coefs.as_mut_slice(),
         );
 
-        assert_slices_equal(
+        assert_slices_approx_equal(
             &downsample_smoothing_coefs,
             &[0.04112906, -0.23971773, 1.39717735, -0.23971773, 0.04112906],
         );
@@ -83,31 +83,31 @@ mod tests {
             let layer_4 = layer_3.get_next_layer().unwrap();
 
             // Test subdivided
-            assert_slices_equal(layer_4.get_subdivided(), &layer4::SUBDIVIDED);
-            assert_slices_equal(layer_3.get_subdivided(), &layer3::SUBDIVIDED);
-            assert_slices_equal(layer_2.get_subdivided(), &layer2::SUBDIVIDED);
-            assert_slices_equal(layer_1.get_subdivided(), &layer1::SUBDIVIDED);
+            assert_slices_approx_equal(layer_4.get_subdivided(), &layer4::SUBDIVIDED);
+            assert_slices_approx_equal(layer_3.get_subdivided(), &layer3::SUBDIVIDED);
+            assert_slices_approx_equal(layer_2.get_subdivided(), &layer2::SUBDIVIDED);
+            assert_slices_approx_equal(layer_1.get_subdivided(), &layer1::SUBDIVIDED);
 
             // Test refined
-            assert_slices_equal(layer_4.get_refined(), &layer4::REFINED);
-            assert_slices_equal(layer_3.get_refined(), &layer3::REFINED);
-            assert_slices_equal(layer_2.get_refined(), &layer2::REFINED);
-            assert_slices_equal(layer_1.get_refined(), &layer1::REFINED);
+            assert_slices_approx_equal(layer_4.get_refined(), &layer4::REFINED);
+            assert_slices_approx_equal(layer_3.get_refined(), &layer3::REFINED);
+            assert_slices_approx_equal(layer_2.get_refined(), &layer2::REFINED);
+            assert_slices_approx_equal(layer_1.get_refined(), &layer1::REFINED);
 
             // Test detail_coefficients before processing
-            assert_slices_equal(
+            assert_slices_approx_equal(
                 layer_4.get_detail_coefficients(),
                 &layer4::DETAIL_COEFFICIENTS,
             );
-            assert_slices_equal(
+            assert_slices_approx_equal(
                 layer_3.get_detail_coefficients(),
                 &layer3::DETAIL_COEFFICIENTS,
             );
-            assert_slices_equal(
+            assert_slices_approx_equal(
                 layer_2.get_detail_coefficients(),
                 &layer2::DETAIL_COEFFICIENTS,
             );
-            assert_slices_equal(
+            assert_slices_approx_equal(
                 layer_1.get_detail_coefficients(),
                 &layer1::DETAIL_COEFFICIENTS,
             );
@@ -121,19 +121,19 @@ mod tests {
             let layer_4 = layer_3.get_next_layer().unwrap();
 
             // Test detail_coefficients after processing
-            assert_slices_equal(
+            assert_slices_approx_equal(
                 layer_4.get_detail_coefficients(),
                 &layer4::NEW_DETAIL_COEFFICIENTS,
             );
-            assert_slices_equal(
+            assert_slices_approx_equal(
                 layer_3.get_detail_coefficients(),
                 &layer3::NEW_DETAIL_COEFFICIENTS,
             );
-            assert_slices_equal(
+            assert_slices_approx_equal(
                 layer_2.get_detail_coefficients(),
                 &layer2::NEW_DETAIL_COEFFICIENTS,
             );
-            assert_slices_equal(
+            assert_slices_approx_equal(
                 layer_1.get_detail_coefficients(),
                 &layer1::NEW_DETAIL_COEFFICIENTS,
             );
@@ -147,10 +147,10 @@ mod tests {
             let layer_4 = layer_3.get_next_layer().unwrap();
 
             // Test rebuilt
-            assert_slices_equal(layer_4.get_refined(), &layer4::REBUILT);
-            assert_slices_equal(layer_3.get_refined(), &layer3::REBUILT);
-            assert_slices_equal(layer_2.get_refined(), &layer2::REBUILT);
-            assert_slices_equal(layer_1.get_refined(), &layer1::REBUILT);
+            assert_slices_approx_equal(layer_4.get_refined(), &layer4::REBUILT);
+            assert_slices_approx_equal(layer_3.get_refined(), &layer3::REBUILT);
+            assert_slices_approx_equal(layer_2.get_refined(), &layer2::REBUILT);
+            assert_slices_approx_equal(layer_1.get_refined(), &layer1::REBUILT);
         }
     }
 }

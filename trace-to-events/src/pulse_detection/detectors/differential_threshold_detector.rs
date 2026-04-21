@@ -3,19 +3,22 @@
 //!
 //! The detector also implements a cool-down period to wait before another detection is registered.
 use super::{Detector, EventData, Real};
-use crate::{parameters::PeakHeightMode, pulse_detection::datatype::TraceArray};
+use crate::{parameters::PeakHeightMode, pulse_detection::{TracePoint, datatype::TraceArray}};
 use num::Zero;
+
+/// Helper Type for the time type used for by the detector.
+type DetectorTime = <<DifferentialThresholdDetector as Detector>::TracePointType as TracePoint>::Time;
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct DifferentialThresholdParameters {
     /// The differential threshold the trace must exceed to trigger the detector.
     pub(crate) begin_threshold: Real,
     /// How long the trace derivative must be above the `begin_threshold` to begin the detection.
-    pub(crate) begin_duration: Real,
+    pub(crate) begin_duration: DetectorTime,
     /// The differential threshold the trace must fall below to complete a detection.
     pub(crate) end_threshold: Real,
     /// How long the trace derivative must be below the `end_threshold` to complete the detection.
-    pub(crate) end_duration: Real,
+    pub(crate) end_duration: DetectorTime,
     /// Minimum time between end of last pulse and detection of a new one.
     pub(crate) cool_off: Real,
 }
@@ -38,17 +41,17 @@ enum DetectorState {
     #[default]
     Waiting,
     /// The trace has been over `begin_threshold` for less than least `begin_duration`.
-    Beginning { time_begun: Real },
+    Beginning { time_begun: DetectorTime },
     /// The trace has been over `begin_threshold` for at least `begin_duration`.
     Detected,
     /// The trace has been below `end_threshold` for at less than `end_duration`, having previously been in the `Detected` state..
-    Ending { time_ended: Real },
+    Ending { time_ended: DetectorTime },
     /// The detector has just completed an event detection and is waiting to cool down, before being able to detect another.
-    CoolingDown { time_ended: Real },
+    CoolingDown { time_ended: DetectorTime },
 }
 
 /// (Time, Data) pair defining a pulse detection event.
-pub(crate) type ThresholdEvent = (Real, Data);
+pub(crate) type ThresholdEvent = (DetectorTime, Data);
 
 /// Represents an event in the process of being detected.
 #[derive(Clone)]
@@ -56,7 +59,7 @@ struct PartialEvent {
     /// The height of the trace at the pulse's detection.
     base_height: Real,
     /// The time associated with the event, i.e. time of the rising edge.
-    time_of_event: Real,
+    time_of_event: DetectorTime,
     /// The trace value at the time of the peak.
     peak_height: Real,
     /// The value/deriv pair at the time of maximum derivative.
@@ -65,7 +68,7 @@ struct PartialEvent {
 
 impl PartialEvent {
     /// Create and initialise new partial event from the inital trace values.
-    fn new(time: Real, value: TraceArray<2, Real>) -> Self {
+    fn new(time: DetectorTime, value: TraceArray<2, Real>) -> Self {
         Self {
             time_of_event: time,
             trace_array_at_max_deriv: value,
@@ -75,7 +78,7 @@ impl PartialEvent {
     }
 
     /// Applies new trace data to the current event in progress.
-    fn update(&mut self, peak_height_mode: PeakHeightMode, time: Real, value: TraceArray<2, Real>) {
+    fn update(&mut self, peak_height_mode: PeakHeightMode, time: DetectorTime, value: TraceArray<2, Real>) {
         // Updates the max derivative if the current derivative is higher.
         if self.trace_array_at_max_deriv[1] < value[1] {
             self.trace_array_at_max_deriv = value;
@@ -147,7 +150,7 @@ impl DifferentialThresholdDetector {
     /// |`Beginning`|`self.parameters.begin_duration` is nonzero|
     /// |`Ending`|`self.parameters.end_duration` is nonzero|
     /// |`CoolingDown`|`self.parameters.cooloff` is nonzero|
-    fn update_state(&mut self, time: Real, value: TraceArray<2, Real>) {
+    fn update_state(&mut self, time: DetectorTime, value: TraceArray<2, Real>) {
         match self.state {
             DetectorState::Waiting => {
                 if value[1] >= self.parameters.begin_threshold {
@@ -160,7 +163,7 @@ impl DifferentialThresholdDetector {
                 }
             }
             DetectorState::Beginning { time_begun } => {
-                if time >= time_begun + self.parameters.begin_duration {
+                if time >= time_begun + self.parameters.begin_duration as DetectorTime {
                     self.state = DetectorState::Detected;
                 } else if value[1] < self.parameters.begin_threshold {
                     self.partial_event = None;
@@ -181,7 +184,7 @@ impl DifferentialThresholdDetector {
                 }
             }
             DetectorState::Ending { time_ended } => {
-                if time >= time_ended + self.parameters.end_duration {
+                if time >= time_ended + self.parameters.end_duration as DetectorTime {
                     if self.parameters.cool_off.is_zero() {
                         self.state = DetectorState::Waiting;
                     } else {
@@ -192,14 +195,14 @@ impl DifferentialThresholdDetector {
                 }
             }
             DetectorState::CoolingDown { time_ended } => {
-                if time >= time_ended + self.parameters.cool_off {
+                if time >= time_ended + self.parameters.cool_off as DetectorTime {
                     self.state = DetectorState::Waiting;
                 }
             }
         }
     }
 
-    /// If a partial event is in progress, take ownership of it as long as the sate
+    /// If a partial event is in progress, take ownership of it as long as the state
     /// is `Ending`, `CoolingDown` or `Waiting`, otherwise return `None`.
     fn try_take_completed_event(&mut self) -> Option<PartialEvent> {
         match self.state {
@@ -212,10 +215,10 @@ impl DifferentialThresholdDetector {
 }
 
 impl Detector for DifferentialThresholdDetector {
-    type TracePointType = (Real, TraceArray<2, Real>);
+    type TracePointType = (usize, TraceArray<2, Real>);
     type EventOutputType = ThresholdEvent;
 
-    fn signal(&mut self, time: Real, value: TraceArray<2, Real>) -> Option<Self::EventOutputType> {
+    fn signal(&mut self, time: <Self::TracePointType as TracePoint>::Time, value: TraceArray<2, Real>) -> Option<Self::EventOutputType> {
         self.update_state(time, value);
 
         if let Some(mut event) = self.try_take_completed_event() {
@@ -240,22 +243,22 @@ impl Detector for DifferentialThresholdDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{pulse_detection::{EventsIterable, Real, WindowIterable, window::FiniteDifferences}, test_data::{pyramid::INPUT, assert_iters_equal}};
+    use crate::{pulse_detection::{EventsIterable, Real, WindowIterable, window::FiniteDifferences}, test_data::{assert_iters_approx_equal, assert_iters_equal, pyramid::INPUT}};
     use digital_muon_common::Intensity;
 
     fn pipeline(
         data: &[Intensity],
         detector: DifferentialThresholdDetector,
-    ) -> impl Iterator<Item = (f64, Data)> {
+    ) -> impl Iterator<Item = (DetectorTime, Data)> {
         data.iter()
             .copied()
             .enumerate()
-            .map(|(i, v)| (i as Real, v as Real))
+            .map(|(i, v)| (i as DetectorTime, v as Real))
             .window(FiniteDifferences::<2>::new())
             .events(detector)
     }
 
-    fn some_new_event(time: Real, base_height: Real, peak_height: Real) -> Option<ThresholdEvent> {
+    fn some_new_event(time: DetectorTime, base_height: Real, peak_height: Real) -> Option<ThresholdEvent> {
         Some((
             time,
             Data {
@@ -272,7 +275,7 @@ mod tests {
             &DifferentialThresholdParameters {
                 begin_threshold: 2.0,
                 end_threshold: 0.0,
-                begin_duration: 2.0,
+                begin_duration: 2 as DetectorTime,
                 ..Default::default()
             },
             Default::default(),
@@ -292,14 +295,14 @@ mod tests {
         let detector =
             DifferentialThresholdDetector::new(&parameters, PeakHeightMode::ValueAtEndTrigger);
         let mut iter = pipeline(&data, detector);
-        assert_eq!(iter.next(), some_new_event(3.0, 2.0, 6.0));
-        assert_eq!(iter.next(), some_new_event(6.0, 1.0, 6.0));
+        assert_eq!(iter.next(), some_new_event(3 as DetectorTime, 2.0, 6.0));
+        assert_eq!(iter.next(), some_new_event(6 as DetectorTime, 1.0, 6.0));
         assert_eq!(iter.next(), None);
 
         let detector = DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
         let mut iter = pipeline(&data, detector);
-        assert_eq!(iter.next(), some_new_event(3.0, 2.0, 6.0));
-        assert_eq!(iter.next(), some_new_event(6.0, 1.0, 7.0));
+        assert_eq!(iter.next(), some_new_event(3 as DetectorTime, 2.0, 6.0));
+        assert_eq!(iter.next(), some_new_event(6 as DetectorTime, 1.0, 7.0));
         assert_eq!(iter.next(), None);
     }
 
@@ -313,12 +316,12 @@ mod tests {
         let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
         let data = INPUT.iter().map(|x|(x*1000.0) as Intensity).collect::<Vec<_>>();
         let events = pipeline(data.as_slice(), detector).collect::<Vec<_>>();
-        let expected_times = [19.0, 49.0, 56.0, 60.0, 74.0, 76.0, 90.0, 97.0, 111.0, 116.0];
+        let expected_times = [19, 49, 56, 60, 74, 76, 90, 97, 111, 116];
         let expected_bases = [33.0, 14.0, 18.0, 14.0, 10.0, 14.0, 6.0, 10.0, 6.0, 6.0];
         let expected_peaks = [132.0, 22.0, 22.0, 18.0, 14.0, 18.0, 10.0, 14.0, 10.0, 10.0];
         assert_iters_equal(events.iter().map(|x|&x.0), expected_times.iter());
-        assert_iters_equal(events.iter().map(|x|&x.1.base_height), expected_bases.iter());
-        assert_iters_equal(events.iter().map(|x|&x.1.peak_height), expected_peaks.iter());
+        assert_iters_approx_equal(events.iter().map(|x|&x.1.base_height), expected_bases.iter());
+        assert_iters_approx_equal(events.iter().map(|x|&x.1.peak_height), expected_peaks.iter());
     }
 
     mod begin_duration {
@@ -330,13 +333,13 @@ mod tests {
             let parameters = DifferentialThresholdParameters {
                 begin_threshold: 2.5,
                 end_threshold: 0.0,
-                begin_duration: 3.0,
+                begin_duration: 3 as DetectorTime,
                 ..Default::default()
             };
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
             let mut iter = pipeline(&DATA, detector);
 
-            assert_eq!(iter.next(), some_new_event(5.0, 2.0, 12.0));
+            assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
             assert_eq!(iter.next(), None);
         }
 
@@ -345,13 +348,13 @@ mod tests {
             let parameters = DifferentialThresholdParameters {
                 begin_threshold: 2.5,
                 end_threshold: 0.0,
-                begin_duration: 2.0,
+                begin_duration: 2 as DetectorTime,
                 ..Default::default()
             };
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
             let mut iter = pipeline(&DATA, detector);
 
-            assert_eq!(iter.next(), some_new_event(5.0, 2.0, 12.0));
+            assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
             assert_eq!(iter.next(), None);
         }
 
@@ -360,15 +363,15 @@ mod tests {
             let parameters = DifferentialThresholdParameters {
                 begin_threshold: 2.5,
                 end_threshold: 0.0,
-                begin_duration: 1.0,
+                begin_duration: 1 as DetectorTime,
                 ..Default::default()
             };
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
 
             let mut iter = pipeline(&DATA, detector);
-            assert_eq!(iter.next(), some_new_event(5.0, 2.0, 12.0));
-            assert_eq!(iter.next(), some_new_event(8.0, 1.0, 7.0));
-            assert_eq!(iter.next(), some_new_event(11.0, 2.0, 8.0));
+            assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
+            assert_eq!(iter.next(), some_new_event(8 as DetectorTime, 1.0, 7.0));
+            assert_eq!(iter.next(), some_new_event(11 as DetectorTime, 2.0, 8.0));
             assert_eq!(iter.next(), None);
         }
 
@@ -382,11 +385,11 @@ mod tests {
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
 
             let mut iter = pipeline(&DATA, detector);
-            assert_eq!(iter.next(), some_new_event(5.0, 2.0, 12.0));
-            assert_eq!(iter.next(), some_new_event(8.0, 1.0, 7.0));
-            assert_eq!(iter.next(), some_new_event(11.0, 2.0, 6.0));
-            assert_eq!(iter.next(), some_new_event(13.0, 5.0, 8.0));
-            assert_eq!(iter.next(), some_new_event(15.0, 8.0, 11.0));
+            assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
+            assert_eq!(iter.next(), some_new_event(8 as DetectorTime, 1.0, 7.0));
+            assert_eq!(iter.next(), some_new_event(11 as DetectorTime, 2.0, 6.0));
+            assert_eq!(iter.next(), some_new_event(13 as DetectorTime, 5.0, 8.0));
+            assert_eq!(iter.next(), some_new_event(15 as DetectorTime, 8.0, 11.0));
             assert_eq!(iter.next(), None);
         }
     }
@@ -400,13 +403,13 @@ mod tests {
             let parameters = DifferentialThresholdParameters {
                 begin_threshold: 2.5,
                 end_threshold: 0.0,
-                end_duration: 3.0,
+                end_duration: 3 as DetectorTime,
                 ..Default::default()
             };
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
             let mut iter = pipeline(&DATA, detector);
 
-            assert_eq!(iter.next(), some_new_event(5.0, 2.0, 12.0));
+            assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
             assert_eq!(iter.next(), None);
         }
 
@@ -415,14 +418,14 @@ mod tests {
             let parameters = DifferentialThresholdParameters {
                 begin_threshold: 2.5,
                 end_threshold: 0.0,
-                end_duration: 2.0,
+                end_duration: 2 as DetectorTime,
                 ..Default::default()
             };
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
             let mut iter = pipeline(&DATA, detector);
 
-            assert_eq!(iter.next(), some_new_event(5.0, 2.0, 12.0));
-            assert_eq!(iter.next(), some_new_event(11.0, 2.0, 6.0));
+            assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
+            assert_eq!(iter.next(), some_new_event(11 as DetectorTime, 2.0, 6.0));
             assert_eq!(iter.next(), None);
         }
 
@@ -431,15 +434,15 @@ mod tests {
             let parameters = DifferentialThresholdParameters {
                 begin_threshold: 2.5,
                 end_threshold: 0.0,
-                end_duration: 1.0,
+                end_duration: 1 as DetectorTime,
                 ..Default::default()
             };
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
 
             let mut iter = pipeline(&DATA, detector);
-            assert_eq!(iter.next(), some_new_event(5.0, 2.0, 12.0));
-            assert_eq!(iter.next(), some_new_event(8.0, 1.0, 7.0));
-            assert_eq!(iter.next(), some_new_event(13.0, 5.0, 8.0));
+            assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
+            assert_eq!(iter.next(), some_new_event(8 as DetectorTime, 1.0, 7.0));
+            assert_eq!(iter.next(), some_new_event(13 as DetectorTime, 5.0, 8.0));
             assert_eq!(iter.next(), None);
         }
 
@@ -447,17 +450,17 @@ mod tests {
         fn test_duration_0() {
             let parameters = DifferentialThresholdParameters {
                 begin_threshold: 2.5,
-                end_duration: 0.0,
+                end_duration: 0 as DetectorTime,
                 ..Default::default()
             };
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
 
             let mut iter = pipeline(&DATA, detector);
-            assert_eq!(iter.next(), some_new_event(5.0, 2.0, 12.0));
-            assert_eq!(iter.next(), some_new_event(8.0, 1.0, 7.0));
-            assert_eq!(iter.next(), some_new_event(11.0, 2.0, 6.0));
-            assert_eq!(iter.next(), some_new_event(13.0, 5.0, 8.0));
-            assert_eq!(iter.next(), some_new_event(15.0, 8.0, 11.0));
+            assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
+            assert_eq!(iter.next(), some_new_event(8 as DetectorTime, 1.0, 7.0));
+            assert_eq!(iter.next(), some_new_event(11 as DetectorTime, 2.0, 6.0));
+            assert_eq!(iter.next(), some_new_event(13 as DetectorTime, 5.0, 8.0));
+            assert_eq!(iter.next(), some_new_event(15 as DetectorTime, 8.0, 11.0));
             assert_eq!(iter.next(), None);
         }
     }
@@ -484,8 +487,8 @@ mod tests {
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
             let mut iter = pipeline(&DATA, detector);
 
-            assert_eq!(iter.next(), some_new_event(3.0, 2.0, 5.0));
-            assert_eq!(iter.next(), some_new_event(9.0, 2.0, 6.0));
+            assert_eq!(iter.next(), some_new_event(3 as DetectorTime, 2.0, 5.0));
+            assert_eq!(iter.next(), some_new_event(9 as DetectorTime, 2.0, 6.0));
             assert_eq!(iter.next(), None);
         }
 
@@ -500,9 +503,9 @@ mod tests {
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
             let mut iter = pipeline(&DATA, detector);
 
-            assert_eq!(iter.next(), some_new_event(3.0, 2.0, 5.0));
-            assert_eq!(iter.next(), some_new_event(9.0, 2.0, 6.0));
-            assert_eq!(iter.next(), some_new_event(13.0, 8.0, 11.0));
+            assert_eq!(iter.next(), some_new_event(3 as DetectorTime, 2.0, 5.0));
+            assert_eq!(iter.next(), some_new_event(9 as DetectorTime, 2.0, 6.0));
+            assert_eq!(iter.next(), some_new_event(13 as DetectorTime, 8.0, 11.0));
             assert_eq!(iter.next(), None);
         }
 
@@ -517,9 +520,9 @@ mod tests {
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
 
             let mut iter = pipeline(&DATA, detector);
-            assert_eq!(iter.next(), some_new_event(3.0, 2.0, 5.0));
-            assert_eq!(iter.next(), some_new_event(6.0, 1.0, 7.0));
-            assert_eq!(iter.next(), some_new_event(11.0, 5.0, 8.0));
+            assert_eq!(iter.next(), some_new_event(3 as DetectorTime, 2.0, 5.0));
+            assert_eq!(iter.next(), some_new_event(6 as DetectorTime, 1.0, 7.0));
+            assert_eq!(iter.next(), some_new_event(11 as DetectorTime, 5.0, 8.0));
             assert_eq!(iter.next(), None);
         }
 
@@ -533,11 +536,11 @@ mod tests {
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
 
             let mut iter = pipeline(&DATA, detector);
-            assert_eq!(iter.next(), some_new_event(3.0, 2.0, 5.0));
-            assert_eq!(iter.next(), some_new_event(6.0, 1.0, 7.0));
-            assert_eq!(iter.next(), some_new_event(9.0, 2.0, 6.0));
-            assert_eq!(iter.next(), some_new_event(11.0, 5.0, 8.0));
-            assert_eq!(iter.next(), some_new_event(13.0, 8.0, 11.0));
+            assert_eq!(iter.next(), some_new_event(3 as DetectorTime, 2.0, 5.0));
+            assert_eq!(iter.next(), some_new_event(6 as DetectorTime, 1.0, 7.0));
+            assert_eq!(iter.next(), some_new_event(9 as DetectorTime, 2.0, 6.0));
+            assert_eq!(iter.next(), some_new_event(11 as DetectorTime, 5.0, 8.0));
+            assert_eq!(iter.next(), some_new_event(13 as DetectorTime, 8.0, 11.0));
             assert_eq!(iter.next(), None);
         }
     }
@@ -567,9 +570,9 @@ mod tests {
                 Default::default(),
             );
             let mut iter = pipeline(&data, detector);
-            assert_eq!(iter.next(), some_new_event(17.0, 3.0, 112.0));
-            assert_eq!(iter.next(), some_new_event(50.0, 4.0, 113.0));
-            assert_eq!(iter.next(), some_new_event(77.0, 3.0, 111.0));
+            assert_eq!(iter.next(), some_new_event(17 as DetectorTime, 3.0, 112.0));
+            assert_eq!(iter.next(), some_new_event(50 as DetectorTime, 4.0, 113.0));
+            assert_eq!(iter.next(), some_new_event(77 as DetectorTime, 3.0, 111.0));
             assert_eq!(iter.next(), None);
         }
     }

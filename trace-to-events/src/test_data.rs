@@ -2,8 +2,9 @@
 use assert_approx_eq::assert_approx_eq;
 use digital_muon_common::Intensity;
 use crate::pulse_detection::Real;
+use std::fmt::Debug;
 
-pub(crate) fn assert_iters_equal<'a>(
+pub(crate) fn assert_iters_approx_equal<'a>(
     output: impl ExactSizeIterator<Item = &'a Real>,
     expected_data: impl ExactSizeIterator<Item = &'a Real>,
 ) {
@@ -14,8 +15,19 @@ pub(crate) fn assert_iters_equal<'a>(
     }
 }
 
-pub(crate) fn assert_slices_equal<'a>(output: &'a [Real], expected_data: &'a [Real]) {
-    assert_iters_equal(output.iter(), expected_data.iter())
+pub(crate) fn assert_iters_equal<'a, T: Debug + PartialEq + 'static>(
+    output: impl ExactSizeIterator<Item = &'a T>,
+    expected_data: impl ExactSizeIterator<Item = &'a T>,
+) {
+    assert_eq!(output.len(), expected_data.len());
+
+    for (out, exp) in Iterator::zip(output, expected_data) {
+        assert_eq!(out, exp);
+    }
+}
+
+pub(crate) fn assert_slices_approx_equal<'a>(output: &'a [Real], expected_data: &'a [Real]) {
+    assert_iters_approx_equal(output.iter(), expected_data.iter())
 }
 
 pub(crate) fn b2bexp(

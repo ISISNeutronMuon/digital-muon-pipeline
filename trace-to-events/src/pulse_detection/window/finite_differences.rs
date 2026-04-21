@@ -64,7 +64,7 @@ impl<const N: usize, T: Temporal> TimeShift<T> for FiniteDifferences<N> {
 }
 
 impl<const N: usize> Window for FiniteDifferences<N> {
-    type TimeType = Real;
+    type TimeType = usize;
     type InputType = Real;
     type OutputType = RealArray<N>;
 
@@ -100,7 +100,7 @@ mod tests {
         let mut output = input
             .into_iter()
             .enumerate()
-            .map(|(i, v)| (i as Real, v as Real))
+            .map(|(i, v)| (i as usize, v as Real))
             .window(FiniteDifferences::<3>::new())
             .map(|(_, x)| x);
 

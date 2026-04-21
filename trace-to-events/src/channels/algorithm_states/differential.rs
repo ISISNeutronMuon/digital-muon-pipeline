@@ -88,9 +88,9 @@ impl AlgorithmState for DifferentialThresholdDiscriminatorState {
         baseline: Real,
     ) -> (Vec<Time>, Vec<Intensity>) {
         self.cache.ensure_time_data_written(trace.len(), sample_time);
-        let raw = self.cache.time
-            .iter()
-            .cloned()
+        let raw = (0..self.cache.time.len())
+            .into_iter()
+            //.cloned()
             .zip(trace
                 .map(|v|polarity_sign * (v as Real - baseline))
             );

@@ -31,11 +31,11 @@ pub(crate) struct FixedThresholdDiscriminatorParameters {
 
     /// The duration, in samples, that the trace must exceed the threshold for.
     #[clap(long, default_value = "1")]
-    pub(crate) duration: i32,
+    pub(crate) duration: usize,
 
     /// After an event is registered, the detector disarms for this many samples.
     #[clap(long, default_value = "0")]
-    pub(crate) cool_off: i32,
+    pub(crate) cool_off: usize,
 }
 
 /// Determines how the peak height is calculated.
@@ -67,7 +67,7 @@ pub(crate) struct DifferentialThresholdDiscriminatorParameters {
 
     /// The duration, in samples, that the trace derivative must exceed the begin threshold for a detection to begin.
     #[clap(long, default_value = "0")]
-    pub(crate) begin_duration: i32,
+    pub(crate) begin_duration: usize,
 
     /// If a detection is in progress, an event is concluded when the trace derivative passes below this value for the given duration.
     #[clap(long)]
@@ -75,7 +75,7 @@ pub(crate) struct DifferentialThresholdDiscriminatorParameters {
 
     /// The duration, in samples, that the trace derivative must drop below the end threshold for a detection to end.
     #[clap(long, default_value = "0")]
-    pub(crate) end_duration: i32,
+    pub(crate) end_duration: usize,
 
     /// After an event is registered, the detector disarms for this many samples.
     #[clap(long, default_value = "0")]
