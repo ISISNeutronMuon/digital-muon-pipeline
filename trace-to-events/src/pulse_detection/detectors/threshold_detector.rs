@@ -2,6 +2,10 @@
 //! value for a given time.
 //!
 //! The detector also implements a cool-down period to wait before another detection is registered.
+use tracing::info;
+
+use crate::pulse_detection::TracePoint;
+
 use super::{Detector, EventData, Real};
 
 /// The time-independnt data of the detector's event.
@@ -11,6 +15,20 @@ pub(crate) struct Data {
 }
 
 impl EventData for Data {}
+
+/// The current state of the detector.
+#[derive(Default, Clone)]
+enum DetectorState {
+    /// The detector is waiting for the trace to exceed `begin_threshold`.
+    #[default]
+    Waiting,
+    /// The trace has been over `begin_threshold` for less than `begin_duration`.
+    Beginning {time_begun: Real },
+    /// The trace has been over `begin_threshold` for at least `begin_duration`.
+    Detected,
+    /// The detector has just completed an event detection and is waiting to cool down, before being able to detect another.
+    CoolingDown { time_ended: Real },
+}
 
 /// The triggering parameters of the threshold detector.
 #[derive(Default, Debug, Clone)]
@@ -28,14 +46,10 @@ pub(crate) struct ThresholdDuration {
 pub(crate) struct ThresholdDetector {
     /// The detection parameters.
     trigger: ThresholdDuration,
-    /// The time at which the trace last returned below the threshold (if ever).
-    time_of_last_return: Option<Real>,
-    /// If the trace is currently above the threshold, the time at which is crossed.
-    time_crossed: Option<Real>,
-    /// A temp parameter. [TODO: Will be replaced].
-    temp_time: Option<Real>,
-    /// The maximum height of the trace since the last
-    max_pulse_height: Real,
+    /// The current state of the detector.
+    state: DetectorState,
+    /// The state of a detection in progress.
+    partial_event: Option<ThresholdEvent>,
 }
 
 impl ThresholdDetector {
@@ -47,6 +61,64 @@ impl ThresholdDetector {
             ..Default::default()
         }
     }
+
+    fn complete_detection(&mut self, time: Real) {
+        if self.trigger.cool_off.eq(&0) {
+            self.state = DetectorState::Waiting;
+        } else {
+            self.state = DetectorState::CoolingDown { time_ended: time };
+        }
+    }
+
+    fn update_state(&mut self, time: Real, value: Real) {
+        match &self.state {
+            DetectorState::Waiting => {
+                if value > self.trigger.threshold {
+                    self.partial_event = Some((time, Data { pulse_height: value }));
+                    if self.trigger.duration.eq(&1) {
+                        self.state = DetectorState::Detected;
+                    } else {
+                        self.state = DetectorState::Beginning { time_begun: time };
+                    }
+                }
+            },
+            DetectorState::Beginning { time_begun} => {
+                if time == self.trigger.duration as Real + *time_begun {
+                    // Potential detection has persisted for long enough to become a partial detection.
+                    if value <= self.trigger.threshold {
+                        // The detection is complete.
+                        self.complete_detection(time);
+                    } else {
+                        // The detection is partial.
+                        self.state = DetectorState::Detected;
+                    }
+                } else if value <= self.trigger.threshold {
+                    self.partial_event = None;
+                    self.state = DetectorState::Waiting;
+                }
+            },
+            DetectorState::Detected => {
+                if value <= self.trigger.threshold {
+                    self.complete_detection(time);
+                }
+            },
+            DetectorState::CoolingDown { time_ended } => {
+                if time == *time_ended + self.trigger.cool_off as Real {
+                    self.state = DetectorState::Waiting;
+                }
+            }
+        }
+    }
+
+    /// If a partial event is in progress, take ownership of it as long as the state
+    /// is `CoolingDown` or `Waiting`, otherwise return `None`.
+    fn try_take_completed_event(&mut self) -> Option<ThresholdEvent> {
+        match self.state {
+            | DetectorState::CoolingDown { .. }
+            | DetectorState::Waiting => self.partial_event.take(),
+            _ => None,
+        }
+    }
 }
 
 /// The time-dependent event of the threshold detector.
@@ -56,76 +128,20 @@ impl Detector for ThresholdDetector {
     type TracePointType = (Real, Real);
     type EventOutputType = (Real, Data);
 
-    fn signal(&mut self, time: Real, value: Real) -> Option<ThresholdEvent> {
-        match self.time_crossed {
-            Some(time_crossed) => {
-                // If we are already over the threshold
-                self.max_pulse_height = self.max_pulse_height.max(value);
+    fn signal(&mut self, 
+        time: <Self::TracePointType as TracePoint>::Time,
+        value: <Self::TracePointType as TracePoint>::Value
+    ) -> Option<ThresholdEvent> {
+        self.update_state(time, value);
 
-                if time - time_crossed == self.trigger.duration as Real {
-                    // If the current value is below the threshold
-                    self.temp_time = Some(time_crossed);
-                }
-
-                if value <= self.trigger.threshold {
-                    // If the current value is below the threshold
-                    self.time_crossed = None;
-                    if time - time_crossed >= self.trigger.duration as Real {
-                        self.time_of_last_return = Some(time);
-
-                        if let Some(time) = &self.temp_time {
-                            let result = (
-                                *time,
-                                Data {
-                                    pulse_height: self.max_pulse_height,
-                                },
-                            );
-                            self.temp_time = None;
-                            Some(result)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            None => {
-                //  If we are under the threshold
-                if value > self.trigger.threshold {
-                    // If the current value as over the threshold
-                    // If we have a "time_of_last_return", then test if we have passed the cool-down time
-                    match self.time_of_last_return {
-                        Some(time_of_last_return) => {
-                            if time - time_of_last_return >= self.trigger.cool_off as Real {
-                                self.max_pulse_height = value;
-                                self.time_crossed = Some(time);
-                            }
-                        }
-                        None => {
-                            self.max_pulse_height = value;
-                            self.time_crossed = Some(time);
-                        }
-                    }
-                }
-                None
-            }
+        if let Some(partial_event) = self.partial_event.as_mut() {
+            partial_event.1.pulse_height = partial_event.1.pulse_height.max(value);
         }
+        self.try_take_completed_event()
     }
 
     fn finish(&mut self) -> Option<Self::EventOutputType> {
-        let result = self.temp_time;
-        self.temp_time = None;
-        result.map(|time| {
-            (
-                time,
-                Data {
-                    pulse_height: self.max_pulse_height,
-                },
-            )
-        })
+        self.partial_event.take()
     }
 }
 
@@ -166,6 +182,7 @@ mod tests {
         assert_eq!(iter.next(), Some((0.0, Data { pulse_height: 4.0 })));
         assert_eq!(iter.next(), Some((3.0, Data { pulse_height: 6.0 })));
         assert_eq!(iter.next(), Some((6.0, Data { pulse_height: 7.0 })));
+        assert_eq!(iter.next(), Some((9.0, Data { pulse_height: 4.0 })));
         assert_eq!(iter.next(), None);
     }
 
@@ -200,6 +217,7 @@ mod tests {
             .enumerate()
             .map(|(i, v)| (i as Real, -v as Real))
             .events(detector);
+        assert_eq!(iter.next(), Some((8.0, Data { pulse_height: -2.0 })));
         assert_eq!(iter.next(), None);
     }
 
@@ -224,7 +242,6 @@ mod tests {
             .map(|(i, v)| (i as Real, -v as Real))
             .events(detector2);
         assert_eq!(iter.next(), Some((2.0, Data { pulse_height: -2.0 })));
-        assert_eq!(iter.next(), Some((5.0, Data { pulse_height: -1.0 })));
         assert_eq!(iter.next(), Some((8.0, Data { pulse_height: -2.0 })));
         assert_eq!(iter.next(), None);
 
@@ -240,7 +257,7 @@ mod tests {
             .map(|(i, v)| (i as Real, -v as Real))
             .events(detector1);
         assert_eq!(iter.next(), Some((2.0, Data { pulse_height: -2.0 })));
-        assert_eq!(iter.next(), Some((4.0, Data { pulse_height: -1.0 })));
+        assert_eq!(iter.next(), Some((5.0, Data { pulse_height: -1.0 })));
         assert_eq!(iter.next(), Some((8.0, Data { pulse_height: -2.0 })));
         assert_eq!(iter.next(), None);
 
@@ -264,7 +281,7 @@ mod tests {
     #[test]
     fn test_real_data() {
         let parameters = ThresholdDuration {
-            threshold: 3.0,
+            threshold: 15.0,
             duration: 2,
             cool_off: 0,
         };
@@ -275,8 +292,8 @@ mod tests {
             .map(|(i, v)| (i as Real, 200.0*v as Real))
             .events(detector)
             .collect::<Vec<_>>();
-        let expected_times = [0.0, 49.0, 60.0, 122.0];
-        let expected_heights = [26.456692913385837, 4.40944881889764, 3.62204724409448, 28.03149606299212];
+        let expected_times = [0.0, 19.0, 125.0];
+        let expected_heights = [26.456692913385837, 26.456692913385837, 28.03149606299212];
         assert_iters_equal(events.iter().map(|x|&x.0), expected_times.iter());
         assert_iters_equal(events.iter().map(|x|&x.1.pulse_height), expected_heights.iter());
     }
