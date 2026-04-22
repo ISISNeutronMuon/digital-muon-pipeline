@@ -2,9 +2,18 @@
 use digital_muon_common::Intensity;
 
 use crate::{
-    channels::algorithm_states::AlgorithmState, parameters::SmoothingDetectorParameters, pulse_detection::{
-        EventsIterable, Real, detectors::{local_arg_min_detector::LocalArgMinDetector, region_detector::RegionDetector}, iterators::PaddingIterable, utils::{global_arg_min, std_dev}, window::{SliceWindow, convolution_filter::{ConvolutionFilter, KernelType}}
-    }
+    channels::algorithm_states::AlgorithmState,
+    parameters::SmoothingDetectorParameters,
+    pulse_detection::{
+        EventsIterable, Real,
+        detectors::{local_arg_min_detector::LocalArgMinDetector, region_detector::RegionDetector},
+        iterators::PaddingIterable,
+        utils::{global_arg_min, std_dev},
+        window::{
+            SliceWindow,
+            convolution_filter::{ConvolutionFilter, KernelType},
+        },
+    },
 };
 
 /// Encapsulates all settings and objects in the smoothing algorithm which persist across digitiser messages.
@@ -49,7 +58,10 @@ impl AlgorithmState for SmoothingDetectorState {
             .clone()
             .map(|v| polarity_sign * (v as Real - baseline))
             .pad_reflect(kernel_radius, kernel_radius);
-        self.cache.ensure_cache_lengths(trace.len() + self.fin_diff_gaussian.kernel_size(), trace.len());
+        self.cache.ensure_cache_lengths(
+            trace.len() + self.fin_diff_gaussian.kernel_size(),
+            trace.len(),
+        );
         self.cache.write_input_values(padded);
 
         self.fin_diff_gaussian.apply_to_slice(

@@ -1,9 +1,12 @@
-use digital_muon_common::Intensity;
 use crate::{
     channels::algorithm_states::AlgorithmState,
     parameters::FixedThresholdDiscriminatorParameters,
-    pulse_detection::{EventsIterable, Real, threshold_detector::{ThresholdDetector, ThresholdDetectorParameters}}
+    pulse_detection::{
+        EventsIterable, Real,
+        threshold_detector::{ThresholdDetector, ThresholdDetectorParameters},
+    },
 };
+use digital_muon_common::Intensity;
 
 /// Encapsulates all settings and objects in the differential threshold algorithm which persist across digitiser messages.
 #[derive(Clone)]
@@ -17,8 +20,8 @@ impl ThresholdDetectorState {
         Self {
             parameters: ThresholdDetectorParameters {
                 threshold: parameters.threshold,
-                duration: parameters.duration.into(),
-                cool_off: parameters.cool_off.into(),
+                duration: parameters.duration,
+                cool_off: parameters.cool_off,
             },
         }
     }
@@ -32,13 +35,8 @@ impl AlgorithmState for ThresholdDetectorState {
         polarity_sign: Real,
         baseline: Real,
     ) -> (Vec<usize>, Vec<Intensity>) {
-        let raw = (0..trace.len())
-            .into_iter()
-            .zip(trace
-                .map(move |v|polarity_sign * (v as Real - baseline))
-            );
-        let pulses = 
-        raw.clone().events(ThresholdDetector::new(&self.parameters));
+        let raw = (0..trace.len()).zip(trace.map(move |v| polarity_sign * (v as Real - baseline)));
+        let pulses = raw.clone().events(ThresholdDetector::new(&self.parameters));
 
         let mut index = Vec::<usize>::new();
         let mut voltage = Vec::<Intensity>::new();

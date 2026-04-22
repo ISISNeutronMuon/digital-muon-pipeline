@@ -2,9 +2,15 @@
 use digital_muon_common::Intensity;
 
 use crate::{
-    channels::algorithm_states::AlgorithmState, parameters::{DifferentialThresholdDiscriminatorParameters, PeakHeightBasis, PeakHeightMode}, pulse_detection::{
-        EventsIterable, Real, WindowIterable, detectors::differential_threshold_detector::{DifferentialThresholdDetector, DifferentialThresholdParameters}, window::FiniteDifferences
-    }
+    channels::algorithm_states::AlgorithmState,
+    parameters::{DifferentialThresholdDiscriminatorParameters, PeakHeightBasis, PeakHeightMode},
+    pulse_detection::{
+        EventsIterable, Real, WindowIterable,
+        detectors::differential_threshold_detector::{
+            DifferentialThresholdDetector, DifferentialThresholdParameters,
+        },
+        window::FiniteDifferences,
+    },
 };
 
 /// Encapsulates settings to determine how peak heights should be calculated.
@@ -25,8 +31,6 @@ pub(crate) struct DifferentialThresholdDiscriminatorState {
     pub(crate) parameters: DifferentialThresholdParameters,
     /// Determines how the peak height is calculated.
     pub(crate) peak_height: PeakHeightParameters,
-    // /// This cache is persisted to avoid reallocations on every channel trace.
-    //pub(crate) time_cache: TimeCache,
 }
 
 impl DifferentialThresholdDiscriminatorState {
@@ -35,10 +39,10 @@ impl DifferentialThresholdDiscriminatorState {
             finite_differences: FiniteDifferences::<2>::new(),
             parameters: DifferentialThresholdParameters {
                 begin_threshold: parameters.begin_threshold,
-                begin_duration: parameters.begin_duration.into(),
+                begin_duration: parameters.begin_duration,
                 end_threshold: parameters.end_threshold,
-                end_duration: parameters.end_duration.into(),
-                cool_off: parameters.cool_off.into(),
+                end_duration: parameters.end_duration,
+                cool_off: parameters.cool_off,
             },
             peak_height: PeakHeightParameters {
                 mode: parameters.peak_height_mode.clone(),
@@ -57,12 +61,7 @@ impl AlgorithmState for DifferentialThresholdDiscriminatorState {
         polarity_sign: Real,
         baseline: Real,
     ) -> (Vec<usize>, Vec<Intensity>) {
-        //self.time_cache.ensure_time_data_written(trace.len(), sample_time);
-        let raw = (0..trace.len())
-            .into_iter()
-            .zip(trace
-                .map(|v|polarity_sign * (v as Real - baseline))
-            );
+        let raw = (0..trace.len()).zip(trace.map(|v| polarity_sign * (v as Real - baseline)));
 
         let pulses = raw
             .clone()

@@ -3,11 +3,15 @@
 //!
 //! The detector also implements a cool-down period to wait before another detection is registered.
 use super::{Detector, EventData, Real};
-use crate::{parameters::PeakHeightMode, pulse_detection::{TracePoint, datatype::TraceArray}};
+use crate::{
+    parameters::PeakHeightMode,
+    pulse_detection::{TracePoint, datatype::TraceArray},
+};
 use num::Zero;
 
 /// Helper Type for the time type used for by the detector.
-type DetectorTime = <<DifferentialThresholdDetector as Detector>::TracePointType as TracePoint>::Time;
+type DetectorTime =
+    <<DifferentialThresholdDetector as Detector>::TracePointType as TracePoint>::Time;
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct DifferentialThresholdParameters {
@@ -20,7 +24,7 @@ pub(crate) struct DifferentialThresholdParameters {
     /// How long the trace derivative must be below the `end_threshold` to complete the detection.
     pub(crate) end_duration: DetectorTime,
     /// Minimum time between end of last pulse and detection of a new one.
-    pub(crate) cool_off: Real,
+    pub(crate) cool_off: DetectorTime,
 }
 
 /// The time-independent parameters of the recorded pulse.
@@ -78,7 +82,12 @@ impl PartialEvent {
     }
 
     /// Applies new trace data to the current event in progress.
-    fn update(&mut self, peak_height_mode: PeakHeightMode, time: DetectorTime, value: TraceArray<2, Real>) {
+    fn update(
+        &mut self,
+        peak_height_mode: PeakHeightMode,
+        time: DetectorTime,
+        value: TraceArray<2, Real>,
+    ) {
         // Updates the max derivative if the current derivative is higher.
         if self.trace_array_at_max_deriv[1] < value[1] {
             self.trace_array_at_max_deriv = value;
@@ -195,7 +204,7 @@ impl DifferentialThresholdDetector {
                 }
             }
             DetectorState::CoolingDown { time_ended } => {
-                if time >= time_ended + self.parameters.cool_off as DetectorTime {
+                if time >= time_ended + self.parameters.cool_off {
                     self.state = DetectorState::Waiting;
                 }
             }
@@ -218,7 +227,11 @@ impl Detector for DifferentialThresholdDetector {
     type TracePointType = (usize, TraceArray<2, Real>);
     type EventOutputType = ThresholdEvent;
 
-    fn signal(&mut self, time: <Self::TracePointType as TracePoint>::Time, value: TraceArray<2, Real>) -> Option<Self::EventOutputType> {
+    fn signal(
+        &mut self,
+        time: <Self::TracePointType as TracePoint>::Time,
+        value: TraceArray<2, Real>,
+    ) -> Option<Self::EventOutputType> {
         self.update_state(time, value);
 
         if let Some(mut event) = self.try_take_completed_event() {
@@ -243,7 +256,10 @@ impl Detector for DifferentialThresholdDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{pulse_detection::{EventsIterable, Real, WindowIterable, window::FiniteDifferences}, test_data::{assert_iters_approx_equal, assert_iters_equal, pyramid::INPUT}};
+    use crate::{
+        pulse_detection::{EventsIterable, Real, WindowIterable, window::FiniteDifferences},
+        test_data::{assert_iters_approx_equal, assert_iters_equal, pyramid::INPUT},
+    };
     use digital_muon_common::Intensity;
 
     fn pipeline(
@@ -258,7 +274,11 @@ mod tests {
             .events(detector)
     }
 
-    fn some_new_event(time: DetectorTime, base_height: Real, peak_height: Real) -> Option<ThresholdEvent> {
+    fn some_new_event(
+        time: DetectorTime,
+        base_height: Real,
+        peak_height: Real,
+    ) -> Option<ThresholdEvent> {
         Some((
             time,
             Data {
@@ -314,14 +334,23 @@ mod tests {
             ..Default::default()
         };
         let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
-        let data = INPUT.iter().map(|x|(x*1000.0) as Intensity).collect::<Vec<_>>();
+        let data = INPUT
+            .iter()
+            .map(|x| (x * 1000.0) as Intensity)
+            .collect::<Vec<_>>();
         let events = pipeline(data.as_slice(), detector).collect::<Vec<_>>();
         let expected_times = [19, 49, 56, 60, 74, 76, 90, 97, 111, 116];
         let expected_bases = [33.0, 14.0, 18.0, 14.0, 10.0, 14.0, 6.0, 10.0, 6.0, 6.0];
         let expected_peaks = [132.0, 22.0, 22.0, 18.0, 14.0, 18.0, 10.0, 14.0, 10.0, 10.0];
-        assert_iters_equal(events.iter().map(|x|&x.0), expected_times.iter());
-        assert_iters_approx_equal(events.iter().map(|x|&x.1.base_height), expected_bases.iter());
-        assert_iters_approx_equal(events.iter().map(|x|&x.1.peak_height), expected_peaks.iter());
+        assert_iters_equal(events.iter().map(|x| &x.0), expected_times.iter());
+        assert_iters_approx_equal(
+            events.iter().map(|x| &x.1.base_height),
+            expected_bases.iter(),
+        );
+        assert_iters_approx_equal(
+            events.iter().map(|x| &x.1.peak_height),
+            expected_peaks.iter(),
+        );
     }
 
     mod begin_duration {
@@ -481,7 +510,7 @@ mod tests {
             let parameters = DifferentialThresholdParameters {
                 begin_threshold: 2.5,
                 end_threshold: 0.0,
-                cool_off: 3.0,
+                cool_off: 3,
                 ..Default::default()
             };
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
@@ -497,7 +526,7 @@ mod tests {
             let parameters = DifferentialThresholdParameters {
                 begin_threshold: 2.5,
                 end_threshold: 0.0,
-                cool_off: 2.0,
+                cool_off: 2,
                 ..Default::default()
             };
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
@@ -514,7 +543,7 @@ mod tests {
             let parameters = DifferentialThresholdParameters {
                 begin_threshold: 2.5,
                 end_threshold: 0.0,
-                cool_off: 1.0,
+                cool_off: 1,
                 ..Default::default()
             };
             let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
@@ -546,8 +575,8 @@ mod tests {
     }
 
     mod b2b {
-        use crate::test_data::b2bexp;
         use super::*;
+        use crate::test_data::b2bexp;
 
         #[test]
         fn test_b2bexp() {

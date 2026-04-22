@@ -29,7 +29,7 @@ where
 
 impl<T> EventPoint for T
 where
-    T: Temporal
+    T: Temporal,
 {
     type TimeType = T;
     type EventType = ();

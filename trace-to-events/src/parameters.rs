@@ -79,7 +79,7 @@ pub(crate) struct DifferentialThresholdDiscriminatorParameters {
 
     /// After an event is registered, the detector disarms for this many samples.
     #[clap(long, default_value = "0")]
-    pub(crate) cool_off: i32,
+    pub(crate) cool_off: usize,
 
     /// Determines how the peak height is computed.
     #[clap(long)]

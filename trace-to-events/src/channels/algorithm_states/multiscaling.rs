@@ -1,6 +1,9 @@
 //! Provides objects for persisting state for the multiscaling smoothing algorithm.
 use crate::{
-    channels::algorithm_states::{AlgorithmState, DifferentialThresholdDiscriminatorState, SmoothingDetectorState, ThresholdDetectorState},
+    channels::algorithm_states::{
+        AlgorithmState, DifferentialThresholdDiscriminatorState, SmoothingDetectorState,
+        ThresholdDetectorState,
+    },
     parameters::{MultiscalingDetectorMethod, MultiscalingDetectorParameters},
     pulse_detection::{
         Real,
@@ -33,7 +36,9 @@ impl MultiscalingMethodAlgorithmState {
     /// - mode: the `Mode` enum to create the state object from.
     pub(crate) fn new(mode: &MultiscalingDetectorMethod) -> Self {
         match mode {
-            MultiscalingDetectorMethod::FixedThresholdDiscriminator(parameters) => Self::FixedThreshold(ThresholdDetectorState::new(parameters)),
+            MultiscalingDetectorMethod::FixedThresholdDiscriminator(parameters) => {
+                Self::FixedThreshold(ThresholdDetectorState::new(parameters))
+            }
             MultiscalingDetectorMethod::DifferentialThresholdDiscriminator(parameters) => {
                 Self::DifferentialThreshold(DifferentialThresholdDiscriminatorState::new(
                     parameters,
@@ -177,19 +182,35 @@ impl AlgorithmState for MultiscalingDetectorState {
             &self.upsample_smoothing,
         );
         self.cache.pyramid.process();
-        let smoothed_trace = self.cache.pyramid.rebuild(&self.upsample_smoothing).iter().cloned();
+        let smoothed_trace = self
+            .cache
+            .pyramid
+            .rebuild(&self.upsample_smoothing)
+            .iter()
+            .cloned();
 
         // Pass the smoothed trace on to the method.
         let (index, mut intensity) = match &mut self.method_state {
-            MultiscalingMethodAlgorithmState::FixedThreshold(state) => state.find_events(smoothed_trace, polarity_sign, baseline),
-            MultiscalingMethodAlgorithmState::DifferentialThreshold(state) => state.find_events(smoothed_trace, polarity_sign, baseline),
-            MultiscalingMethodAlgorithmState::Smoothing(state) => state.find_events(smoothed_trace,polarity_sign,baseline),
+            MultiscalingMethodAlgorithmState::FixedThreshold(state) => {
+                state.find_events(smoothed_trace, polarity_sign, baseline)
+            }
+            MultiscalingMethodAlgorithmState::DifferentialThreshold(state) => {
+                state.find_events(smoothed_trace, polarity_sign, baseline)
+            }
+            MultiscalingMethodAlgorithmState::Smoothing(state) => {
+                state.find_events(smoothed_trace, polarity_sign, baseline)
+            }
         };
         // Set the intensity to the trace value corresponding to the index.
         // The intensity output from the underlying method is potentially inaccurate
         // due to the enhance and muliply stages of the processessing phase.
         for (&index, val) in index.iter().zip(intensity.iter_mut()) {
-            *val = *self.cache.input_values.get(index).expect("Element should exist, this should never fail.") as Intensity
+            *val = *self
+                .cache
+                .input_values
+                .get(index)
+                .expect("Element should exist, this should never fail.")
+                as Intensity
         }
         (index, intensity)
     }
@@ -237,8 +258,6 @@ impl MultiscalingDetectorCache {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,8 +294,7 @@ mod tests {
             ),
         });
         let input = INPUT.map(|x| x * 1000.0).into_iter();
-        let (times, intensities) = state.find_events(
-            input, 1.0, 0.0);
+        let (times, intensities) = state.find_events(input, 1.0, 0.0);
         let times = times.into_iter().map(|x| x as Real).collect::<Vec<_>>();
         let intensities = intensities
             .into_iter()

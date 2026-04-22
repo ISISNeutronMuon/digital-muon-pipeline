@@ -14,7 +14,7 @@ pub(crate) trait Detector: Default + Clone {
     /// Trace type for input.
     type TracePointType: TracePoint;
     /// Event type for output, this must have the same `Time` type as `TracePointType`.
-    type EventOutputType : EventPoint;
+    type EventOutputType: EventPoint;
 
     /// Takes in trace signals and possibly outputs an event.
     fn signal(

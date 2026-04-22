@@ -1,5 +1,5 @@
 //! [TODO]
-use crate::pulse_detection::{Temporal, window::TimeShift};
+use crate::pulse_detection::window::TimeShift;
 
 use super::{Real, Window};
 

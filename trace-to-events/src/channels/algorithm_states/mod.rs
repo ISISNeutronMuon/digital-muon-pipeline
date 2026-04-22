@@ -11,8 +11,8 @@ pub(crate) use multiscaling::{LayerProcessingSettings, MultiscalingDetectorState
 pub(crate) use smoothing::SmoothingDetectorState;
 pub(crate) use threshold::ThresholdDetectorState;
 
-use digital_muon_common::Intensity;
 use crate::pulse_detection::Real;
+use digital_muon_common::Intensity;
 
 pub(crate) trait AlgorithmState {
     /// Extract muon events from the given trace, using the fixed threshold discriminator and the given settings.
