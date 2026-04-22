@@ -1,7 +1,7 @@
 //! Provides objects for persisting state algorithm-agnostic state.
 use crate::{
     channels::algorithm_states::{
-            AlgorithmState, DifferentialThresholdDiscriminatorState, MultiscalingDetectorState, SmoothingDetectorState, ThresholdDetectorState
+            AlgorithmState, DifferentialThresholdDiscriminatorState, MultiscalingDetectorState, SmoothingDetectorState, ThresholdDetectorState, TimeCache
         },
     parameters::{DetectorSettings, Mode, Polarity}, pulse_detection::Real,
 };
@@ -50,6 +50,8 @@ pub(crate) struct ChannelState {
     polarity_sign: Real,
     /// The baseline of the trace signal.
     baseline: Real,
+    ///
+    time: TimeCache,
     /// The settings and objects specific to the algorithm used.
     algorithm: ChannelAlgorithmState,
 }
@@ -66,6 +68,7 @@ impl ChannelState {
         Self {
             polarity_sign,
             baseline: settings.baseline as Real,
+            time: Default::default(),
             algorithm: ChannelAlgorithmState::new(settings.mode),
         }
     }
@@ -86,33 +89,31 @@ impl ChannelState {
             .expect("Trace voltage should be Some, this should never fail.")
             .into_iter()
             .map(|x| x as Real);
-        let result = match &mut self.algorithm {
+        self.time.ensure_time_data_written(trace.len(), sample_time);
+        let (indices, intensitices) = match &mut self.algorithm {
             ChannelAlgorithmState::FixedThreshold(state) => state.find_events(
                 trace,
-                sample_time,
                 self.polarity_sign,
                 self.baseline
             ),
             ChannelAlgorithmState::DifferentialThreshold(state) => state.find_events(
                 trace,
-                sample_time,
                 self.polarity_sign,
                 self.baseline
             ),
             ChannelAlgorithmState::Smoothing(state) => state.find_events(
                 trace,
-                sample_time,
                 self.polarity_sign,
                 self.baseline
             ),
             ChannelAlgorithmState::Multiscaling(state) => state.find_events(
                 trace,
-                sample_time,
                 self.polarity_sign,
                 self.baseline
             ),
         };
-        tracing::Span::current().record("num_pulses", result.0.len());
-        result
+        tracing::Span::current().record("num_pulses", indices.len());
+        let times = self.time.into_times(indices);
+        (times, intensitices)
     }
 }

@@ -1,9 +1,9 @@
 //! Provides objects for persisting state for the differential detector algorithm.
-use digital_muon_common::{Intensity, Time};
+use digital_muon_common::Intensity;
 
 use crate::{
     channels::algorithm_states::AlgorithmState, parameters::{DifferentialThresholdDiscriminatorParameters, PeakHeightBasis, PeakHeightMode}, pulse_detection::{
-        EventsIterable as _, Real, WindowIterable, detectors::differential_threshold_detector::{DifferentialThresholdDetector, DifferentialThresholdParameters}, window::FiniteDifferences
+        EventsIterable, Real, WindowIterable, detectors::differential_threshold_detector::{DifferentialThresholdDetector, DifferentialThresholdParameters}, window::FiniteDifferences
     }
 };
 
@@ -16,35 +16,6 @@ pub(crate) struct PeakHeightParameters {
     pub(crate) basis: PeakHeightBasis,
 }
 
-
-/// Memory which is used in the smoothing algorithm.
-/// These are persisted and overwritten each channel trace,
-/// to avoid repeated memory reallocation.
-#[derive(Default, Clone)]
-pub(crate) struct DifferentialDetectorCache {
-    /// Value of `sample_time`
-    expected_sample_time: Option<Real>,
-    /// Memory in which to write the time bin values.
-    time: Vec<Real>,
-}
-
-impl DifferentialDetectorCache {
-    /// Refreshes the `time` vector if and only if the size of the vector changes, or the `sample_time` field.
-    /// # Parameters
-    /// - size: the intended size of the `time` vector.
-    /// - sample_time: the intended `sample_time`, defining the scale of the time-series.
-    pub(crate) fn ensure_time_data_written(&mut self, size: usize, sample_time: Real) {
-        if size != self.time.len()
-            || self
-                .expected_sample_time
-                .is_some_and(|current_sample_time| current_sample_time != sample_time)
-        {
-            self.time = (0..size).map(|t| t as Real * sample_time).collect();
-            self.expected_sample_time = Some(sample_time);
-        }
-    }
-}
-
 /// Encapsulates all settings and objects in the differential threshold algorithm which persist across digitiser messages.
 #[derive(Clone)]
 pub(crate) struct DifferentialThresholdDiscriminatorState {
@@ -54,8 +25,8 @@ pub(crate) struct DifferentialThresholdDiscriminatorState {
     pub(crate) parameters: DifferentialThresholdParameters,
     /// Determines how the peak height is calculated.
     pub(crate) peak_height: PeakHeightParameters,
-    /// This cache is persisted to avoid reallocations on every channel trace.
-    pub(crate) cache: DifferentialDetectorCache,
+    // /// This cache is persisted to avoid reallocations on every channel trace.
+    //pub(crate) time_cache: TimeCache,
 }
 
 impl DifferentialThresholdDiscriminatorState {
@@ -73,7 +44,7 @@ impl DifferentialThresholdDiscriminatorState {
                 mode: parameters.peak_height_mode.clone(),
                 basis: parameters.peak_height_basis.clone(),
             },
-            cache: Default::default(),
+            //time_cache,
         }
     }
 }
@@ -83,14 +54,12 @@ impl AlgorithmState for DifferentialThresholdDiscriminatorState {
     fn find_events(
         &mut self,
         trace: impl Clone + ExactSizeIterator<Item = Real> + DoubleEndedIterator,
-        sample_time: Real,
         polarity_sign: Real,
         baseline: Real,
-    ) -> (Vec<Time>, Vec<Intensity>) {
-        self.cache.ensure_time_data_written(trace.len(), sample_time);
-        let raw = (0..self.cache.time.len())
+    ) -> (Vec<usize>, Vec<Intensity>) {
+        //self.time_cache.ensure_time_data_written(trace.len(), sample_time);
+        let raw = (0..trace.len())
             .into_iter()
-            //.cloned()
             .zip(trace
                 .map(|v|polarity_sign * (v as Real - baseline))
             );
@@ -103,10 +72,10 @@ impl AlgorithmState for DifferentialThresholdDiscriminatorState {
                 self.peak_height.mode.clone(),
             ));
 
-        let mut time = Vec::<Time>::new();
+        let mut index = Vec::<usize>::new();
         let mut voltage = Vec::<Intensity>::new();
         for pulse in pulses {
-            time.push(pulse.0 as Time);
+            index.push(pulse.0);
             voltage.push(match self.peak_height.basis {
                 PeakHeightBasis::TraceBaseline => pulse.1.peak_height as Intensity,
                 PeakHeightBasis::PulseBaseline => {
@@ -114,6 +83,6 @@ impl AlgorithmState for DifferentialThresholdDiscriminatorState {
                 }
             });
         }
-        (time, voltage)
+        (index, voltage)
     }
 }

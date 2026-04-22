@@ -1,5 +1,5 @@
 //! Provides objects for persisting state for the second-order smoothing algorithm.
-use digital_muon_common::{Intensity, Time};
+use digital_muon_common::Intensity;
 
 use crate::{
     channels::algorithm_states::AlgorithmState, parameters::SmoothingDetectorParameters, pulse_detection::{
@@ -38,11 +38,10 @@ impl AlgorithmState for SmoothingDetectorState {
     fn find_events(
         &mut self,
         trace: impl Clone + ExactSizeIterator<Item = Real> + DoubleEndedIterator,
-        sample_time: Real,
         polarity_sign: Real,
         baseline: Real,
-    ) -> (Vec<Time>, Vec<Intensity>) {
-        self.cache.ensure_time_data_written(trace.len(), sample_time);
+    ) -> (Vec<usize>, Vec<Intensity>) {
+        //self.cache.time.ensure_time_data_written(trace.len(), sample_time);
         // Get the radius of the kernel by right-bitshifting the size by one
         // i.e. divide by 2, and round-down.
         let kernel_radius = self.fin_diff_gaussian.kernel_size() >> 1;
@@ -90,10 +89,10 @@ impl AlgorithmState for SmoothingDetectorState {
             })
             .collect::<Vec<_>>();
 
-        let mut times = Vec::<Time>::new();
+        let mut times = Vec::<usize>::new();
         let mut voltages = Vec::<Intensity>::new();
         for time in pulses {
-            times.push(time as Time);
+            times.push(time);
             voltages.push(trace.clone().nth(time).expect("") as Intensity);
         }
         (times, voltages)
@@ -105,10 +104,8 @@ impl AlgorithmState for SmoothingDetectorState {
 /// to avoid repeated memory reallocation.
 #[derive(Default, Clone)]
 pub(crate) struct SmoothingDetectorCache {
-    /// Value of `sample_time`
-    expected_sample_time: Option<Real>,
-    /// Memory in which to write the time bin values.
-    time: Vec<Real>,
+    // /// Memory in which to write the time bin values.
+    //pub(crate) time: TimeCache,
     /// Memory in which to write the pre-convolution trace data.
     pub(crate) input_values: Vec<Real>,
     /// Memory in which the convolution window should write its output.
@@ -116,21 +113,6 @@ pub(crate) struct SmoothingDetectorCache {
 }
 
 impl SmoothingDetectorCache {
-    /// Refreshes the `time` vector if and only if the size of the vector changes, or the `sample_time` field.
-    /// # Parameters
-    /// - size: the intended size of the `time` vector.
-    /// - sample_time: the intended `sample_time`, defining the scale of the time-series.
-    pub(crate) fn ensure_time_data_written(&mut self, size: usize, sample_time: Real) {
-        if size != self.time.len()
-            || self
-                .expected_sample_time
-                .is_some_and(|current_sample_time| current_sample_time != sample_time)
-        {
-            self.time = (0..size).map(|t| t as Real * sample_time).collect();
-            self.expected_sample_time = Some(sample_time);
-        }
-    }
-
     /// Ensures the value caches are of sufficient length for the message.
     /// If the fields are too small, they are resized.
     /// # Parameters

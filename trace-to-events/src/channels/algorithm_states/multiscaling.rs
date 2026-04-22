@@ -12,7 +12,7 @@ use crate::{
         },
     },
 };
-use digital_muon_common::{Intensity, Time};
+use digital_muon_common::Intensity;
 use num::complex::ComplexFloat;
 
 /// Encapsulates settings and objects specific to the method used by the multiscaling algorithm.
@@ -164,10 +164,9 @@ impl AlgorithmState for MultiscalingDetectorState {
     fn find_events(
         &mut self,
         trace: impl Clone + ExactSizeIterator<Item = Real> + DoubleEndedIterator,
-        sample_time: Real,
         polarity_sign: Real,
         baseline: Real,
-    ) -> (Vec<Time>, Vec<Intensity>) {
+    ) -> (Vec<usize>, Vec<Intensity>) {
         self.cache.ensure_cache_lengths(trace.len());
         self.cache.write_input_values(trace);
 
@@ -181,24 +180,22 @@ impl AlgorithmState for MultiscalingDetectorState {
         let smoothed_trace = self.cache.pyramid.rebuild(&self.upsample_smoothing).iter().cloned();
 
         // Pass the smoothed trace on to the method.
-        let (time, mut intensity) = match &mut self.method_state {
-            MultiscalingMethodAlgorithmState::FixedThreshold(state) => state.find_events(smoothed_trace, sample_time, polarity_sign, baseline),
-            MultiscalingMethodAlgorithmState::DifferentialThreshold(state) => state.find_events(smoothed_trace, sample_time, polarity_sign, baseline),
-            MultiscalingMethodAlgorithmState::Smoothing(state) => state.find_events(smoothed_trace,sample_time,polarity_sign,baseline),
+        let (index, mut intensity) = match &mut self.method_state {
+            MultiscalingMethodAlgorithmState::FixedThreshold(state) => state.find_events(smoothed_trace, polarity_sign, baseline),
+            MultiscalingMethodAlgorithmState::DifferentialThreshold(state) => state.find_events(smoothed_trace, polarity_sign, baseline),
+            MultiscalingMethodAlgorithmState::Smoothing(state) => state.find_events(smoothed_trace,polarity_sign,baseline),
         };
-        // Extract the index of the event from the time value.
-        // FIXME: this is a hacky way to do this, however fixing
-        // this requires changing the other algorithms, so it
-        // will be saved for a future PR.
-        for (index, val) in intensity.iter_mut().enumerate() {
-            let time_index = (*time.get(index).expect("") as Real / sample_time) as usize;
-            *val = *self.cache.input_values.get(time_index).expect("") as Intensity
+        // Set the intensity to the trace value corresponding to the index.
+        // The intensity output from the underlying method is potentially inaccurate
+        // due to the enhance and muliply stages of the processessing phase.
+        for (&index, val) in index.iter().zip(intensity.iter_mut()) {
+            *val = *self.cache.input_values.get(index).expect("Element should exist, this should never fail.") as Intensity
         }
-        (time, intensity)
+        (index, intensity)
     }
 }
 
-/// Memory which is used in the smoothing algorithm.
+/// Memory which is used in the multiscaling algorithm.
 /// These are persisted and overwritten each channel trace,
 /// to avoid repeated memory reallocation.
 #[derive(Default, Clone)]
@@ -279,7 +276,7 @@ mod tests {
         });
         let input = INPUT.map(|x| x * 1000.0).into_iter();
         let (times, intensities) = state.find_events(
-            input, 1.0, 1.0, 0.0);
+            input, 1.0, 0.0);
         let times = times.into_iter().map(|x| x as Real).collect::<Vec<_>>();
         let intensities = intensities
             .into_iter()
