@@ -14,6 +14,9 @@ pub(crate) use threshold::ThresholdDetectorState;
 use crate::pulse_detection::Real;
 use digital_muon_common::Intensity;
 
+/// Trait implemented for any object which serves as state for a specific algorithm.
+/// This includes containing cache objects as well as settings and machinery for
+/// the algorithm's event detectors.
 pub(crate) trait AlgorithmState {
     /// Extract muon events from the given trace, using the fixed threshold discriminator and the given settings.
     /// Returns a pair of equally-sized vectors containing the index of the trace the event occurred at, and its

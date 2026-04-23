@@ -1,6 +1,4 @@
 //! Provides objects for persisting state for the second-order smoothing algorithm.
-use digital_muon_common::Intensity;
-
 use crate::{
     channels::algorithm_states::AlgorithmState,
     parameters::SmoothingDetectorParameters,
@@ -15,6 +13,7 @@ use crate::{
         },
     },
 };
+use digital_muon_common::Intensity;
 
 /// Encapsulates all settings and objects in the smoothing algorithm which persist across digitiser messages.
 #[derive(Clone)]

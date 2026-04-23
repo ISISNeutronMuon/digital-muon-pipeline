@@ -1,37 +1,42 @@
+//! Implements the [ConvolutionFilter] window.
+//!
+//! This filter performs signal convolution with the [KernelType] specified at initialisation,
+//! and an input stream.
 //!
 //! # Example
 //!
-//! The following example applies a smoothing window of length five to a raw
+//! The following example applies a convolution window of length five to a raw
 //! data stream.
-//! Note that a [SmoothingWindow] outputs a [Stats] type, so we need to extract
-//! the [Stats::mean] value to convert to a scalar stream.
 //! ```rust
 //!     let smoothed = raw
-//!        .window(SmoothingWindow::new(5))
-//!        .map(|(i, stats)| (i, stats.mean));
+//!        .window(ConvolutionFilter::new(KernelType::Gaussian {sigma: 2.0 }));
 //! ```
-//use crate::pulse_detection::window::SliceWindow;
-
-use num::{Integer, integer::binomial};
-
-use crate::pulse_detection::window::{SliceWindow, TimeShift};
-
 use super::{Real, Window};
+use crate::pulse_detection::window::{SliceWindow, TimeShift};
+use num::{Integer, integer::binomial};
 use std::collections::VecDeque;
 
 /// Specifies a kernel that resolves to a `Vec<Real>` by calling `Self::generate_kernel`.
 #[derive(Clone)]
 pub(crate) enum KernelType {
+    /// A Gaussian kernel with specified standard deviation `sigma`, and size `max(1,ceil(4*sigma))`.
     Gaussian {
+        /// Standard deviation of the Gaussian curve. If `sigma` is non-positive, then the kernel's coefficents are trivial.
         sigma: Real,
     },
+    /// A finite difference kernel of specified `order`, and size `order + 1`.
     FiniteDifference {
+        /// The order of the finite difference scheme.
         order: usize,
     },
+    /// A composition of two specified kernels, whose size is the sum of the component kernels.
     Composition {
+        /// Component kernel.
         left: Box<KernelType>,
+        /// Component kernel.
         right: Box<KernelType>,
     },
+    /// A kernel with coefficients manually specified, and size determined by the given vector.
     ManualCoefficients(Vec<Real>),
 }
 
@@ -42,6 +47,7 @@ impl Default for KernelType {
 }
 
 impl KernelType {
+    /// Generates a vector containing the kernel's coefficients.
     fn generate_kernel(self) -> Vec<Real> {
         match self {
             KernelType::Gaussian { sigma } => {
@@ -90,15 +96,27 @@ impl KernelType {
     }
 }
 
+/// A filter which takes a stream of inputs and convolves it with [Self::kernel].
+///
+/// The size of the output is equal to the input size minus the kernel size, so
+/// the input should be left- and right-padded.
 #[derive(Default, Clone)]
 pub(crate) struct ConvolutionFilter {
+    /// The next value to output.
     value: Real,
+    /// The kernel size, instanced as a [Real] value.
     size: Real,
+    /// Kernel coefficients, should be generated from a [KernelType].
     kernel: Vec<Real>,
+    /// Current window of the input stream to convolve on.
     window: VecDeque<Real>,
 }
 
 impl ConvolutionFilter {
+    /// Create a new instance of a [ConvolutionFilter].
+    ///
+    /// # Parameters
+    /// - kernel_type: the kernel used in the convolution.
     pub(crate) fn new(kernel_type: KernelType) -> Self {
         let kernel = kernel_type.generate_kernel();
         let size = kernel.len() as Real;
@@ -110,15 +128,24 @@ impl ConvolutionFilter {
         }
     }
 
+    /// Determine whether the current input window has sufficient values to begin convolution.
     fn is_full(&self) -> bool {
         self.window.len() == self.size as usize
     }
 
+    /// Get the kernel size.
     pub(crate) fn kernel_size(&self) -> usize {
         self.kernel.len()
     }
 
-    pub(crate) fn apply_slice(&self, slice: &[Real]) -> Real {
+    /// Convolve the kernel with the given slice.
+    ///
+    /// This method assumed the given slice is of size no larger then the kernel size.
+    /// No bound checking occurs, it is the caller's responsability to ensure no panic occurs.
+    ///
+    /// # Parameters
+    /// - slice: slice to convolve the kernel with.
+    fn convolve_with_slice(&self, slice: &[Real]) -> Real {
         let mut sum = 0.0;
         for (i, value) in slice.iter().enumerate().take(self.kernel.len()) {
             sum += self.kernel[i] * value;
@@ -126,6 +153,7 @@ impl ConvolutionFilter {
         sum
     }
 }
+
 impl TimeShift<Real> for ConvolutionFilter {
     fn apply_time_shift(&self, time: Real) -> Real {
         time - (self.size - 1.) / 2.0
@@ -170,7 +198,7 @@ impl SliceWindow for ConvolutionFilter {
 
     fn apply_to_slice<'a>(&self, input: &'a [Self::InputType], output: &'a mut [Self::OutputType]) {
         for i in 0..output.len() {
-            let value = self.apply_slice(&input[i..i + self.kernel_size()]);
+            let value = self.convolve_with_slice(&input[i..i + self.kernel_size()]);
             output[i] = value;
         }
     }

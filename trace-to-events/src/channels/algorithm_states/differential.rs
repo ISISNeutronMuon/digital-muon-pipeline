@@ -1,6 +1,4 @@
 //! Provides objects for persisting state for the differential detector algorithm.
-use digital_muon_common::Intensity;
-
 use crate::{
     channels::algorithm_states::AlgorithmState,
     parameters::{DifferentialThresholdDiscriminatorParameters, PeakHeightBasis, PeakHeightMode},
@@ -12,6 +10,7 @@ use crate::{
         window::FiniteDifferences,
     },
 };
+use digital_muon_common::Intensity;
 
 /// Encapsulates settings to determine how peak heights should be calculated.
 #[derive(Clone)]
@@ -34,6 +33,10 @@ pub(crate) struct DifferentialThresholdDiscriminatorState {
 }
 
 impl DifferentialThresholdDiscriminatorState {
+    /// Creates new instance of detector state.
+    ///
+    /// # Parameters
+    /// - parameters: settings given in the command line.
     pub(crate) fn new(parameters: &DifferentialThresholdDiscriminatorParameters) -> Self {
         Self {
             finite_differences: FiniteDifferences::<2>::new(),

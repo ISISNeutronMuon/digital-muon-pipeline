@@ -60,6 +60,7 @@ pub(crate) struct ChannelState {
 
 impl ChannelState {
     /// Creates a new `ChannelState` object defined from `settings`.
+    ///
     /// # Parameters
     /// - settings: the `DetectorSettings` to create the state object from.
     pub(crate) fn new(settings: &DetectorSettings) -> Self {
@@ -75,11 +76,11 @@ impl ChannelState {
         }
     }
 
-    /// Extract muon events from the given trace, using the given detector settings.
+    /// Extract muon events from the given trace.
+    ///
     /// # Parameters
     /// - trace: raw trace data.
     /// - sample_time: sample time in ns.
-    /// - detector_settings: settings to use for the detector.
     #[tracing::instrument(skip_all, fields(channel = trace.channel(), num_pulses))]
     pub(crate) fn find_channel_events(
         &mut self,

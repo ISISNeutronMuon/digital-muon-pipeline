@@ -1,3 +1,4 @@
+//! Provides objects for persisting state for the fixed threshold detector algorithm.
 use crate::{
     channels::algorithm_states::AlgorithmState,
     parameters::FixedThresholdDiscriminatorParameters,
@@ -8,7 +9,8 @@ use crate::{
 };
 use digital_muon_common::Intensity;
 
-/// Encapsulates all settings and objects in the differential threshold algorithm which persist across digitiser messages.
+/// Encapsulates all settings and objects in the differential threshold algorithm
+/// which persist across digitiser messages.
 #[derive(Clone)]
 pub(crate) struct ThresholdDetectorState {
     /// Parameters for the threshold detector.
@@ -16,6 +18,10 @@ pub(crate) struct ThresholdDetectorState {
 }
 
 impl ThresholdDetectorState {
+    /// Creates new instance of detector state.
+    ///
+    /// # Parameters
+    /// - parameters: settings given in the command line.
     pub(crate) fn new(parameters: &FixedThresholdDiscriminatorParameters) -> Self {
         Self {
             parameters: ThresholdDetectorParameters {

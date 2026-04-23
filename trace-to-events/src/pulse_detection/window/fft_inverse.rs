@@ -1,11 +1,24 @@
+//! Implements the [FftInverse] window.
+//!
+//! # Example
+//!
+//! ```rust
+//!    let padding_size = 200;
+//!    let input = vec![0.125, 0.5, 0.75, 0.5, 0.125];
+//!    let support = vec![-2, -1, 0, 1, 2];
+//!    let mut output = vec![0.0; 5];
+//!    let fft = FftInverse::new(padding_size, output.len(), support.clone(), ComplexFloat::recip);
+//!    fft.apply_to_slice(input.as_slice(), output.as_mut_slice());
+//! ```
 use num::Integer;
 use rustfft::{
     FftPlanner,
     num_complex::{Complex, ComplexFloat},
 };
-
 use crate::pulse_detection::{Real, iterators::ZeroPaddingIterable, window::SliceWindow};
 
+/// Outputs the index of the maximum element. If multiple values are equally maximal,
+/// then the output is the index of the last such value.
 fn find_arg_max(input: &[Real]) -> usize {
     //  Find the index of the max value of the resulting buffer.
     input
@@ -19,6 +32,7 @@ fn find_arg_max(input: &[Real]) -> usize {
         .0
 }
 
+/// 
 #[derive(Default, Clone)]
 pub(crate) struct FftInverse<FT> {
     padded_vector_size: usize,

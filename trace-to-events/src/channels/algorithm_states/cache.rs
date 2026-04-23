@@ -2,7 +2,7 @@ use crate::pulse_detection::Real;
 use digital_muon_common::Time;
 use tracing::warn;
 
-/// Cache containing the time values.
+/// Cache containing the time values of a trace.
 ///
 /// In normal operation, these are written to only once,
 /// however as the size of the trace and the sample time
@@ -47,6 +47,9 @@ impl TimeCache {
     }
 
     /// Converts a list of trace indices into the corresponding time values that are stored in the cache.
+    ///
+    /// # Parameters
+    /// - indices: a list of trace indices from which to select the time values.
     pub(crate) fn get_times(&self, indices: Vec<usize>) -> Vec<Time> {
         indices
             .into_iter()
