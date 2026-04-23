@@ -100,7 +100,7 @@ mod tests {
         let mut output = input
             .into_iter()
             .enumerate()
-            .map(|(i, v)| (i as usize, v as Real))
+            .map(|(i, v)| (i, v as Real))
             .window(FiniteDifferences::<3>::new())
             .map(|(_, x)| x);
 
