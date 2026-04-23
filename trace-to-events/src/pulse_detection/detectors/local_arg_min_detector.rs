@@ -59,9 +59,9 @@ pub(crate) struct LocalArgMinDetector {
 
 impl Detector for LocalArgMinDetector {
     type TracePointType = (usize, Real);
-    type EventOutputType = LocalArgMinEvent;
+    type EventPointType = LocalArgMinEvent;
 
-    fn signal(&mut self, time: usize, value: Real) -> Option<Self::EventOutputType> {
+    fn signal(&mut self, time: usize, value: Real) -> Option<Self::EventPointType> {
         if self.cache.is_empty() {
             self.default = Some(time);
         }
@@ -77,7 +77,7 @@ impl Detector for LocalArgMinDetector {
         event
     }
 
-    fn finish(&mut self) -> Option<Self::EventOutputType> {
+    fn finish(&mut self) -> Option<Self::EventPointType> {
         self.default.take()
     }
 }

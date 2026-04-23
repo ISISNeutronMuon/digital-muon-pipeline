@@ -40,9 +40,9 @@ impl RegionDetector {
 
 impl Detector for RegionDetector {
     type TracePointType = (usize, Real);
-    type EventOutputType = RegionEvent;
+    type EventPointType = RegionEvent;
 
-    fn signal(&mut self, time: usize, value: Real) -> Option<Self::EventOutputType> {
+    fn signal(&mut self, time: usize, value: Real) -> Option<Self::EventPointType> {
         if value >= self.threshold {
             // If the second derivative is above the threshold value,
             // filter and return any partial region.
@@ -57,7 +57,7 @@ impl Detector for RegionDetector {
         }
     }
 
-    fn finish(&mut self) -> Option<Self::EventOutputType> {
+    fn finish(&mut self) -> Option<Self::EventPointType> {
         self.filter_partial_region()
     }
 }

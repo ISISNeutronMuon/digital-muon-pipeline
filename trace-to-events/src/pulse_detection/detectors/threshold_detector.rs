@@ -133,7 +133,7 @@ pub(crate) type ThresholdEvent = (DetectorTime, Data);
 
 impl Detector for ThresholdDetector {
     type TracePointType = (usize, Real);
-    type EventOutputType = ThresholdEvent;
+    type EventPointType = ThresholdEvent;
 
     fn signal(
         &mut self,
@@ -148,7 +148,7 @@ impl Detector for ThresholdDetector {
         self.try_take_completed_event()
     }
 
-    fn finish(&mut self) -> Option<Self::EventOutputType> {
+    fn finish(&mut self) -> Option<Self::EventPointType> {
         self.partial_event.take()
     }
 }

@@ -225,13 +225,13 @@ impl DifferentialThresholdDetector {
 
 impl Detector for DifferentialThresholdDetector {
     type TracePointType = (usize, TraceArray<2, Real>);
-    type EventOutputType = ThresholdEvent;
+    type EventPointType = ThresholdEvent;
 
     fn signal(
         &mut self,
         time: <Self::TracePointType as TracePoint>::Time,
         value: TraceArray<2, Real>,
-    ) -> Option<Self::EventOutputType> {
+    ) -> Option<Self::EventPointType> {
         self.update_state(time, value);
 
         if let Some(mut event) = self.try_take_completed_event() {
@@ -245,7 +245,7 @@ impl Detector for DifferentialThresholdDetector {
         }
     }
 
-    fn finish(&mut self) -> Option<Self::EventOutputType> {
+    fn finish(&mut self) -> Option<Self::EventPointType> {
         self.partial_event
             .take()
             .map(|partial_event| partial_event.into_event());
