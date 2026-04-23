@@ -10,12 +10,12 @@
 //!    let fft = FftInverse::new(padding_size, output.len(), support.clone(), ComplexFloat::recip);
 //!    fft.apply_to_slice(input.as_slice(), output.as_mut_slice());
 //! ```
+use crate::pulse_detection::{Real, iterators::ZeroPaddingIterable, window::SliceWindow};
 use num::Integer;
 use rustfft::{
     FftPlanner,
     num_complex::{Complex, ComplexFloat},
 };
-use crate::pulse_detection::{Real, iterators::ZeroPaddingIterable, window::SliceWindow};
 
 /// Outputs the index of the maximum element. If multiple values are equally maximal,
 /// then the output is the index of the last such value.
@@ -32,7 +32,6 @@ fn find_arg_max(input: &[Real]) -> usize {
         .0
 }
 
-/// 
 #[derive(Default, Clone)]
 pub(crate) struct FftInverse<FT> {
     padded_vector_size: usize,
