@@ -10,6 +10,8 @@
 //!        .window(SmoothingWindow::new(5))
 //!        .map(|(i, stats)| (i, stats.mean));
 //! ```
+use crate::pulse_detection::window::TimeShift;
+
 use super::{Real, Stats, Window};
 use std::collections::VecDeque;
 
@@ -52,6 +54,12 @@ impl SmoothingWindow {
     }
 }
 
+impl TimeShift<Real> for SmoothingWindow {
+    fn apply_time_shift(&self, time: Real) -> Real {
+        time - (self.size - 1.) / 2.0
+    }
+}
+
 impl Window for SmoothingWindow {
     type TimeType = Real;
     type InputType = Real;
@@ -89,10 +97,6 @@ impl Window for SmoothingWindow {
         } else {
             None
         }
-    }
-
-    fn apply_time_shift(&self, time: Real) -> Real {
-        time - (self.size - 1.) / 2.0
     }
 }
 

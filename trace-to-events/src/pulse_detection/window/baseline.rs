@@ -1,4 +1,6 @@
 //! [TODO]
+use crate::pulse_detection::window::TimeShift;
+
 use super::{Real, Window};
 
 #[allow(unused)] // FIXME
@@ -19,6 +21,12 @@ impl Baseline {
             smoothing_factor,
             ..Default::default()
         }
+    }
+}
+
+impl TimeShift<Real> for Baseline {
+    fn apply_time_shift(&self, time: Real) -> Real {
+        time - (self.warm_up as Real)
     }
 }
 
@@ -44,10 +52,6 @@ impl Window for Baseline {
 
     fn output(&self) -> Option<Real> {
         (self.time == self.warm_up).then_some(self.value)
-    }
-
-    fn apply_time_shift(&self, time: Real) -> Real {
-        time - (self.warm_up as Real)
     }
 }
 

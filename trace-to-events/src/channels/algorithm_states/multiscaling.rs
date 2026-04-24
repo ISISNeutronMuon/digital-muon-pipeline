@@ -1,10 +1,12 @@
 //! Provides objects for persisting state for the multiscaling smoothing algorithm.
 use crate::{
-    channels::algorithm_states::{DifferentialThresholdDiscriminatorState, SmoothingDetectorState},
+    channels::algorithm_states::{
+        AlgorithmState, DifferentialThresholdDiscriminatorState, SmoothingDetectorState,
+        ThresholdDetectorState,
+    },
     parameters::{MultiscalingDetectorMethod, MultiscalingDetectorParameters},
     pulse_detection::{
         Real,
-        threshold_detector::ThresholdDuration,
         window::{
             SliceWindow,
             convolution_filter::{ConvolutionFilter, KernelType},
@@ -13,13 +15,14 @@ use crate::{
         },
     },
 };
+use digital_muon_common::Intensity;
 use num::complex::ComplexFloat;
 
 /// Encapsulates settings and objects specific to the method used by the multiscaling algorithm.
 #[derive(Clone)]
 pub(crate) enum MultiscalingMethodAlgorithmState {
     /// Encapsulates channel state used by the Fixed Threshold algorithm.
-    FixedThreshold { parameters: ThresholdDuration },
+    FixedThreshold(ThresholdDetectorState),
     /// Encapsulates channel state used by the Differential Threshold algorithm.
     DifferentialThreshold(DifferentialThresholdDiscriminatorState),
     /// Encapsulates channel state used by the Smoothing algorithm.
@@ -34,13 +37,7 @@ impl MultiscalingMethodAlgorithmState {
     pub(crate) fn new(mode: &MultiscalingDetectorMethod) -> Self {
         match mode {
             MultiscalingDetectorMethod::FixedThresholdDiscriminator(parameters) => {
-                Self::FixedThreshold {
-                    parameters: ThresholdDuration {
-                        threshold: parameters.threshold,
-                        duration: parameters.duration,
-                        cool_off: parameters.cool_off,
-                    },
-                }
+                Self::FixedThreshold(ThresholdDetectorState::new(parameters))
             }
             MultiscalingDetectorMethod::DifferentialThresholdDiscriminator(parameters) => {
                 Self::DifferentialThreshold(DifferentialThresholdDiscriminatorState::new(
@@ -167,7 +164,59 @@ impl MultiscalingDetectorState {
     }
 }
 
-/// Memory which is used in the smoothing algorithm.
+impl AlgorithmState for MultiscalingDetectorState {
+    #[tracing::instrument(skip_all, level = "trace")]
+    fn find_events(
+        &mut self,
+        trace: impl Clone + ExactSizeIterator<Item = Real> + DoubleEndedIterator,
+        polarity_sign: Real,
+        baseline: Real,
+    ) -> (Vec<usize>, Vec<Intensity>) {
+        self.cache.ensure_cache_lengths(trace.len());
+        self.cache.write_input_values(trace);
+
+        // Apply three stages of the pyramid algorithm.
+        self.cache.pyramid.build(
+            &self.cache.input_values,
+            &self.downsample_smoothing,
+            &self.upsample_smoothing,
+        );
+        self.cache.pyramid.process();
+        let smoothed_trace = self
+            .cache
+            .pyramid
+            .rebuild(&self.upsample_smoothing)
+            .iter()
+            .cloned();
+
+        // Pass the smoothed trace on to the method.
+        let (index, mut intensity) = match &mut self.method_state {
+            MultiscalingMethodAlgorithmState::FixedThreshold(state) => {
+                state.find_events(smoothed_trace, polarity_sign, baseline)
+            }
+            MultiscalingMethodAlgorithmState::DifferentialThreshold(state) => {
+                state.find_events(smoothed_trace, polarity_sign, baseline)
+            }
+            MultiscalingMethodAlgorithmState::Smoothing(state) => {
+                state.find_events(smoothed_trace, polarity_sign, baseline)
+            }
+        };
+        // Set the intensity to the trace value corresponding to the index.
+        // The intensity output from the underlying method is potentially inaccurate
+        // due to the enhance and muliply stages of the processessing phase.
+        for (&index, val) in index.iter().zip(intensity.iter_mut()) {
+            *val = *self
+                .cache
+                .input_values
+                .get(index)
+                .expect("Element should exist, this should never fail.")
+                as Intensity
+        }
+        (index, intensity)
+    }
+}
+
+/// Memory which is used in the multiscaling algorithm.
 /// These are persisted and overwritten each channel trace,
 /// to avoid repeated memory reallocation.
 #[derive(Default, Clone)]
@@ -206,5 +255,54 @@ impl MultiscalingDetectorCache {
         for (i, v) in input.enumerate() {
             self.input_values[i] = v;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        channels::algorithm_states::MultiscalingDetectorState,
+        parameters::{
+            FixedThresholdDiscriminatorParameters, MultiscalingDetectorMethod,
+            MultiscalingDetectorParameters,
+        },
+        test_data::{assert_iters_approx_equal, assert_iters_equal, pyramid::INPUT},
+    };
+
+    #[test]
+    fn test_pyramid() {
+        let mut state = MultiscalingDetectorState::new(&MultiscalingDetectorParameters {
+            downsampling_smoothing: vec![0.125, 0.5, 0.75, 0.5, 0.125],
+            smoothing_support: vec![-2, -1, 0, 1, 2],
+            fft_padding: 200,
+            fft_truncation: 5,
+            number_of_layers: 4,
+            denoise: true,
+            denoise_thresholds: vec![2.0, 5.0, 7.0, 20.0],
+            enhance: true,
+            enhance_thresholds: vec![40.0, 30.0, 35.0, 50.0],
+            enhance_factors: vec![1.5, 1.375, 1.25, 1.125],
+            multiply: true,
+            multiply_factors: vec![1.0, 0.7, 0.2, 0.1],
+            method: MultiscalingDetectorMethod::FixedThresholdDiscriminator(
+                FixedThresholdDiscriminatorParameters {
+                    threshold: 10.0,
+                    duration: 2,
+                    cool_off: 0,
+                },
+            ),
+        });
+        let input = INPUT.map(|x| x * 1000.0).into_iter();
+        let (times, intensities) = state.find_events(input, 1.0, 0.0);
+        let times = times.into_iter().map(|x| x as Real).collect::<Vec<_>>();
+        let intensities = intensities
+            .into_iter()
+            .map(|x| x as Real)
+            .collect::<Vec<_>>();
+        let expected_times = [11.0, 27.0, 36.0, 43.0, 59.0, 126.0];
+        let expected_intensities = [41.0, 69.0, 25.0, 22.0, 14.0, 112.0];
+        assert_iters_equal(times.iter(), expected_times.iter());
+        assert_iters_approx_equal(intensities.iter(), expected_intensities.iter());
     }
 }

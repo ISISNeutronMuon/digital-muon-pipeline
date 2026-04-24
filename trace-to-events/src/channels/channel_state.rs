@@ -1,17 +1,11 @@
 //! Provides objects for persisting state algorithm-agnostic state.
 use crate::{
-    channels::{
-        algorithm_states::{
-            DifferentialThresholdDiscriminatorState, MultiscalingDetectorState,
-            SmoothingDetectorState,
-        },
-        algorithms::{
-            find_differential_threshold_events, find_fixed_threshold_events,
-            find_multiscaling_events, find_smoothing_events,
-        },
+    channels::algorithm_states::{
+        AlgorithmState, DifferentialThresholdDiscriminatorState, MultiscalingDetectorState,
+        SmoothingDetectorState, ThresholdDetectorState, TimeCache,
     },
     parameters::{DetectorSettings, Mode, Polarity},
-    pulse_detection::{Real, threshold_detector::ThresholdDuration},
+    pulse_detection::Real,
 };
 use digital_muon_common::{Intensity, Time};
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
@@ -20,7 +14,7 @@ use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::Chan
 #[derive(Clone)]
 enum ChannelAlgorithmState {
     /// Encapsulates channel state used by the Fixed Threshold algorithm.
-    FixedThreshold { parameters: ThresholdDuration },
+    FixedThreshold(ThresholdDetectorState),
     /// Encapsulates channel state used by the Differential Threshold algorithm.
     DifferentialThreshold(DifferentialThresholdDiscriminatorState),
     /// Encapsulates channel state used by the Smoothing algorithm.
@@ -35,13 +29,9 @@ impl ChannelAlgorithmState {
     /// - mode: the `Mode` enum to create the state object from.
     pub(crate) fn new(mode: &Mode) -> Self {
         match mode {
-            Mode::FixedThresholdDiscriminator(parameters) => Self::FixedThreshold {
-                parameters: ThresholdDuration {
-                    threshold: parameters.threshold,
-                    duration: parameters.duration,
-                    cool_off: parameters.cool_off,
-                },
-            },
+            Mode::FixedThresholdDiscriminator(parameters) => {
+                Self::FixedThreshold(ThresholdDetectorState::new(parameters))
+            }
             Mode::DifferentialThresholdDiscriminator(parameters) => Self::DifferentialThreshold(
                 DifferentialThresholdDiscriminatorState::new(parameters),
             ),
@@ -62,12 +52,15 @@ pub(crate) struct ChannelState {
     polarity_sign: Real,
     /// The baseline of the trace signal.
     baseline: Real,
+    /// Memory in which to persist the time values of the trace.
+    time: TimeCache,
     /// The settings and objects specific to the algorithm used.
     algorithm: ChannelAlgorithmState,
 }
 
 impl ChannelState {
     /// Creates a new `ChannelState` object defined from `settings`.
+    ///
     /// # Parameters
     /// - settings: the `DetectorSettings` to create the state object from.
     pub(crate) fn new(settings: &DetectorSettings) -> Self {
@@ -78,15 +71,16 @@ impl ChannelState {
         Self {
             polarity_sign,
             baseline: settings.baseline as Real,
+            time: Default::default(),
             algorithm: ChannelAlgorithmState::new(settings.mode),
         }
     }
 
-    /// Extract muon events from the given trace, using the given detector settings.
+    /// Extract muon events from the given trace.
+    ///
     /// # Parameters
     /// - trace: raw trace data.
     /// - sample_time: sample time in ns.
-    /// - detector_settings: settings to use for the detector.
     #[tracing::instrument(skip_all, fields(channel = trace.channel(), num_pulses))]
     pub(crate) fn find_channel_events(
         &mut self,
@@ -98,46 +92,23 @@ impl ChannelState {
             .expect("Trace voltage should be Some, this should never fail.")
             .into_iter()
             .map(|x| x as Real);
-        let result = match &mut self.algorithm {
-            ChannelAlgorithmState::FixedThreshold { parameters } => find_fixed_threshold_events(
-                trace,
-                sample_time,
-                self.polarity_sign,
-                self.baseline,
-                parameters,
-            ),
-            ChannelAlgorithmState::DifferentialThreshold(parameters) => {
-                find_differential_threshold_events(
-                    trace,
-                    sample_time,
-                    self.polarity_sign,
-                    self.baseline,
-                    &parameters.finite_differences,
-                    &parameters.parameters,
-                    &parameters.peak_height,
-                )
+        self.time.ensure_time_data_written(trace.len(), sample_time);
+        let (indices, intensitices) = match &mut self.algorithm {
+            ChannelAlgorithmState::FixedThreshold(state) => {
+                state.find_events(trace, self.polarity_sign, self.baseline)
             }
-            ChannelAlgorithmState::Smoothing(parameters) => find_smoothing_events(
-                trace,
-                &parameters.fin_diff_gaussian,
-                &mut parameters.cache,
-                sample_time,
-                self.polarity_sign,
-                self.baseline,
-                &parameters.parameters,
-            ),
-            ChannelAlgorithmState::Multiscaling(state) => find_multiscaling_events(
-                trace,
-                &mut state.cache,
-                &state.downsample_smoothing,
-                &state.upsample_smoothing,
-                sample_time,
-                self.polarity_sign,
-                self.baseline,
-                &mut state.method_state,
-            ),
+            ChannelAlgorithmState::DifferentialThreshold(state) => {
+                state.find_events(trace, self.polarity_sign, self.baseline)
+            }
+            ChannelAlgorithmState::Smoothing(state) => {
+                state.find_events(trace, self.polarity_sign, self.baseline)
+            }
+            ChannelAlgorithmState::Multiscaling(state) => {
+                state.find_events(trace, self.polarity_sign, self.baseline)
+            }
         };
-        tracing::Span::current().record("num_pulses", result.0.len());
-        result
+        tracing::Span::current().record("num_pulses", indices.len());
+        let times = self.time.get_times(indices);
+        (times, intensitices)
     }
 }
