@@ -244,7 +244,7 @@ fn spanned_root_as_digitizer_analog_trace_message(
 /// - m: the message.
 ///
 /// [Span]: tracing::Span
-#[instrument(skip_all, level = "debug", err(level = "warn"))]
+#[instrument(skip_all, level = "info", err(level = "warn"))]
 fn process_kafka_message(
     tracer: &TracerEngine,
     sender_parameters: &SenderParameters,
