@@ -186,6 +186,24 @@ fn generate_event_lists_push_to_cache(
     Ok(())
 }
 
+#[instrument(skip_all, level = "debug", err(level = "error"))]
+fn generate_event_lists_and_traces_push_to_cache(
+    engine: &mut SimulationEngine,
+    generate_event: &GenerateEventList,
+) -> Result<(), SimulationError> {
+    let event_lists = engine.simulation.generate_event_lists(
+        generate_event.event_list_index,
+        engine.state.metadata.frame_number,
+        generate_event.repeat,
+    )?;
+    engine.event_list_cache.extend(event_lists.clone());
+    let traces = engine
+        .simulation
+        .generate_traces(event_lists.as_slice(), engine.state.metadata.frame_number)?;
+    engine.trace_cache.extend(traces);
+    Ok(())
+}
+
 #[instrument(skip_all, level = "debug")]
 fn tracing_event(event: &TracingEvent) {
     match event.level {
@@ -391,6 +409,9 @@ pub(crate) fn run_digitiser(
             }
             DigitiserAction::GenerateEventList(generate_event) => {
                 generate_event_lists_push_to_cache(engine, generate_event)?
+            }
+            DigitiserAction::GenerateEventListAndTraces(generate_event) => {
+                generate_event_lists_and_traces_push_to_cache(engine, generate_event)?
             }
             DigitiserAction::Comment(_) => (),
         }
