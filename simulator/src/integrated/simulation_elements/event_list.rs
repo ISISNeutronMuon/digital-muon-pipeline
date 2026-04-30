@@ -102,7 +102,7 @@ impl<'a> Clone for EventList<'a> {
         Self {
             span: SpanOnce::Spanned(tracing::Span::current()),
             pulses: self.pulses.clone(),
-            noises: self.noises
+            noises: self.noises,
         }
     }
 }
