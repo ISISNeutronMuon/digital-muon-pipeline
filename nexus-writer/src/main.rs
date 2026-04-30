@@ -277,7 +277,7 @@ async fn main() -> miette::Result<()> {
 /// - msg: the message.
 ///
 /// [Span]: tracing::Span
-#[tracing::instrument(skip_all, level="debug", fields(
+#[tracing::instrument(skip_all, level="info", fields(
     num_cached_runs = nexus_engine.get_num_cached_runs(),
     kafka_message_timestamp_ms = msg.timestamp().to_millis()
 ))]

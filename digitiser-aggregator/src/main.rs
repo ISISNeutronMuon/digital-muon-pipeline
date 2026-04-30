@@ -253,7 +253,7 @@ fn spanned_root_as_digitizer_event_list_message(
 /// - msg: the message.
 ///
 /// [Span]: tracing::Span
-#[instrument(skip_all, level = "debug", err(level = "warn"))]
+#[instrument(skip_all, level = "info", err(level = "warn"))]
 async fn process_kafka_message(
     use_otel: bool,
     channel_send: &AggregatedFrameToBufferSender,
