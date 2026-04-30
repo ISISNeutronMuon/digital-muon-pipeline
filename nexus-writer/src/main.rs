@@ -53,7 +53,7 @@ use tokio::{
     signal::unix::{SignalKind, signal},
     time,
 };
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info_span, warn};
 
 /// [clap] derived struct to handle command line parameters.
 #[derive(Debug, Parser)]
@@ -248,10 +248,13 @@ async fn main() -> miette::Result<()> {
                         warn!("{e}")
                     },
                     Ok(msg) => {
-                        let _guard = msg.headers().conditional_attach_context(tracer.use_otel());
+                        let span = info_span!("message_received");
+                        msg.headers().conditional_extract_to_span(tracer.use_otel(), &span);
+                        let _guard = span.enter();
+
                         process_kafka_message(&topics, &mut nexus_engine, &msg);
 
-                        if let Err(e) = consumer.commit_message(&msg, CommitMode::Async){
+                        if let Err(e) = consumer.commit_message(&msg, CommitMode::Async) {
                             error!("Failed to commit Kafka message consumption: {e}");
                         }
                     }

@@ -217,8 +217,9 @@ async fn main() -> miette::Result<()> {
             event = consumer.recv() => {
                 match event {
                     Ok(msg) => {
-                        //let span = info_span!("digitiser_aggregator");
-                        let _guard = msg.headers().conditional_attach_context(tracer.use_otel());
+                        let span = info_span!("message_received");
+                        msg.headers().conditional_extract_to_span(tracer.use_otel(), &span);
+                        let _guard = span.enter();
                         process_kafka_message(&channel_send, &mut cache, &msg)
                             .await
                             .into_diagnostic()
