@@ -1,4 +1,4 @@
-use opentelemetry::propagation::{Extractor, Injector};
+use opentelemetry::{Context, ContextGuard, propagation::{Extractor, Injector}};
 use rdkafka::{
     message::{BorrowedHeaders, Headers, OwnedHeaders},
     producer::FutureRecord,
@@ -89,6 +89,7 @@ impl FutureRecordTracerExt for FutureRecord<'_, str, [u8]> {
 pub trait OptionalHeaderTracerExt {
     fn conditional_extract_to_current_span(self, use_otel: bool);
     fn conditional_extract_to_span(self, use_otel: bool, span: &Span);
+    fn conditional_attach_context(self, use_otel: bool);
 }
 
 impl OptionalHeaderTracerExt for Option<&BorrowedHeaders> {
@@ -106,6 +107,14 @@ impl OptionalHeaderTracerExt for Option<&BorrowedHeaders> {
             )) {
                 warn!("{e}");
             }
+        }
+    }
+
+    fn conditional_attach_context(self, use_otel: bool) {
+        if let Some(headers) = self && use_otel {
+            opentelemetry::global::get_text_map_propagator(|propagator|
+                    propagator.extract(&HeaderExtractor(headers)))
+                    .attach();
         }
     }
 }
