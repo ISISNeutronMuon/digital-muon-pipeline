@@ -46,7 +46,7 @@ use parameters::{DetectorSettings, Mode, Polarity};
 use rdkafka::{
     Message,
     consumer::{CommitMode, Consumer},
-    message::{BorrowedHeaders, BorrowedMessage},
+    message::BorrowedMessage,
     producer::{DeliveryFuture, FutureProducer, FutureRecord},
 };
 use std::net::SocketAddr;
@@ -56,7 +56,7 @@ use tokio::{
     sync::mpsc::{Receiver, Sender, error::TrySendError},
     task::JoinHandle,
 };
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, info_span, instrument, trace, warn};
 
 type InstrumentedDeliveryFuture = tracing::instrument::Instrumented<DeliveryFuture>;
 type DigitiserEventListToBufferSender = Sender<InstrumentedDeliveryFuture>;
@@ -207,12 +207,16 @@ async fn main() -> miette::Result<()> {
         tokio::select! {
             msg = consumer.recv() => match msg {
                 Ok(m) => {
+                    let span = info_span!("message_received");
+                    m.headers().conditional_extract_to_span(tracer.use_otel(), &span);
+                    let _guard = span.enter();
                     process_kafka_message(
                         &tracer,
                         &sender_parameters,
                         &mut message_processor,
                         &m,
                     ).into_diagnostic()?;
+
                     consumer.commit_message(&m, CommitMode::Async).unwrap();
                 }
                 Err(e) => warn!("Kafka error: {}", e)
@@ -244,7 +248,7 @@ fn spanned_root_as_digitizer_analog_trace_message(
 /// - m: the message.
 ///
 /// [Span]: tracing::Span
-#[instrument(skip_all, level = "debug", err(level = "warn"))]
+#[instrument(skip_all, level = "info", err(level = "warn"))]
 fn process_kafka_message(
     tracer: &TracerEngine,
     sender_parameters: &SenderParameters,
@@ -268,7 +272,6 @@ fn process_kafka_message(
                     process_digitiser_trace_message(
                         tracer,
                         kafka_timestamp_ms,
-                        message.headers(),
                         sender_parameters,
                         message_processor,
                         trace_message,
@@ -321,7 +324,6 @@ fn process_kafka_message(
 fn process_digitiser_trace_message(
     tracer: &TracerEngine,
     kafka_timestamp_ms: i64,
-    headers: Option<&BorrowedHeaders>,
     sender_parameters: &SenderParameters,
     message_processor: &mut DigitiserMessageProcessor,
     message: DigitizerAnalogTraceMessage,
@@ -376,8 +378,7 @@ fn process_digitiser_trace_message(
         })
         .ok();
 
-    headers.conditional_extract_to_current_span(tracer.use_otel());
-    let mut fbb = FlatBufferBuilder::new();
+    let mut fbb: FlatBufferBuilder<'_> = FlatBufferBuilder::new();
     let num_total_pulses = message_processor.process(&mut fbb, &message);
     tracing::Span::current().record("num_total_pulses", num_total_pulses);
     tracing::Span::current().record(

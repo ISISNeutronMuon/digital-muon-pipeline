@@ -217,7 +217,14 @@ async fn main() -> miette::Result<()> {
             event = consumer.recv() => {
                 match event {
                     Ok(msg) => {
-                        process_kafka_message(tracer.use_otel(), &channel_send, &mut cache, &msg).await.into_diagnostic().wrap_err("Failed to process incomming message")?;
+                        let span = info_span!("message_received");
+                        msg.headers().conditional_extract_to_span(tracer.use_otel(), &span);
+                        let _guard = span.enter();
+                        process_kafka_message(&channel_send, &mut cache, &msg)
+                            .await
+                            .into_diagnostic()
+                            .wrap_err("Failed to process incomming message")?;
+
                         consumer.commit_message(&msg, CommitMode::Async)
                             .expect("Message should commit");
                     }
@@ -247,21 +254,17 @@ fn spanned_root_as_digitizer_event_list_message(
 
 /// Extracts the payload of a Kafka message and passes it to [process_digitiser_event_list_message]
 /// # Parameters
-/// - use_otel: if true, then attempts to extract a parent [Span] from the Kafka headers.
 /// - channel_send: send channel which takes [AggregatedFrame] objects to dispatch.
 /// - cache: the cache in which frames are stored whilst awaiting digitiser messages.
 /// - msg: the message.
 ///
 /// [Span]: tracing::Span
-#[instrument(skip_all, level = "debug", err(level = "warn"))]
+#[instrument(skip_all, level = "info", err(level = "warn"))]
 async fn process_kafka_message(
-    use_otel: bool,
     channel_send: &AggregatedFrameToBufferSender,
     cache: &mut FrameCache<EventData>,
     msg: &BorrowedMessage<'_>,
 ) -> Result<(), SendAggregatedFrameError> {
-    msg.headers().conditional_extract_to_current_span(use_otel);
-
     if let Some(payload) = msg.payload() {
         if digitizer_event_list_message_buffer_has_identifier(payload) {
             counter!(

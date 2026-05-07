@@ -53,7 +53,7 @@ use tokio::{
     signal::unix::{SignalKind, signal},
     time,
 };
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info_span, warn};
 
 /// [clap] derived struct to handle command line parameters.
 #[derive(Debug, Parser)]
@@ -248,9 +248,13 @@ async fn main() -> miette::Result<()> {
                         warn!("{e}")
                     },
                     Ok(msg) => {
-                        process_kafka_message(&topics, &mut nexus_engine, tracer.use_otel(), &msg);
+                        let span = info_span!("message_received");
+                        msg.headers().conditional_extract_to_span(tracer.use_otel(), &span);
+                        let _guard = span.enter();
 
-                        if let Err(e) = consumer.commit_message(&msg, CommitMode::Async){
+                        process_kafka_message(&topics, &mut nexus_engine, &msg);
+
+                        if let Err(e) = consumer.commit_message(&msg, CommitMode::Async) {
                             error!("Failed to commit Kafka message consumption: {e}");
                         }
                     }
@@ -273,22 +277,19 @@ async fn main() -> miette::Result<()> {
 /// # Parameters
 /// - topics: contains the topic names.
 /// - nexus_engine: the engine to push the message to.
-/// - use_otel: if true, then attempts to extract a parent [Span] from the Kafka headers.
 /// - msg: the message.
 ///
 /// [Span]: tracing::Span
-#[tracing::instrument(skip_all, level="debug", fields(
+#[tracing::instrument(skip_all, level="info",
+    fields(
     num_cached_runs = nexus_engine.get_num_cached_runs(),
     kafka_message_timestamp_ms = msg.timestamp().to_millis()
 ))]
 fn process_kafka_message(
     topics: &Topics,
     nexus_engine: &mut NexusEngine<EngineDependencies>,
-    use_otel: bool,
     msg: &BorrowedMessage,
 ) {
-    msg.headers().conditional_extract_to_current_span(use_otel);
-
     debug!(
         "key: '{:?}', topic: {}, partition: {}, offset: {}, timestamp: {:?}",
         msg.key(),

@@ -87,15 +87,10 @@ impl FutureRecordTracerExt for FutureRecord<'_, str, [u8]> {
 /// indicating whether OpenTelemetry is used.
 /// If this is false, the methods usually do nothing.
 pub trait OptionalHeaderTracerExt {
-    fn conditional_extract_to_current_span(self, use_otel: bool);
     fn conditional_extract_to_span(self, use_otel: bool, span: &Span);
 }
 
 impl OptionalHeaderTracerExt for Option<&BorrowedHeaders> {
-    fn conditional_extract_to_current_span(self, use_otel: bool) {
-        self.conditional_extract_to_span(use_otel, &tracing::Span::current())
-    }
-
     fn conditional_extract_to_span(self, use_otel: bool, span: &Span) {
         if let Some(headers) = self
             && use_otel
