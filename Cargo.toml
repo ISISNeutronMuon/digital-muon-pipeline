@@ -4,6 +4,7 @@ members = [
   "common",
   "diagnostics",
   "digitiser-aggregator",
+  "events-analyser",
   "nexus-writer",
   "simulator",
   "streaming-types",
