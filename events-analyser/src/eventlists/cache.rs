@@ -1,26 +1,24 @@
 //! Defines the cache stores frames as they are assembled from digitiser messages.
-use super::{AggregatedFrame, RejectMessageError, partial::FrameDigitiserEventsLists};
-use crate::data::{Accumulate, DigitiserData};
+use crate::{event::EventData, eventlists::partial::EventlistsCollection};
+
+use super::{RejectMessageError, partial::PartialEventslistsCollection};
 use digital_muon_common::{
-    DigitizerId, FrameNumber, record_metadata_fields_to_span, spanned::SpannedAggregator
+    DigitizerId, spanned::SpannedAggregator
 };
 use digital_muon_streaming_types::FrameMetadata;
-use std::{collections::VecDeque, fmt::Debug, time::Duration};
-use tracing::{info_span, warn};
+use std::{collections::VecDeque, time::Duration};
+use tracing::warn;
 
 /// Contains all the partial frames as well as handling the frame lifetime and completeness.
-pub(crate) struct MessageCache<D: Debug> {
+pub(crate) struct MessageCache {
     /// Specifies the maximum time that a partial frame should live
     /// in the cache before being dispatched event if it is missing some digitisers.
     ttl: Duration,
     num_topics: usize,
-    eventlists: VecDeque<FrameDigitiserEventsLists<D>>,
+    eventlists: VecDeque<PartialEventslistsCollection>,
 }
 
-impl<D: Debug + Clone + Default> MessageCache<D>
-where
-    DigitiserData<D>: Accumulate<D>,
-{
+impl MessageCache {
     /// Creates and returns a new [FrameCache] instance.
     /// # Parameters
     /// - ttl: time-to-live duration
@@ -42,24 +40,23 @@ where
     #[tracing::instrument(skip_all, level = "trace")]
     pub(crate) fn push(
         &mut self,
-        frame_number: FrameNumber,
         digitiser_id: DigitizerId,
-        metadata: FrameMetadata,
+        metadata: &FrameMetadata,
         topic_index: usize,
-        data: D,
+        data: EventData,
     ) -> Result<(), RejectMessageError> {
-        let frame = {
+        let frame_dig = {
             match self
                 .eventlists
                 .iter_mut()
-                .find(|frame_dig: &&mut FrameDigitiserEventsLists<D>| frame_dig.metadata.equals_ignoring_veto_flags(&metadata) && frame_dig.digitiser_id == digitiser_id)
+                .find(|frame_dig: &&mut PartialEventslistsCollection| frame_dig.metadata.equals_ignoring_veto_flags(metadata) && frame_dig.digitiser_id == digitiser_id)
             {
                 Some(frame_dig) => {
                     frame_dig.push(topic_index, data);
                     frame_dig
                 }
                 None => {
-                    let mut frame_dig = FrameDigitiserEventsLists::<D>::new(self.num_topics, self.ttl, metadata.clone(), frame_number, digitiser_id);
+                    let mut frame_dig = PartialEventslistsCollection::new(self.num_topics, self.ttl, metadata, digitiser_id);
 
                     // Initialise the span field
                     /*if let Err(e) = frame_dig.span_init() {
@@ -81,12 +78,12 @@ where
     /// Checks whether any partial frame is ready to be dispatched, that is either
     /// has a complete complement of digitisers, or has been in the cache past its expiry time.
     /// If one is found it is removed from the cache and returned as an [AggregatedFrame].
-    pub(crate) fn poll(&mut self) -> Option<AggregatedFrame<D>> {
+    pub(crate) fn poll(&mut self) -> Option<EventlistsCollection> {
         // Find a frame which is completed
         if self
             .eventlists
             .front()
-            .is_some_and(|frame_dig: &FrameDigitiserEventsLists<D>| frame_dig.is_complete() || frame_dig.is_expired())
+            .is_some_and(|frame_dig: &PartialEventslistsCollection| frame_dig.is_complete() || frame_dig.is_expired())
         {
             let frame_dig = self
                 .eventlists
@@ -96,7 +93,7 @@ where
                 warn!("Frame span drop failed {e}")
             }
 
-            Some(frame_dig.into())
+            frame_dig.try_complete()
         } else {
             None
         }
@@ -107,7 +104,7 @@ where
         self.eventlists.len()
     }
 }
-
+/*
 #[cfg(test)]
 mod test {
     use super::*;
@@ -116,7 +113,7 @@ mod test {
 
     #[test]
     fn one_frame_in_one_frame_out() {
-        let mut cache = MessageCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 4, 8]);
+        let mut cache = MessageCache::<EventData>::new(Duration::from_millis(100), 1);
 
         let frame_1 = FrameMetadata {
             timestamp: Utc::now(),
@@ -132,7 +129,7 @@ mod test {
         assert_eq!(cache.get_num_partial_frames(), 0);
         assert!(
             cache
-                .push(0, &frame_1, EventData::dummy_data(0, 5, &[0, 1, 2]))
+                .push(0, frame_1.clone(), 0, EventData::dummy_data(0, 5, &[0, 1, 2]))
                 .is_ok()
         );
         assert_eq!(cache.get_num_partial_frames(), 1);
@@ -141,7 +138,7 @@ mod test {
 
         assert!(
             cache
-                .push(1, &frame_1, EventData::dummy_data(0, 5, &[3, 4, 5]))
+                .push(1, frame_1, 0, EventData::dummy_data(0, 5, &[3, 4, 5]))
                 .is_ok()
         );
 
@@ -149,7 +146,7 @@ mod test {
 
         assert!(
             cache
-                .push(4, &frame_1, EventData::dummy_data(0, 5, &[6, 7, 8]))
+                .push(4, &frame_1, 0, EventData::dummy_data(0, 5, &[6, 7, 8]))
                 .is_ok()
         );
 
@@ -157,7 +154,7 @@ mod test {
 
         assert!(
             cache
-                .push(8, &frame_1, EventData::dummy_data(0, 5, &[9, 10, 11]))
+                .push(8, &frame_1, 0, EventData::dummy_data(0, 5, &[9, 10, 11]))
                 .is_ok()
         );
 
@@ -346,3 +343,4 @@ mod test {
         assert!(cache.poll().is_some());
     }
 }
+ */

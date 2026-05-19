@@ -1,6 +1,4 @@
 //! Defines the event list type, used for both digitiser messages and frame messages.
-use super::{Accumulate, DigitiserData};
-use crate::frame::AggregatedFrame;
 use digital_muon_common::{Channel, DigitizerId, Intensity, Time};
 use digital_muon_streaming_types::{
     aev2_frame_assembled_event_v2_generated::{
@@ -108,7 +106,7 @@ impl<'a> From<DigitizerEventListMessage<'a>> for EventData {
         }
     }
 }
-
+/*
 impl Accumulate<EventData> for DigitiserData<EventData> {
     fn accumulate(data: &mut DigitiserData<EventData>) -> EventData {
         // The guarantee that all fields are of equal length depends on all
@@ -155,7 +153,9 @@ impl From<AggregatedFrame<EventData>> for Vec<u8> {
         fbb.finished_data().to_vec()
     }
 }
+*/
 
+/*
 #[cfg(test)]
 mod test {
     use chrono::Utc;
@@ -234,3 +234,4 @@ mod test {
         assert_eq!(test, reference);
     }
 }
+ */

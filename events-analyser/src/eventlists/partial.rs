@@ -1,15 +1,35 @@
 //! Defines the struct for a frame which is awaiting data from digitiser messages.
-use crate::data::DigitiserData;
 use digital_muon_common::{
-    DigitizerId, FrameNumber, spanned::{SpanOnce, SpanOnceError, Spanned, SpannedAggregator, SpannedMut}
+    DigitizerId, spanned::{SpanOnce, SpanOnceError, Spanned, SpannedAggregator, SpannedMut}
 };
 use digital_muon_streaming_types::FrameMetadata;
 use std::time::Duration;
 use tokio::time::Instant;
 use tracing::{Span, info_span};
 
+use crate::event::EventData;
+
+#[derive(Debug)]
+pub(crate) struct EventlistsCollection {
+    pub(super) digitiser_id: DigitizerId,
+    /// The uniquely identifying metadata of the frame, common to all digitiser messages related to this frame (except possibly for [FrameMetadata::veto_flags]).
+    pub(super) metadata: FrameMetadata,
+    /// The frame's event data.
+    eventlists: Vec<EventData>
+}
+
+impl EventlistsCollection {
+    fn new(digitiser_id: DigitizerId, metadata: FrameMetadata, eventlists: Vec<EventData>) -> Self {
+        Self {
+            digitiser_id,
+            metadata,
+            eventlists
+        }
+    }
+}
+
 /// Holds the data of a frame, whislt it is in cache being built from digitiser messages.
-pub(crate) struct FrameDigitiserEventsLists<D> {
+pub(crate) struct PartialEventslistsCollection {
     /// Used by the implementation of [SpannedAggregator].
     ///
     /// [SpannedAggregator]: digital_muon_common::spanned::SpannedAggregator
@@ -19,16 +39,15 @@ pub(crate) struct FrameDigitiserEventsLists<D> {
     /// Time at which the partial frame should be considered expired, and can be dispatched
     /// from the cache even if incomplete.
     expiry: Instant,
-    frame_number: FrameNumber,
     pub(super) digitiser_id: DigitizerId,
     /// The uniquely identifying metadata of the frame, common to all digitiser messages related to this frame (except possibly for [FrameMetadata::veto_flags]).
     pub(super) metadata: FrameMetadata,
     /// The frame's event data.
-    eventlists: Vec<Option<D>>
+    eventlists: Vec<Option<EventData>>
 }
 
-impl<D> FrameDigitiserEventsLists<D> {
-    pub(super) fn new(num_topics: usize, ttl: Duration, metadata: FrameMetadata, frame_number: FrameNumber, digitiser_id: DigitizerId,) -> Self {
+impl PartialEventslistsCollection {
+    pub(super) fn new(num_topics: usize, ttl: Duration, metadata: &FrameMetadata, digitiser_id: DigitizerId) -> Self {
         let expiry = Instant::now() + ttl;
         let mut eventlists = Vec::with_capacity(num_topics);
         eventlists.resize_with(num_topics, ||None);
@@ -36,9 +55,8 @@ impl<D> FrameDigitiserEventsLists<D> {
             span: SpanOnce::default(),
             complete: false,
             expiry,
-            frame_number,
             digitiser_id,
-            metadata,
+            metadata: metadata.clone(),
             eventlists
         }
     }
@@ -64,7 +82,7 @@ impl<D> FrameDigitiserEventsLists<D> {
     /// # Parameters
     /// - digitiser_id: the id of the digitiser sending the data.
     /// - data: the data in the message.
-    pub(crate) fn push(&mut self, topic_index: usize, data: D) {
+    pub(crate) fn push(&mut self, topic_index: usize, data: EventData) {
         self.eventlists.insert(topic_index, Some(data));
     }
 
@@ -88,21 +106,27 @@ impl<D> FrameDigitiserEventsLists<D> {
     pub(super) fn is_expired(&self) -> bool {
         Instant::now() > self.expiry
     }
+
+    pub(crate) fn try_complete(self) -> Option<EventlistsCollection> {
+        self.eventlists.into_iter().collect::<Option<Vec<EventData>>>().map(|eventlists|
+            EventlistsCollection::new(self.digitiser_id, self.metadata, eventlists)
+        )
+    }
 }
 
-impl<D> Spanned for FrameDigitiserEventsLists<D> {
+impl Spanned for PartialEventslistsCollection {
     fn span(&self) -> &SpanOnce {
         &self.span
     }
 }
 
-impl<D> SpannedMut for FrameDigitiserEventsLists<D> {
+impl SpannedMut for PartialEventslistsCollection {
     fn span_mut(&mut self) -> &mut SpanOnce {
         &mut self.span
     }
 }
 
-impl<D> SpannedAggregator for FrameDigitiserEventsLists<D> {
+impl SpannedAggregator for PartialEventslistsCollection {
     fn span_init(&mut self) -> Result<(), SpanOnceError> {
         self.span.init(info_span!(parent: None, "Frame",
             "metadata_timestamp" = self.metadata.timestamp.to_rfc3339(),
