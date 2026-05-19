@@ -151,14 +151,6 @@ async fn main() -> miette::Result<()> {
     )
     .into_diagnostic()?;
 
-    let producer: FutureProducer = digital_muon_common::generate_kafka_client_config(
-        &kafka_opts.broker,
-        &kafka_opts.username,
-        &kafka_opts.password,
-    )
-    .create()
-    .into_diagnostic()?;
-
     let ttl = Duration::from_millis(args.frame_ttl_ms);
 
     let mut cache = MessageCache::new(ttl, args.eventlist_topic.len());
@@ -319,9 +311,8 @@ async fn process_kafka_message(
     metadata_veto_flags,
     metadata_protons_per_pulse,
     metadata_running,
+    topic_index=topic_index,
     num_cached_frames = cache.get_num_partial_frames(),
-    timestamp_too_early = false,
-    id_already_present = false,
 ))]
 async fn process_digitiser_event_list_message(
     channel_send: &Sender<EventlistsCollection>,
@@ -332,14 +323,13 @@ async fn process_digitiser_event_list_message(
 ) -> Result<(), SendError<EventlistsCollection>> {
     match message.metadata().try_into() {
         Ok(metadata) => {
-            debug!("Event packet: metadata: {:?}", message.metadata());
-
             // Push the current digitiser message to the frame cache, possibly creating a new partial frame
             if let Err(err) = cache.push(message.digitizer_id(), &metadata, topic_index, message.into()) {
                 tracing::Span::current().record(err.into(), true);
             }
 
             record_metadata_fields_to_span!(&metadata, tracing::Span::current());
+            debug!("Event packet: metadata: {:?}", message.metadata());
 
             cache_poll(channel_send, cache).await?;
         }
@@ -376,6 +366,7 @@ async fn cache_poll(
                 return Err(SendError(eventlists_collection));
             }
         }
+        info!("Eventlist message send.");
     }
     Ok(())
 }
@@ -429,6 +420,7 @@ async fn recv_and_evaluate(
     loop {
         select! {
             message = channel_recv.recv() => {
+                info!("Eventlist message received.");
                 // Blocks until a frame is received
                 match message {
                     Some(eventlists_collection) => {
@@ -500,7 +492,7 @@ async fn evaluate_eventlists_collection(
     //producer: &FutureProducer,
     //output_topic: &str,
 ) {
-    println!("{eventlists_collection:?}");
+    info!("{eventlists_collection:?}");
     //let eventlists_collection_span = eventlists_collection.span().get().expect("Span should exist").clone();
     /*let data: Vec<u8> = frame.into();
 

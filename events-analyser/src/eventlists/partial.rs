@@ -5,7 +5,7 @@ use digital_muon_common::{
 use digital_muon_streaming_types::FrameMetadata;
 use std::time::Duration;
 use tokio::time::Instant;
-use tracing::{Span, info_span};
+use tracing::{Span, debug, info_span};
 
 use crate::event::EventData;
 
@@ -68,7 +68,7 @@ impl PartialEventslistsCollection {
     ///
     /// [self.complete]: Self::complete
     pub(super) fn set_completion_status(&mut self) {
-        if self.eventlists.iter().all(|eventlist|eventlist.is_some()) {
+        if self.eventlists.iter().all(Option::is_some) {
             self.complete = true;
         }
     }
@@ -83,7 +83,9 @@ impl PartialEventslistsCollection {
     /// - digitiser_id: the id of the digitiser sending the data.
     /// - data: the data in the message.
     pub(crate) fn push(&mut self, topic_index: usize, data: EventData) {
-        self.eventlists.insert(topic_index, Some(data));
+        *self.eventlists.get_mut(topic_index).expect("topic_index should not be too large, this should never fail.") = Some(data);
+        self.set_completion_status();
+        debug!("Completed: {}", self.complete);
     }
 
     /// Ammends the metadata [veto_flags] field with `veto_flags` from a new digitiser message.

@@ -7,7 +7,7 @@ use digital_muon_common::{
 };
 use digital_muon_streaming_types::FrameMetadata;
 use std::{collections::VecDeque, time::Duration};
-use tracing::warn;
+use tracing::{debug, warn};
 
 /// Contains all the partial frames as well as handling the frame lifetime and completeness.
 pub(crate) struct MessageCache {
@@ -52,6 +52,7 @@ impl MessageCache {
                 .find(|frame_dig: &&mut PartialEventslistsCollection| frame_dig.metadata.equals_ignoring_veto_flags(metadata) && frame_dig.digitiser_id == digitiser_id)
             {
                 Some(frame_dig) => {
+                    debug!("Partial Collection Found");
                     frame_dig.push(topic_index, data);
                     frame_dig
                 }
@@ -59,12 +60,13 @@ impl MessageCache {
                     let mut frame_dig = PartialEventslistsCollection::new(self.num_topics, self.ttl, metadata, digitiser_id);
 
                     // Initialise the span field
-                    /*if let Err(e) = frame_dig.span_init() {
+                    if let Err(e) = frame_dig.span_init() {
                         warn!("Frame span initiation failed {e}")
-                    }*/
+                    }
 
                     frame_dig.push(topic_index, data);
                     self.eventlists.push_back(frame_dig);
+                    debug!("New Partial Collection created {}", self.eventlists.len());
                     self.eventlists
                         .back()
                         .expect("self.frames should be non-empty, this should never fails")
@@ -79,12 +81,21 @@ impl MessageCache {
     /// has a complete complement of digitisers, or has been in the cache past its expiry time.
     /// If one is found it is removed from the cache and returned as an [AggregatedFrame].
     pub(crate) fn poll(&mut self) -> Option<EventlistsCollection> {
+        if let Some(index) = self.eventlists.iter()
+            .enumerate()
+            .find_map(|(index, frame_dig)|(!frame_dig.is_expired())
+                .then_some(index)
+            ) {
+            //debug!("Draining indices 0 to {index}");
+            self.eventlists.drain(0..index);
+        }
         // Find a frame which is completed
         if self
             .eventlists
             .front()
-            .is_some_and(|frame_dig: &PartialEventslistsCollection| frame_dig.is_complete() || frame_dig.is_expired())
+            .is_some_and(|frame_dig: &PartialEventslistsCollection| frame_dig.is_complete())
         {
+            debug!("Found complete collection");
             let frame_dig = self
                 .eventlists
                 .pop_front()
