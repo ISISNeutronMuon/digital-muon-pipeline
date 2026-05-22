@@ -5435,6 +5435,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "trace-writer"
+version = "0.1.0"
+dependencies = [
+ "assert_approx_eq",
+ "chrono",
+ "clap",
+ "const_format",
+ "digital-muon-common",
+ "digital-muon-streaming-types",
+ "git-version",
+ "libm",
+ "metrics",
+ "metrics-exporter-prometheus",
+ "miette",
+ "num",
+ "rand 0.10.1",
+ "rayon",
+ "rdkafka",
+ "rustfft",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "tracing"
 version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
