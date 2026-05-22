@@ -27,6 +27,10 @@ struct Cli {
     #[clap(long)]
     trace_topic: String,
 
+    /// Kafka control topic, if specified then separate output files will be created, split at run stop/start boundaries, otherwise one large continuous file is written
+    #[clap(long)]
+    control_topic: Option<String>,
+
     /// Endpoint on which OpenMetrics flavour metrics are available
     #[clap(long, env, default_value = "127.0.0.1:9090")]
     observability_address: SocketAddr,
