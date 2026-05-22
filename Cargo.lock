@@ -5438,22 +5438,19 @@ dependencies = [
 name = "trace-writer"
 version = "0.1.0"
 dependencies = [
- "assert_approx_eq",
  "chrono",
  "clap",
- "const_format",
  "digital-muon-common",
  "digital-muon-streaming-types",
  "git-version",
- "libm",
+ "hdf5-metno",
+ "isis_streaming_data_types",
  "metrics",
  "metrics-exporter-prometheus",
  "miette",
- "num",
- "rand 0.10.1",
- "rayon",
+ "ndarray",
  "rdkafka",
- "rustfft",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]

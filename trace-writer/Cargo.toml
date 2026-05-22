@@ -5,30 +5,21 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-rustfft.workspace = true
 chrono.workspace = true
 clap.workspace = true
-const_format.workspace = true
 git-version.workspace = true
+hdf5.workspace = true
+isis_streaming_data_types.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
-libm.workspace = true
 miette = { workspace = true, features = ["fancy"] }
-num.workspace = true
-rayon.workspace = true
+ndarray.workspace = true
 rdkafka.workspace = true
+thiserror.workspace = true
 digital-muon-common.workspace = true
 digital-muon-streaming-types.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 
-[dev-dependencies]
-assert_approx_eq.workspace = true
-chrono.workspace = true
-rand.workspace = true
-
 [lints.clippy]
 fallible_impl_from = "deny"
-# indexing_slicing = "deny"  TODO
-# panic = "deny"  TODO
-# unwrap_used = "deny"  TODO
