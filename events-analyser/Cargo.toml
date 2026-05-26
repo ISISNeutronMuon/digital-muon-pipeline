@@ -7,13 +7,19 @@ edition.workspace = true
 [dependencies]
 chrono.workspace = true
 clap.workspace = true
+digital-muon-common.workspace = true
+digital-muon-streaming-types.workspace = true
 git-version.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 miette = { workspace = true, features = ["fancy"] }
+num.workspace = true
 rdkafka.workspace = true
-digital-muon-common.workspace = true
-digital-muon-streaming-types.workspace = true
+rand.workspace = true
+rand_distr.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 

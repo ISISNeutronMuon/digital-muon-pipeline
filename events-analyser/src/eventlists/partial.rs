@@ -1,30 +1,47 @@
 //! Defines the struct for a frame which is awaiting data from digitiser messages.
 use digital_muon_common::{
-    DigitizerId, spanned::{SpanOnce, SpanOnceError, Spanned, SpannedAggregator, SpannedMut}
+    Channel, DigitizerId, spanned::{SpanOnce, SpanOnceError, Spanned, SpannedAggregator, SpannedMut}
 };
 use digital_muon_streaming_types::FrameMetadata;
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 use tokio::time::Instant;
 use tracing::{Span, debug, info_span};
 
-use crate::event::EventData;
+use crate::event::{ChannelData, EventData};
 
 #[derive(Debug)]
 pub(crate) struct EventlistsCollection {
-    pub(super) digitiser_id: DigitizerId,
+    pub(crate) digitiser_id: DigitizerId,
     /// The uniquely identifying metadata of the frame, common to all digitiser messages related to this frame (except possibly for [FrameMetadata::veto_flags]).
-    pub(super) metadata: FrameMetadata,
+    pub(crate) metadata: FrameMetadata,
     /// The frame's event data.
-    eventlists: Vec<EventData>
+    eventlists: Vec<EventData>,
+    /// Channels.
+    pub(crate) channels: Vec<Channel>
 }
 
 impl EventlistsCollection {
     fn new(digitiser_id: DigitizerId, metadata: FrameMetadata, eventlists: Vec<EventData>) -> Self {
+        let mut channels = eventlists.iter().flat_map(|eventlist|eventlist.get_channels()).collect::<Vec<_>>();
+        channels.sort();
+        channels.dedup();
         Self {
             digitiser_id,
             metadata,
-            eventlists
+            eventlists,
+            channels
         }
+    }
+
+    pub(crate) fn into_channel_collection(self) -> HashMap<Channel, Vec<ChannelData>> {
+        let mut temp = HashMap::<Channel, Vec<ChannelData>>::new();
+        let default = vec![Default::default(); self.eventlists.len()];
+        for (topic_index, event_data) in self.eventlists.into_iter().enumerate() {
+            for (channel, channel_data) in event_data.events.into_iter() {
+                *temp.entry(channel).or_insert_with(||default.clone()).get_mut(topic_index).expect("") = channel_data
+            }
+        }
+        temp
     }
 }
 

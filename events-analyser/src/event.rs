@@ -1,4 +1,6 @@
 //! Defines the event list type, used for both digitiser messages and frame messages.
+use std::collections::HashMap;
+
 use digital_muon_common::{Channel, DigitizerId, Intensity, Time};
 use digital_muon_streaming_types::{
     aev2_frame_assembled_event_v2_generated::{
@@ -11,17 +13,24 @@ use digital_muon_streaming_types::{
 };
 
 /// Event list, either for a digitiser message, or frame message.
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ChannelData {
+    /// Time at which event occurred, relative to frame metadata timestamp (ns).
+    time_intensity: Vec<(Time,Intensity)>,
+}
+
+/// Event list, either for a digitiser message, or frame message.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct EventData {
-    /// Time at which event occurred, relative to frame metadata timestamp (ns).
-    time: Vec<Time>,
-    /// Intensity of event.
-    intensity: Vec<Intensity>,
     /// Id of the detector which registered the event.
-    channel: Vec<Channel>,
+    pub(crate) events: HashMap<Channel, ChannelData>,
 }
 
 impl EventData {
+    pub(crate) fn get_channels(&self) -> Vec<Channel> {
+        self.events.keys().copied().collect()
+    }
+/*
     #[cfg(test)]
     pub(crate) fn new(time: Vec<Time>, intensity: Vec<Intensity>, channel: Vec<Channel>) -> Self {
         Self {
@@ -29,8 +38,8 @@ impl EventData {
             intensity,
             channel,
         }
-    }
-
+    } */
+/*
     #[cfg(test)]
     pub(crate) fn dummy_data(
         time_offset: Time,
@@ -80,30 +89,29 @@ impl EventData {
     pub(crate) fn event_count(&self) -> usize {
         self.time.len()
     }
+ */
 }
-
 impl<'a> From<DigitizerEventListMessage<'a>> for EventData {
     fn from(msg: DigitizerEventListMessage<'a>) -> Self {
-        let time = msg.time().expect("data should have times").iter().collect();
+        let time = msg.time().expect("data should have times").iter();
         let intensity = msg
             .voltage()
             .expect("data should have intensities")
-            .iter()
-            .collect();
+            .iter();
         let channel = msg
             .channel()
             .expect("data should have channel numbers")
-            .iter()
-            .collect();
+            .iter();
+        let mut events = HashMap::<Channel, ChannelData>::new();
+        for (c,(t,i)) in channel.zip(Iterator::zip(time, intensity)) {
+            let data = events.entry(c).or_default();
+            data.time_intensity.push((t,i));
+        }
 
         // The guarantee that all fields are of equal length depends on the inputs
         // having fields of equal length. This is guaranteed by the `trace-to-events`
         // unit so is not checked.
-        Self {
-            time,
-            intensity,
-            channel,
-        }
+        Self { events }
     }
 }
 /*
