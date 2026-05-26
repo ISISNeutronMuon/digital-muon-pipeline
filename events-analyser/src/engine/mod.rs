@@ -1,17 +1,17 @@
-mod metric;
-mod criteria;
+mod algorithm;
 mod bucket;
 mod chart;
+mod criteria;
+mod metric;
 mod utils;
-mod algorithm;
 mod values;
 
 use serde::Deserialize;
 
 use crate::engine::algorithm::AlgorithmTemplate;
-use crate::engine::criteria::Criteria;
 use crate::engine::bucket::BucketBlock;
 use crate::engine::chart::Chart;
+use crate::engine::criteria::Criteria;
 use crate::engine::metric::Metric;
 
 pub(crate) use crate::engine::bucket::FlatBucketBlock;
@@ -46,7 +46,7 @@ impl Templates {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct AnalysisSettings {
-    // These topics are interpreted as the results of detector 
+    // These topics are interpreted as the results of detector
     pub(crate) events_topics: Vec<String>,
     // List of metrics to calculate for each phase.
     pub(crate) metrics: Vec<Metric>,
@@ -55,12 +55,12 @@ pub(crate) struct AnalysisSettings {
     // List of phases in the analysis.
     pub(crate) buckets: Vec<BucketBlock>,
     // List of phases in the analysis.
-    pub(crate) charts: Vec<Chart>
+    pub(crate) charts: Vec<Chart>,
 }
 
 trait Flattenable {
     type Flat;
-    type Library : ?Sized;
+    type Library: ?Sized;
     type Error;
 
     fn flatten(&self, library: &Self::Library) -> Result<Self::Flat, Self::Error>;
@@ -68,7 +68,7 @@ trait Flattenable {
 
 trait FlattenableWithIndex {
     type Flat;
-    type Library : ?Sized;
+    type Library: ?Sized;
     type Error;
 
     fn flatten(&self, library: &Self::Library, index: usize) -> Result<Self::Flat, Self::Error>;
@@ -76,7 +76,10 @@ trait FlattenableWithIndex {
 
 impl AnalysisSettings {
     pub(crate) fn flatten_buckets(&self) -> Result<Vec<FlatBucketBlock>, String> {
-        self.buckets.iter().map(|block|block.flatten(&self.templates)).collect::<Result<_, String>>()
+        self.buckets
+            .iter()
+            .map(|block| block.flatten(&self.templates))
+            .collect::<Result<_, String>>()
     }
 }
 
@@ -89,7 +92,7 @@ pub(crate) struct Array {
     // Is applied to all voltages when traces are created
     pub(crate) name: String,
     // Is applied to all voltages when traces are created
-    pub(crate) values: Vec<f64>
+    pub(crate) values: Vec<f64>,
 }
 
 impl Array {

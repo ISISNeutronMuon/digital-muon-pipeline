@@ -143,16 +143,24 @@ async fn main() -> miette::Result<()> {
 
     let kafka_opts = args.common_kafka_options;
 
-    let analysis_settings : AnalysisSettings = serde_json::from_reader(File::open(&args.analysis_settings).into_diagnostic()?).into_diagnostic()?;
+    let analysis_settings: AnalysisSettings =
+        serde_json::from_reader(File::open(&args.analysis_settings).into_diagnostic()?)
+            .into_diagnostic()?;
     info!("{analysis_settings:?}");
-    
+
     let topics = analysis_settings.events_topics.clone();
     let consumer = digital_muon_common::create_default_consumer(
         &kafka_opts.broker,
         &kafka_opts.username,
         &kafka_opts.password,
         &args.consumer_group,
-        Some(topics.iter().map(String::as_str).collect::<Vec<_>>().as_slice()),
+        Some(
+            topics
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>()
+                .as_slice(),
+        ),
     )
     .into_diagnostic()?;
 
@@ -269,7 +277,11 @@ async fn process_kafka_message(
             match spanned_root_as_digitizer_event_list_message(payload) {
                 Ok(data) => {
                     let kafka_timestamp_ms = msg.timestamp().to_millis().unwrap_or(-1);
-                    let topic_index = topics.iter().enumerate().find_map(|(index, topic)|(*topic == msg.topic()).then_some(index)).unwrap(); // FIXME: Handle error
+                    let topic_index = topics
+                        .iter()
+                        .enumerate()
+                        .find_map(|(index, topic)| (*topic == msg.topic()).then_some(index))
+                        .unwrap(); // FIXME: Handle error
                     process_digitiser_event_list_message(
                         channel_send,
                         cache,
@@ -330,7 +342,12 @@ async fn process_digitiser_event_list_message(
     match message.metadata().try_into() {
         Ok(metadata) => {
             // Push the current digitiser message to the frame cache, possibly creating a new partial frame
-            if let Err(err) = cache.push(message.digitizer_id(), &metadata, topic_index, message.into()) {
+            if let Err(err) = cache.push(
+                message.digitizer_id(),
+                &metadata,
+                topic_index,
+                message.into(),
+            ) {
                 tracing::Span::current().record(err.into(), true);
             }
 
@@ -419,7 +436,7 @@ async fn recv_and_evaluate(
     mut analysis_engine: AnalysisEngine,
     mut channel_recv: Receiver<EventlistsCollection>,
     mut sigint: Signal,
-) {    
+) {
     loop {
         select! {
             message = channel_recv.recv() => {
@@ -460,7 +477,12 @@ async fn close_and_flush_evaluate_channel(
 
     loop {
         let eventlists_collection = channel_recv.recv().await?;
-        flush_eventlists_collection(use_otel, analysis_engine, eventlists_collection,/*producer, output_topic*/).await?;
+        flush_eventlists_collection(
+            use_otel,
+            analysis_engine,
+            eventlists_collection, /*producer, output_topic*/
+        )
+        .await?;
     }
 }
 
@@ -480,7 +502,12 @@ async fn flush_eventlists_collection(
     //producer: &FutureProducer,
     //output_topic: &str,
 ) -> Option<()> {
-    evaluate_eventlists_collection(use_otel, analysis_engine, eventlists_collection, /*producer, output_topic*/).await;
+    evaluate_eventlists_collection(
+        use_otel,
+        analysis_engine,
+        eventlists_collection, /*producer, output_topic*/
+    )
+    .await;
     Some(())
 }
 

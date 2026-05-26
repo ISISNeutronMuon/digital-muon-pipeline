@@ -3,7 +3,6 @@ use serde::Deserialize;
 
 use crate::engine::{Array, FlattenableWithIndex, values::Value};
 
-
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct AlgorithmTemplate {
@@ -21,11 +20,10 @@ impl AlgorithmTemplate {
     }
 }
 
-
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Algorithm {
-    FixedThreshold{
+    FixedThreshold {
         threshold: Value<f64>,
         duration: Value<Time>,
         cool_down: Value<Time>,
@@ -39,20 +37,27 @@ impl FlattenableWithIndex for Algorithm {
 
     fn flatten(&self, arrays: &[Array], index: usize) -> Result<FlatAlgorithm, Self::Error> {
         match self {
-            Algorithm::FixedThreshold { threshold, duration, cool_down } => {
+            Algorithm::FixedThreshold {
+                threshold,
+                duration,
+                cool_down,
+            } => {
                 let threshold = threshold.flatten(arrays, index)?;
                 let duration = duration.flatten(arrays, index)?;
                 let cool_down = cool_down.flatten(arrays, index)?;
-                Ok(FlatAlgorithm::FixedThreshold { threshold, duration, cool_down })
-            },
+                Ok(FlatAlgorithm::FixedThreshold {
+                    threshold,
+                    duration,
+                    cool_down,
+                })
+            }
         }
-
     }
 }
 
 #[derive(Debug)]
 pub(crate) enum FlatAlgorithm {
-    FixedThreshold{
+    FixedThreshold {
         threshold: f64,
         duration: Time,
         cool_down: Time,

@@ -2,9 +2,7 @@
 use crate::{event::EventData, eventlists::partial::EventlistsCollection};
 
 use super::{RejectMessageError, partial::PartialEventslistsCollection};
-use digital_muon_common::{
-    DigitizerId, spanned::SpannedAggregator
-};
+use digital_muon_common::{DigitizerId, spanned::SpannedAggregator};
 use digital_muon_streaming_types::FrameMetadata;
 use std::{collections::VecDeque, time::Duration};
 use tracing::{debug, warn};
@@ -29,7 +27,7 @@ impl MessageCache {
         Self {
             ttl,
             num_topics,
-            eventlists: Default::default()
+            eventlists: Default::default(),
         }
     }
 
@@ -46,18 +44,24 @@ impl MessageCache {
         data: EventData,
     ) -> Result<(), RejectMessageError> {
         let frame_dig = {
-            match self
-                .eventlists
-                .iter_mut()
-                .find(|frame_dig: &&mut PartialEventslistsCollection| frame_dig.metadata.equals_ignoring_veto_flags(metadata) && frame_dig.digitiser_id == digitiser_id)
-            {
+            match self.eventlists.iter_mut().find(
+                |frame_dig: &&mut PartialEventslistsCollection| {
+                    frame_dig.metadata.equals_ignoring_veto_flags(metadata)
+                        && frame_dig.digitiser_id == digitiser_id
+                },
+            ) {
                 Some(frame_dig) => {
                     debug!("Partial Collection Found");
                     frame_dig.push(topic_index, data);
                     frame_dig
                 }
                 None => {
-                    let mut frame_dig = PartialEventslistsCollection::new(self.num_topics, self.ttl, metadata, digitiser_id);
+                    let mut frame_dig = PartialEventslistsCollection::new(
+                        self.num_topics,
+                        self.ttl,
+                        metadata,
+                        digitiser_id,
+                    );
 
                     // Initialise the span field
                     if let Err(e) = frame_dig.span_init() {
@@ -81,11 +85,12 @@ impl MessageCache {
     /// has a complete complement of digitisers, or has been in the cache past its expiry time.
     /// If one is found it is removed from the cache and returned as an [AggregatedFrame].
     pub(crate) fn poll(&mut self) -> Option<EventlistsCollection> {
-        if let Some(index) = self.eventlists.iter()
+        if let Some(index) = self
+            .eventlists
+            .iter()
             .enumerate()
-            .find_map(|(index, frame_dig)|(!frame_dig.is_expired())
-                .then_some(index)
-            ) {
+            .find_map(|(index, frame_dig)| (!frame_dig.is_expired()).then_some(index))
+        {
             //debug!("Draining indices 0 to {index}");
             self.eventlists.drain(0..index);
         }

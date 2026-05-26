@@ -32,6 +32,4 @@ impl Metric {
 ///
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "metric-type")]
-pub(crate) struct FalseCount {
-    
-}
+pub(crate) struct FalseCount {}

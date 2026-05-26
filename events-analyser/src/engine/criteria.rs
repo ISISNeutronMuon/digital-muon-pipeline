@@ -1,9 +1,10 @@
-use digital_muon_common::{
-    Channel, DigitizerId, FrameNumber
-};
+use digital_muon_common::{Channel, DigitizerId, FrameNumber};
 use serde::Deserialize;
 
-use crate::engine::{FlattenableWithIndex, Templates, values::{ConstantFilter, ValueFilter}};
+use crate::engine::{
+    FlattenableWithIndex, Templates,
+    values::{ConstantFilter, ValueFilter},
+};
 
 ///
 /// This struct is created from the configuration JSON file.
@@ -44,30 +45,47 @@ impl FlattenableWithIndex for Criteria {
     type Error = String;
 
     fn flatten(&self, libraries: &Templates, index: usize) -> Result<FlatCriteria, Self::Error> {
-        let template: Option<&Criteria> = libraries.get_criteria().iter().find(|tmplt|tmplt.name == self.name);
-        let periods = self.periods.as_ref()
-            .or_else(||template.and_then(|tmplt|tmplt.periods.as_ref()))
-            .map(|v|v.flatten(libraries.get_arrays(), index))
+        let template: Option<&Criteria> = libraries
+            .get_criteria()
+            .iter()
+            .find(|tmplt| tmplt.name == self.name);
+        let periods = self
+            .periods
+            .as_ref()
+            .or_else(|| template.and_then(|tmplt| tmplt.periods.as_ref()))
+            .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?;
-        let frames = self.frames.as_ref()
-            .or_else(||template.and_then(|tmplt|tmplt.frames.as_ref()))
-            .map(|v|v.flatten(libraries.get_arrays(), index))
+        let frames = self
+            .frames
+            .as_ref()
+            .or_else(|| template.and_then(|tmplt| tmplt.frames.as_ref()))
+            .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?;
-        let channels = self.channels.as_ref()
-            .or_else(||template.and_then(|tmplt|tmplt.channels.as_ref()))
-            .map(|v|v.flatten(libraries.get_arrays(), index))
+        let channels = self
+            .channels
+            .as_ref()
+            .or_else(|| template.and_then(|tmplt| tmplt.channels.as_ref()))
+            .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?;
-        let digitiser_ids = self.digitiser_ids.as_ref()
-            .or_else(||template.and_then(|tmplt|tmplt.digitiser_ids.as_ref()))
-            .map(|v|v.flatten(libraries.get_arrays(), index))
+        let digitiser_ids = self
+            .digitiser_ids
+            .as_ref()
+            .or_else(|| template.and_then(|tmplt| tmplt.digitiser_ids.as_ref()))
+            .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?;
 
         periods
             .zip(frames)
             .zip(channels)
             .zip(digitiser_ids)
-            .map(|(((periods, frames), channels), digitiser_ids)|
-                FlatCriteria { periods, frames, channels, digitiser_ids }
-            ).ok_or_else(||format!("Could not construct criteria."))
+            .map(
+                |(((periods, frames), channels), digitiser_ids)| FlatCriteria {
+                    periods,
+                    frames,
+                    channels,
+                    digitiser_ids,
+                },
+            )
+            .ok_or_else(|| format!("Could not construct criteria."))
     }
 }

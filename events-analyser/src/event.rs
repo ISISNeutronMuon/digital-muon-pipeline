@@ -16,7 +16,7 @@ use digital_muon_streaming_types::{
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ChannelData {
     /// Time at which event occurred, relative to frame metadata timestamp (ns).
-    time_intensity: Vec<(Time,Intensity)>,
+    time_intensity: Vec<(Time, Intensity)>,
 }
 
 /// Event list, either for a digitiser message, or frame message.
@@ -30,7 +30,7 @@ impl EventData {
     pub(crate) fn get_channels(&self) -> Vec<Channel> {
         self.events.keys().copied().collect()
     }
-/*
+    /*
     #[cfg(test)]
     pub(crate) fn new(time: Vec<Time>, intensity: Vec<Intensity>, channel: Vec<Channel>) -> Self {
         Self {
@@ -39,73 +39,70 @@ impl EventData {
             channel,
         }
     } */
-/*
-    #[cfg(test)]
-    pub(crate) fn dummy_data(
-        time_offset: Time,
-        events_per_channel: usize,
-        channels: &[Channel],
-    ) -> Self {
-        let time = std::iter::repeat_n(
-            &(time_offset..(time_offset + events_per_channel as Time)).collect::<Vec<Time>>(),
-            channels.len(),
-        )
-        .flatten()
-        .copied()
-        .collect();
+    /*
+       #[cfg(test)]
+       pub(crate) fn dummy_data(
+           time_offset: Time,
+           events_per_channel: usize,
+           channels: &[Channel],
+       ) -> Self {
+           let time = std::iter::repeat_n(
+               &(time_offset..(time_offset + events_per_channel as Time)).collect::<Vec<Time>>(),
+               channels.len(),
+           )
+           .flatten()
+           .copied()
+           .collect();
 
-        let intensity = vec![time_offset.try_into().unwrap(); channels.len() * events_per_channel];
+           let intensity = vec![time_offset.try_into().unwrap(); channels.len() * events_per_channel];
 
-        let channel = channels
-            .iter()
-            .flat_map(|c| vec![c; events_per_channel])
-            .copied()
-            .collect();
+           let channel = channels
+               .iter()
+               .flat_map(|c| vec![c; events_per_channel])
+               .copied()
+               .collect();
 
-        Self {
-            time,
-            intensity,
-            channel,
-        }
-    }
+           Self {
+               time,
+               intensity,
+               channel,
+           }
+       }
 
-    /// Creates an event list with a specific reserved capacity.
-    /// # Parameters
-    /// - capacity: the number of events to reserve in the list.
-    ///
-    /// Note this does not affect the length of any of the fields, merely reserves space for data to be entered.
-    pub(crate) fn with_capacity(capacity: usize) -> Self {
-        Self {
-            time: Vec::with_capacity(capacity),
-            intensity: Vec::with_capacity(capacity),
-            channel: Vec::with_capacity(capacity),
-        }
-    }
+       /// Creates an event list with a specific reserved capacity.
+       /// # Parameters
+       /// - capacity: the number of events to reserve in the list.
+       ///
+       /// Note this does not affect the length of any of the fields, merely reserves space for data to be entered.
+       pub(crate) fn with_capacity(capacity: usize) -> Self {
+           Self {
+               time: Vec::with_capacity(capacity),
+               intensity: Vec::with_capacity(capacity),
+               channel: Vec::with_capacity(capacity),
+           }
+       }
 
-    /// Returns the number of events in the list.
-    ///
-    /// This assumes all fields are of equal length.
-    /// This is not checked, so must be guaranteed by the whoever builds the list.
-    pub(crate) fn event_count(&self) -> usize {
-        self.time.len()
-    }
- */
+       /// Returns the number of events in the list.
+       ///
+       /// This assumes all fields are of equal length.
+       /// This is not checked, so must be guaranteed by the whoever builds the list.
+       pub(crate) fn event_count(&self) -> usize {
+           self.time.len()
+       }
+    */
 }
 impl<'a> From<DigitizerEventListMessage<'a>> for EventData {
     fn from(msg: DigitizerEventListMessage<'a>) -> Self {
         let time = msg.time().expect("data should have times").iter();
-        let intensity = msg
-            .voltage()
-            .expect("data should have intensities")
-            .iter();
+        let intensity = msg.voltage().expect("data should have intensities").iter();
         let channel = msg
             .channel()
             .expect("data should have channel numbers")
             .iter();
         let mut events = HashMap::<Channel, ChannelData>::new();
-        for (c,(t,i)) in channel.zip(Iterator::zip(time, intensity)) {
+        for (c, (t, i)) in channel.zip(Iterator::zip(time, intensity)) {
             let data = events.entry(c).or_default();
-            data.time_intensity.push((t,i));
+            data.time_intensity.push((t, i));
         }
 
         // The guarantee that all fields are of equal length depends on the inputs

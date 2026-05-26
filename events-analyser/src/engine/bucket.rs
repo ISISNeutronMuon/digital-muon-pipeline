@@ -1,5 +1,12 @@
+use crate::{
+    engine::{
+        Flattenable, FlattenableWithIndex, Templates,
+        algorithm::FlatAlgorithm,
+        criteria::{Criteria, FlatCriteria},
+    },
+    eventlists::EventlistsCollection,
+};
 use serde::Deserialize;
-use crate::{engine::{Flattenable, FlattenableWithIndex, Templates, algorithm::FlatAlgorithm, criteria::{Criteria, FlatCriteria}}, eventlists::EventlistsCollection};
 
 ///
 /// This struct is created from the configuration JSON file.
@@ -26,16 +33,22 @@ impl Flattenable for BucketBlock {
     type Library = Templates;
     type Error = String;
 
-    fn flatten(&self, library: &Templates) -> Result<FlatBucketBlock,Self::Error> {
-        let algorithm = library.algorithms.iter()
-            .find(|alg|alg.has_name(&self.algorithm))
-            .ok_or_else(||format!("Could not find algorithm template in bucket {}.", self.name))?;
+    fn flatten(&self, library: &Templates) -> Result<FlatBucketBlock, Self::Error> {
+        let algorithm = library
+            .algorithms
+            .iter()
+            .find(|alg| alg.has_name(&self.algorithm))
+            .ok_or_else(|| format!("Could not find algorithm template in bucket {}.", self.name))?;
         let buckets = (0..self.number)
             .map(|index| {
                 let criteria = self.criteria.flatten(library, index)?;
                 let algorithm = algorithm.get_algorithm().flatten(&library.arrays, index)?;
-                Ok(FlatBucket { criteria, algorithm })
-            }).collect::<Result<Vec<_>, Self::Error>>()?;
+                Ok(FlatBucket {
+                    criteria,
+                    algorithm,
+                })
+            })
+            .collect::<Result<Vec<_>, Self::Error>>()?;
         Ok(FlatBucketBlock {
             name: self.name.clone(),
             buckets,
@@ -73,9 +86,20 @@ pub(crate) struct FlatBucket {
 
 impl FlatBucket {
     pub(crate) fn is_collection_in(&self, collection: &EventlistsCollection) -> bool {
-        self.criteria.digitiser_ids.is_valid(collection.digitiser_id)
-        || self.criteria.periods.is_valid(collection.metadata.period_number)
-        || self.criteria.frames.is_valid(collection.metadata.frame_number)
-        || collection.channels.iter().any(|&channel|self.criteria.channels.is_valid(channel))
+        self.criteria
+            .digitiser_ids
+            .is_valid(collection.digitiser_id)
+            || self
+                .criteria
+                .periods
+                .is_valid(collection.metadata.period_number)
+            || self
+                .criteria
+                .frames
+                .is_valid(collection.metadata.frame_number)
+            || collection
+                .channels
+                .iter()
+                .any(|&channel| self.criteria.channels.is_valid(channel))
     }
 }

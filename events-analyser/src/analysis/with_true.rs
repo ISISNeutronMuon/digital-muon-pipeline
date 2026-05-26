@@ -14,6 +14,5 @@ pub(crate) struct AnalysisWithTrue {
 impl AnalysisWithTrue {
     fn push(true_data: &ChannelData, data: ChannelData) {
         let mut temp = HashMap::<usize, Vec<usize>>::new();
-        
     }
 }

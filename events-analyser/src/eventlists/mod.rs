@@ -8,7 +8,6 @@ mod partial;
 pub(crate) use cache::MessageCache;
 pub(crate) use partial::{EventlistsCollection, PartialEventslistsCollection};
 
-
 /// Represents the reason why a digitiser event list message is rejected
 pub(crate) enum RejectMessageError {
     /// The frame has already encountered an event list from this digitiser.

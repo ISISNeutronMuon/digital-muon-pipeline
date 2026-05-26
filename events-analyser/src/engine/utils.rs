@@ -1,8 +1,7 @@
-use std::ops::RangeInclusive;
 use serde::Deserialize;
+use std::ops::RangeInclusive;
 
 use crate::engine::values::Number;
-
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -27,8 +26,11 @@ pub(crate) struct Function<T> {
     value_at_zero: T,
 }
 
-impl<T> Function<T> where T : Number {
-    pub(crate) fn apply(&self, t : T) -> T {
-        self.scale*t + self.value_at_zero
+impl<T> Function<T>
+where
+    T: Number,
+{
+    pub(crate) fn apply(&self, t: T) -> T {
+        self.scale * t + self.value_at_zero
     }
 }

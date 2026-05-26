@@ -1,5 +1,5 @@
-use serde::Deserialize;
 use crate::engine::values::Value;
+use serde::Deserialize;
 
 ///
 /// This struct is created from the configuration JSON file.
