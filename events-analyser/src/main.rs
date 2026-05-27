@@ -49,7 +49,7 @@ use digital_muon_common::{
     },
     record_metadata_fields_to_span,
     spanned::Spanned,
-    tracer::{FutureRecordTracerExt, OptionalHeaderTracerExt, TracerEngine, TracerOptions},
+    tracer::{OptionalHeaderTracerExt, TracerEngine, TracerOptions},
 };
 use digital_muon_streaming_types::{
     dev2_digitizer_event_v2_generated::{
@@ -65,14 +65,13 @@ use miette::{Context, IntoDiagnostic};
 use rdkafka::{
     consumer::{CommitMode, Consumer},
     message::{BorrowedMessage, Message},
-    producer::{FutureProducer, FutureRecord},
     util::Timeout,
 };
-use std::{fmt::Debug, fs::File, net::SocketAddr, path::PathBuf, time::Duration};
+use std::{fmt::Debug, fs::File, io, net::SocketAddr, path::PathBuf, time::Duration};
 use tokio::{
     select,
     signal::unix::{Signal, SignalKind, signal},
-    sync::mpsc::{Receiver, Sender, error::SendError},
+    sync::mpsc::{channel, Receiver, Sender, error::SendError},
     task::JoinHandle,
 };
 use tracing::{debug, error, info, info_span, instrument, warn};
@@ -146,7 +145,6 @@ async fn main() -> miette::Result<()> {
     let analysis_settings: AnalysisSettings =
         serde_json::from_reader(File::open(&args.analysis_settings).into_diagnostic()?)
             .into_diagnostic()?;
-    info!("{analysis_settings:?}");
 
     let topics = analysis_settings.events_topics.clone();
     let consumer = digital_muon_common::create_default_consumer(
@@ -198,7 +196,7 @@ async fn main() -> miette::Result<()> {
 
     let mut cache_poll_interval = tokio::time::interval(Duration::from_millis(args.cache_poll_ms));
 
-    let analysis_engine = AnalysisEngine::new(analysis_settings);
+    let analysis_engine = AnalysisEngine::new(analysis_settings).expect("FIXME: This may fail.");
 
     // Creates Send-Frame thread and returns channel sender
     let (channel_send, producer_task_handle) = create_evaluator_task(
@@ -389,7 +387,6 @@ async fn cache_poll(
                 return Err(SendError(eventlists_collection));
             }
         }
-        //info!("Eventlist message send.");
     }
     Ok(())
 }
@@ -405,9 +402,9 @@ fn create_evaluator_task(
     use_otel: bool,
     analysis_engine: AnalysisEngine,
     send_frame_buffer_size: usize,
-) -> std::io::Result<(Sender<EventlistsCollection>, JoinHandle<()>)> {
+) -> io::Result<(Sender<EventlistsCollection>, JoinHandle<()>)> {
     let (channel_send, channel_recv) =
-        tokio::sync::mpsc::channel::<EventlistsCollection>(send_frame_buffer_size);
+        channel::<EventlistsCollection>(send_frame_buffer_size);
 
     let sigint = signal(SignalKind::interrupt())?;
     let handle = tokio::spawn(recv_and_evaluate(
@@ -440,7 +437,6 @@ async fn recv_and_evaluate(
     loop {
         select! {
             message = channel_recv.recv() => {
-                //info!("Eventlist message received.");
                 // Blocks until a frame is received
                 match message {
                     Some(eventlists_collection) => {
@@ -470,8 +466,6 @@ async fn close_and_flush_evaluate_channel(
     use_otel: bool,
     analysis_engine: &mut AnalysisEngine,
     channel_recv: &mut Receiver<EventlistsCollection>,
-    //producer: &FutureProducer,
-    //output_topic: &str,
 ) -> Option<()> {
     channel_recv.close();
 
@@ -480,7 +474,7 @@ async fn close_and_flush_evaluate_channel(
         flush_eventlists_collection(
             use_otel,
             analysis_engine,
-            eventlists_collection, /*producer, output_topic*/
+            eventlists_collection
         )
         .await?;
     }
@@ -505,7 +499,7 @@ async fn flush_eventlists_collection(
     evaluate_eventlists_collection(
         use_otel,
         analysis_engine,
-        eventlists_collection, /*producer, output_topic*/
+        eventlists_collection
     )
     .await;
     Some(())
@@ -523,6 +517,5 @@ async fn evaluate_eventlists_collection(
     analysis_engine: &mut AnalysisEngine,
     eventlists_collection: EventlistsCollection,
 ) {
-    //info!("{eventlists_collection:?}");
     analysis_engine.push(eventlists_collection);
 }

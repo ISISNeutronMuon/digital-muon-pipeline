@@ -1,7 +1,24 @@
 use serde::Deserialize;
-use std::ops::RangeInclusive;
+use std::{fmt::Debug, ops::RangeInclusive};
 
 use crate::engine::values::Number;
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct NameValueTemplate<T> where T : Debug + Clone {
+    name: String,
+    value: T,
+}
+
+impl<T> NameValueTemplate<T> where T : Debug + Clone {
+    pub(crate) fn has_name(&self, name: &str) -> bool {
+        self.name == name
+    }
+
+    pub(crate) fn get_value(&self) -> &T {
+        &self.value
+    }
+}
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]

@@ -1,132 +1,78 @@
 //! Defines the data type used in [FrameCache].
 //!
 //! [FrameCache]: crate::frame::FrameCache
+mod metrics;
 
-mod with_true;
-
-use std::collections::HashMap;
-
-use digital_muon_common::Channel;
-use tracing::info;
-
-use crate::{
-    engine::{AnalysisSettings, FlatBucketBlock},
-    event::ChannelData,
-    eventlists::EventlistsCollection,
-};
-
-#[derive(Default)]
-struct SumWithSumOfSqrs {
-    sum: f64,
-    sqr_sum: f64,
-}
-
-impl SumWithSumOfSqrs {
-    fn add_to(&mut self, value: f64) {
-        self.sum += value;
-        self.sqr_sum += value * value;
-    }
-
-    fn mean_and_stddev(&self, n: f64) -> (f64, f64) {
-        (
-            self.sum / n,
-            f64::sqrt((n * self.sqr_sum - self.sum * self.sum) / (n * (n - 1.0))),
-        )
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct PartialChannelAnalysis {
-    channel: Channel,
-    num_frames: usize,
-    num_false_positives: SumWithSumOfSqrs,
-    num_false_negatives: SumWithSumOfSqrs,
-}
-
-impl PartialChannelAnalysis {
-    pub(crate) fn push(&mut self, mode: &AnalysisMode, mut collection: Vec<ChannelData>) {
-        match mode {
-            AnalysisMode::WithTrue { true_topic_index } => {
-                let true_data = collection.remove(*true_topic_index);
-                let estimate_data = collection;
-            }
-            AnalysisMode::ParallelEstimates {} => {}
-        }
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct Analysis {
-    channel: HashMap<Channel, PartialChannelAnalysis>,
-}
-
-impl Analysis {
-    pub(crate) fn push(&mut self, mode: &AnalysisMode, collection: EventlistsCollection) {
-        for (channel, channel_data) in collection.into_channel_collection() {
-            self.channel
-                .entry(channel)
-                .or_default()
-                .push(mode, channel_data);
-        }
-    }
-}
-
-pub(crate) enum AnalysisMode {
-    WithTrue { true_topic_index: usize },
-    ParallelEstimates {},
-}
-
-impl AnalysisMode {
-    pub(crate) fn new_with_true(true_topic_index: usize) -> Self {
-        AnalysisMode::WithTrue { true_topic_index }
-    }
-}
-
-enum MetricData {
-    FalsePositive {
-        num_traces: usize,
-        sum: SumWithSumOfSqrs,
-    },
-    FalseNegatives {
-        num_traces: usize,
-        sum: SumWithSumOfSqrs,
-    },
-}
-
-struct ChartData {
-    /// metrics[metric][bucket]
-    metrics: Vec<Vec<MetricData>>,
-}
+use metrics::PatrtialMetricResult;
+use crate::{engine::{AnalysisSettings, FlatChart, FlatBucketBlock, Flattenable}, eventlists::EventlistsCollection};
 
 pub(crate) struct AnalysisEngine {
-    settings: AnalysisSettings,
-    analyses: Vec<Analysis>,
     buckets: Vec<FlatBucketBlock>,
+    metrics: Vec<PatrtialMetricResult>,
+    charts: Vec<FlatChart>,
 }
 
 impl AnalysisEngine {
-    pub(crate) fn new(settings: AnalysisSettings) -> Self {
-        let buckets = settings.flatten_buckets().unwrap();
-        info!("{buckets:?}");
-        Self {
-            settings,
-            analyses: vec![Analysis::default()],
+    pub(crate) fn new(settings: AnalysisSettings) -> Result<Self,String> {
+        let buckets = settings.flatten_buckets()
+            .expect("This should never fail.");
+        let bucket_block_sizes = buckets.iter()
+            .map(|block|block.buckets.len())
+            .collect::<Vec<_>>();
+        
+        let metrics = settings.metrics
+            .iter()
+            .map(|metric| metric
+                .flatten(&settings.events_topics)
+                .map(|metric|PatrtialMetricResult::new(metric, &bucket_block_sizes))
+            )
+            .collect::<Result<_,_>>()?;
+
+        let charts = settings.charts
+            .iter()
+            .map(|chart|chart.flatten(&settings))
+            .collect::<Result<Vec<_>,_>>()?;
+
+        Ok(Self {
+            metrics,
             buckets,
-        }
+            charts,
+        })
     }
 
-    pub(crate) fn push(&mut self, collection: EventlistsCollection) {
-        let bucket = self.buckets.iter().find_map(|block| {
-            block
-                .buckets
+    pub(crate) fn push<'a>(&'a mut self, collection: EventlistsCollection) -> Option<()> {
+        let (index, bucket) = self.buckets
+            .iter()
+            .enumerate()
+            .find_map(|(index, block)|
+                block.find_bucket_matching(&collection)
+                    .map(|(index_in_block, bucket)|((index, index_in_block),bucket))
+            )?;
+        
+        let collection = collection.into_channel_collection();
+        self.metrics
+            .iter_mut()
+            .for_each(|metric|
+                metric.push(&bucket.waveform, &bucket.algorithm, index, &collection)
+            );
+        Some(())
+    }
+
+    pub(crate) fn build_charts(&self) {
+        for chart in &self.charts {
+            let from_buckets = chart.from_buckets
                 .iter()
-                .find(|bucket| bucket.is_collection_in(&collection))
-        });
-        if let Some(bucket) = bucket {
-            info!("Success {:?}", bucket.criteria);
-        } else {
-            info!("Failure {:?}", collection.metadata);
+                .map(|bucket|self.buckets.get(*bucket).expect("This should never fail"));
+            let metric = chart.metrics
+                .iter()
+                .map(|metric|self.metrics.get(*metric).expect("This should never fail"));
+            let series = metric
+                .flat_map(|metric|chart.from_buckets.iter().map(move |bucket|(metric,*bucket)))
+                .collect::<Vec<_>>();
+
+            for series in series {
+                series.0;
+            }
         }
-        //self.analyses[0].push(&self.settings, collection);
     }
 }

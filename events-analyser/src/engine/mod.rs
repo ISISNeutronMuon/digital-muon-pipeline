@@ -1,20 +1,26 @@
-mod algorithm;
-mod bucket;
-mod chart;
-mod criteria;
-mod metric;
 mod utils;
 mod values;
-
+mod elements;
 use serde::Deserialize;
 
-use crate::engine::algorithm::AlgorithmTemplate;
-use crate::engine::bucket::BucketBlock;
-use crate::engine::chart::Chart;
-use crate::engine::criteria::Criteria;
-use crate::engine::metric::Metric;
+use crate::engine::{
+    elements::{
+        Algorithm, BucketBlock, Criteria, Waveform
+    },
+    utils::NameValueTemplate,
+};
 
-pub(crate) use crate::engine::bucket::FlatBucketBlock;
+pub(crate) use crate::engine::elements::{
+    Chart,
+    FlatBucket,
+    FlatBucketBlock,
+    FlatChart,
+    FlatMetric,
+    FlatMetricFalseCount,
+    Metric,
+    FlatAlgorithm,
+    FlatWaveform
+};
 
 ///
 /// This struct is created from the configuration JSON file.
@@ -27,7 +33,9 @@ pub(crate) struct Templates {
     // List of metrics to calculate for each phase.
     pub(crate) arrays: Vec<Array>,
     // List of metrics to calculate for each phase.
-    pub(crate) algorithms: Vec<AlgorithmTemplate>,
+    pub(crate) algorithms: Vec<NameValueTemplate<Algorithm>>,
+    // List of metrics to calculate for each phase.
+    pub(crate) waveforms: Vec<NameValueTemplate<Waveform>>,
 }
 
 impl Templates {
@@ -37,6 +45,18 @@ impl Templates {
 
     fn get_arrays(&self) -> &[Array] {
         &self.arrays
+    }
+
+    fn get_algorithm(&self, source: &str) -> Option<&Algorithm> {
+        self.algorithms
+            .iter()
+            .find_map(|alg| alg.has_name(source).then_some(alg.get_value()))
+    }
+
+    fn get_waveform(&self, source: &str) -> Option<&Waveform> {
+        self.waveforms
+            .iter()
+            .find_map(|wav| wav.has_name(source).then_some(wav.get_value()))
     }
 }
 
@@ -58,7 +78,7 @@ pub(crate) struct AnalysisSettings {
     pub(crate) charts: Vec<Chart>,
 }
 
-trait Flattenable {
+pub(crate) trait Flattenable {
     type Flat;
     type Library: ?Sized;
     type Error;
@@ -81,6 +101,31 @@ impl AnalysisSettings {
             .map(|block| block.flatten(&self.templates))
             .collect::<Result<_, String>>()
     }
+    
+    pub(crate) fn flatten_metrics(&self) -> Result<Vec<FlatMetric>, String> {
+        self.metrics
+            .iter()
+            .map(|metric| metric.flatten(&self.events_topics))
+            .collect::<Result<_, String>>()
+    }
+
+    pub(crate) fn get_bucket_block_index_if<F>(&self, name: &str, when: F) -> Option<usize> where F : Fn(&BucketBlock) -> bool {
+        self.buckets.iter()
+            .enumerate()
+            .filter(|(_,x)|when(x))
+            .find_map(|(index, block)|
+                (block.name == name).then_some(index)
+            )
+    }
+
+    pub(crate) fn get_metric_index(&self, name: &str) -> Option<usize> {
+        self.metrics.iter()
+            .enumerate()
+            .find_map(|(index, metric)|
+                metric.has_name(name).then_some(index)
+            )
+    }
+    
 }
 
 ///
@@ -109,76 +154,7 @@ impl Array {
 mod tests {
     use super::*;
 
-    const JSON_INPUT_1: &str = r#"
-    {
-        "voltage-transformation": {"scale": 1, "translate": 0 },
-        "time-bins": { "const": 30000 },
-        "sample-rate": { "const": 1000000000 },
-        "digitiser-config": {
-            "auto-digitisers": {
-                "num-digitisers": { "const" : 32 },
-                "num-channels-per-digitiser": { "const" : 8 }
-            }
-        },
-        "pulses": [{
-                        "pulse-type": "back-to-back-exp",
-                        "spread":      { "random-type": "constant-float", "value": { "const": 5.5 } },
-                        "rising":      { "random-type": "constant-float", "value": { "const": 3.5 } },
-                        "falling":     { "random-type": "constant-float", "value": { "const": 2.4 } },
-                        "peak_time":   { "random-type": "exponential", "lifetime": { "const": 2200 } },
-                        "peak_height": { "random-type": "uniform-float", "min": { "const": 250 }, "max": { "const": 1100 } }
-                    },
-                    {
-                        "pulse-type": "flat",
-                        "start":  { "random-type": "exponential", "lifetime": { "const": 2200 } },
-                        "width":  { "random-type": "uniform-float", "min": { "const": 20 }, "max": { "const": 50 } },
-                        "height": { "random-type": "uniform-float", "min": { "const": 30 }, "max": { "const": 70 } }
-                    },
-                    {
-                        "pulse-type": "triangular",
-                        "start":     { "random-type": "exponential", "lifetime": { "const": 2200 } },
-                        "width":     { "random-type": "uniform-float", "min": { "const": 20 }, "max": { "const": 50 } },
-                        "peak_time": { "random-type": "uniform-float", "min": { "const": 0.25 }, "max": { "const": 0.75 } },
-                        "height":    { "random-type": "uniform-float", "min": { "const": 30 }, "max": { "const": 70 } }
-                    }],
-        "event-lists": [
-            {
-                "pulses": [
-                    {"weight": 1, "pulse-index": 0},
-                    {"weight": 1, "pulse-index": 1},
-                    {"weight": 1, "pulse-index": 2}
-                ],
-                "noises": [
-                    {
-                        "attributes": { "noise-type" : "gaussian", "mean" : { "const": 0 }, "sd" : { "const": 20 } },
-                        "smoothing-window-length" : { "const": 1 },
-                        "bounds" : { "min": { "const": 0 }, "max": { "const": 30000 } }
-                    },
-                    {
-                        "attributes": { "noise-type" : "gaussian", "mean" : { "const": 0 }, "sd" : { "num-func": { "scale": 50, "translate": 50 } } },
-                        "smoothing-window-length" : { "const": 5 },
-                        "bounds" : { "min": { "const": 0 }, "max": { "const": 30000 } }
-                    }
-                ],
-                "num-pulses": { "random-type": "constant-int", "value": { "const": 500 } }
-            }
-        ],
-        "schedule": [
-            { "send-run-start": { "name": { "text": "MyRun" }, "filename": { "text": "RunFile" }, "instrument": { "text": "MuSR" } } },
-            { "set-timestamp": "now" },
-            { "wait-ms": 100 },
-            { "frame-loop": {
-                    "start": { "const": 0 },
-                    "end": { "const": 99 },
-                    "schedule": [
-                        { "set-timestamp": { "advance-by-ms" : 5} },
-                        { "set-timestamp": { "rewind-by-ms" : 5} }
-                    ]
-                }
-            }
-        ]
-    }
-    "#;
+    const JSON_INPUT_1: &str = r#""#;
     #[test]
     fn test1() {
         let simulation: AnalysisSettings = serde_json::from_str(JSON_INPUT_1).unwrap();

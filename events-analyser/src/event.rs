@@ -1,22 +1,34 @@
 //! Defines the event list type, used for both digitiser messages and frame messages.
 use std::collections::HashMap;
 
-use digital_muon_common::{Channel, DigitizerId, Intensity, Time};
-use digital_muon_streaming_types::{
-    aev2_frame_assembled_event_v2_generated::{
-        FrameAssembledEventListMessage, FrameAssembledEventListMessageArgs,
-        finish_frame_assembled_event_list_message_buffer,
-    },
-    dev2_digitizer_event_v2_generated::DigitizerEventListMessage,
-    flatbuffers::FlatBufferBuilder,
-    frame_metadata_v2_generated::{FrameMetadataV2, FrameMetadataV2Args},
-};
+use digital_muon_common::{Channel, Intensity, Time};
+use digital_muon_streaming_types::dev2_digitizer_event_v2_generated::DigitizerEventListMessage;
 
 /// Event list, either for a digitiser message, or frame message.
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ChannelData {
     /// Time at which event occurred, relative to frame metadata timestamp (ns).
     time_intensity: Vec<(Time, Intensity)>,
+}
+
+impl ChannelData {
+    pub(crate) fn get_time_intensity(&self) -> &[(Time, Intensity)] {
+        &self.time_intensity
+    }
+
+    pub(crate) fn get_temporal_distance_from(&self, index: usize, target: Time) -> Option<i32> {
+        self.time_intensity
+            .get(index)
+            .map(|(time,_)|(*time as i32 - target as i32).abs())
+    }
+
+    pub(crate) fn find_nearest_in_time_after_index(&self, index: usize, target: Time) -> usize {
+        if self.get_temporal_distance_from(index, target) < self.get_temporal_distance_from(index + 1, target) {
+            return index;
+        } else {
+            return index + 1;
+        }
+    }
 }
 
 /// Event list, either for a digitiser message, or frame message.
@@ -91,6 +103,7 @@ impl EventData {
        }
     */
 }
+
 impl<'a> From<DigitizerEventListMessage<'a>> for EventData {
     fn from(msg: DigitizerEventListMessage<'a>) -> Self {
         let time = msg.time().expect("data should have times").iter();
@@ -111,54 +124,6 @@ impl<'a> From<DigitizerEventListMessage<'a>> for EventData {
         Self { events }
     }
 }
-/*
-impl Accumulate<EventData> for DigitiserData<EventData> {
-    fn accumulate(data: &mut DigitiserData<EventData>) -> EventData {
-        // The guarantee that all fields are of equal length depends on all
-        // inputs in the collection having fields of equal length.
-        let total_len = data.iter().map(|(_, v)| v.event_count()).sum();
-
-        data.iter_mut()
-            .fold(EventData::with_capacity(total_len), |mut acc, value| {
-                acc.time.append(&mut value.1.time);
-                acc.intensity.append(&mut value.1.intensity);
-                acc.channel.append(&mut value.1.channel);
-                acc
-            })
-    }
-}
-
-impl From<AggregatedFrame<EventData>> for Vec<u8> {
-    fn from(frame: AggregatedFrame<EventData>) -> Self {
-        let mut fbb = FlatBufferBuilder::new();
-
-        let timestamp = frame.metadata.timestamp.into();
-        let metadata = FrameMetadataV2Args {
-            timestamp: Some(&timestamp),
-            period_number: frame.metadata.period_number,
-            protons_per_pulse: frame.metadata.protons_per_pulse,
-            running: frame.metadata.running,
-            frame_number: frame.metadata.frame_number,
-            veto_flags: frame.metadata.veto_flags,
-        };
-        let metadata = FrameMetadataV2::create(&mut fbb, &metadata);
-
-        let message = FrameAssembledEventListMessageArgs {
-            metadata: Some(metadata),
-            time: Some(fbb.create_vector::<Time>(&frame.digitiser_data.time)),
-            voltage: Some(fbb.create_vector::<Intensity>(&frame.digitiser_data.intensity)),
-            channel: Some(fbb.create_vector::<Channel>(&frame.digitiser_data.channel)),
-            complete: frame.complete,
-            digitizers_present: Some(fbb.create_vector::<DigitizerId>(&frame.digitiser_ids)),
-        };
-        let message = FrameAssembledEventListMessage::create(&mut fbb, &message);
-
-        finish_frame_assembled_event_list_message_buffer(&mut fbb, message);
-
-        fbb.finished_data().to_vec()
-    }
-}
-*/
 
 /*
 #[cfg(test)]

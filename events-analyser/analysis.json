@@ -1,8 +1,7 @@
 {
     "events-topics": [ "Events_true", "Events_detector" ],
     "metrics": [
-        { "name": "false-positive", "metric-type": "false-positive-count", "true_topic": "Events_true", "estimate_topic": "Events_detector" },
-        { "name": "false-negative", "metric-type": "false-negative-count", "true_topic": "Events_true", "estimate_topic": "Events_detector" }
+        { "name": "false", "metric-type": "false-count", "true_topic": "Events_true", "estimate_topic": "Events_detector" }
     ],
     "templates": {
         "criteria-templates": [{
@@ -23,6 +22,13 @@
                     "cool_down": {"constant": 0 }
                 }
             }
+        }],
+        "waveforms": [{
+            "name" : "gaussian",
+            "value": {
+                "pulse-type": "gaussian",
+                "sd": {"constant": 10 }
+            }
         }]
     },
     "buckets": [
@@ -34,6 +40,7 @@
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 0} } }
             },
             "algorithm": "threshold-only",
+            "waveform": "gaussian",
             "min": 500,
             "max": 50000
         },
@@ -45,6 +52,7 @@
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 1} } }
             },
             "algorithm": "threshold-only",
+            "waveform": "gaussian",
             "min": 500,
             "max": 50000
         },
@@ -56,6 +64,7 @@
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 2} } }
             },
             "algorithm": "threshold-only",
+            "waveform": "gaussian",
             "min": 500,
             "max": 50000
         },
@@ -67,6 +76,7 @@
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 3} } }
             },
             "algorithm": "threshold-only",
+            "waveform": "gaussian",
             "min": 500,
             "max": 50000
         },
@@ -78,6 +88,7 @@
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 4} } }
             },
             "algorithm": "threshold-only",
+            "waveform": "gaussian",
             "min": 500,
             "max": 50000
         },
@@ -89,6 +100,7 @@
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 5} } }
             },
             "algorithm": "threshold-only",
+            "waveform": "gaussian",
             "min": 500,
             "max": 50000
         }
@@ -98,7 +110,7 @@
             "from-buckets": ["no-noise-high-count-by-theshold", "low-noise-high-count-by-theshold", "high-noise-high-count-by-theshold"],
             "width": 9,
             "x-axis": {"dependant": {"array": "Thresholds" } },
-            "metrics": ["false-positive", "false-negative"],
+            "metrics": ["false"],
             "x-axis-label": "Threshold",
             "title": "No Noise, High Count"
         }

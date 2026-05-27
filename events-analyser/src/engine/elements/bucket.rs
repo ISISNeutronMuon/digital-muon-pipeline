@@ -1,8 +1,10 @@
 use crate::{
     engine::{
         Flattenable, FlattenableWithIndex, Templates,
-        algorithm::FlatAlgorithm,
-        criteria::{Criteria, FlatCriteria},
+        elements::{
+            algorithm::FlatAlgorithm,
+            criteria::{Criteria, FlatCriteria}, waveform::{self, FlatWaveform},
+        }
     },
     eventlists::EventlistsCollection,
 };
@@ -23,6 +25,8 @@ pub(crate) struct BucketBlock {
     // Is applied to all voltages when traces are created
     pub(crate) algorithm: String,
     // Is applied to all voltages when traces are created
+    pub(crate) waveform: String,
+    // Is applied to all voltages when traces are created
     pub(crate) min: Option<usize>,
     // Is applied to all voltages when traces are created
     pub(crate) max: Option<usize>,
@@ -34,18 +38,21 @@ impl Flattenable for BucketBlock {
     type Error = String;
 
     fn flatten(&self, library: &Templates) -> Result<FlatBucketBlock, Self::Error> {
-        let algorithm = library
-            .algorithms
-            .iter()
-            .find(|alg| alg.has_name(&self.algorithm))
+        let algorithm = library.get_algorithm(&self.algorithm)
             .ok_or_else(|| format!("Could not find algorithm template in bucket {}.", self.name))?;
+
+        let waveform = library.get_waveform(&self.waveform)
+            .ok_or_else(|| format!("Could not find waveform template in bucket {}.", self.name))?;
+
         let buckets = (0..self.number)
             .map(|index| {
                 let criteria = self.criteria.flatten(library, index)?;
-                let algorithm = algorithm.get_algorithm().flatten(&library.arrays, index)?;
+                let algorithm = algorithm.flatten(&library.arrays, index)?;
+                let waveform = waveform.flatten(&library.arrays, index)?;
                 Ok(FlatBucket {
                     criteria,
                     algorithm,
+                    waveform
                 })
             })
             .collect::<Result<Vec<_>, Self::Error>>()?;
@@ -73,6 +80,15 @@ pub(crate) struct FlatBucketBlock {
     pub(crate) max: Option<usize>,
 }
 
+impl FlatBucketBlock {
+    pub(crate) fn find_bucket_matching(&self, collection: &EventlistsCollection) -> Option<(usize, &FlatBucket)> {
+        self.buckets
+            .iter()
+            .enumerate()
+            .find(|(_, bucket)| bucket.is_collection_in(&collection))
+    }
+}
+
 ///
 /// This struct is created from the configuration JSON file.
 ///
@@ -82,6 +98,8 @@ pub(crate) struct FlatBucket {
     pub(crate) criteria: FlatCriteria,
     // Is applied to all voltages when traces are created
     pub(crate) algorithm: FlatAlgorithm,
+    // Is applied to all voltages when traces are created
+    pub(crate) waveform: FlatWaveform,
 }
 
 impl FlatBucket {
