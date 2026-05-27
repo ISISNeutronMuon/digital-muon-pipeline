@@ -1,12 +1,12 @@
 mod false_counts;
 mod partial_results;
 
-use std::collections::HashMap;
-use digital_muon_common::Channel;
 use crate::{
     engine::{FlatAlgorithm, FlatWaveform},
-    event::ChannelData
+    event::ChannelData,
 };
+use digital_muon_common::Channel;
+use std::collections::HashMap;
 
 pub(crate) use partial_results::PatrtialMetricResult;
 
@@ -30,15 +30,20 @@ impl SumWithSumOfSqrs {
     }
 }
 
-trait MetricChannelResult : Clone {
+trait MetricChannelResult: Clone {
     type Source;
     type Aggregrate: MetricAggregatedResult<Channel = Self>;
-    
+
     fn make_default(source: Self::Source) -> Self;
-    fn push(&mut self, waveform: &FlatWaveform, algorithm: &FlatAlgorithm, by_topic : &[ChannelData]);
+    fn push(
+        &mut self,
+        waveform: &FlatWaveform,
+        algorithm: &FlatAlgorithm,
+        by_topic: &[ChannelData],
+    );
 }
 
-trait MetricAggregatedResult : Clone {
+trait MetricAggregatedResult: Clone {
     type Channel: MetricChannelResult<Aggregrate = Self>;
 
     fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self;

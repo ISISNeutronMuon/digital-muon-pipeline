@@ -1,25 +1,16 @@
+mod elements;
 mod utils;
 mod values;
-mod elements;
 use serde::Deserialize;
 
 use crate::engine::{
-    elements::{
-        Algorithm, BucketBlock, Criteria, Waveform
-    },
+    elements::{Algorithm, BucketBlock, Criteria, Waveform},
     utils::NameValueTemplate,
 };
 
 pub(crate) use crate::engine::elements::{
-    Chart,
-    FlatBucket,
-    FlatBucketBlock,
-    FlatChart,
-    FlatMetric,
-    FlatMetricFalseCount,
-    Metric,
-    FlatAlgorithm,
-    FlatWaveform
+    Chart, FlatAlgorithm, FlatBucket, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricFalseCount,
+    FlatWaveform, Metric,
 };
 
 ///
@@ -101,7 +92,7 @@ impl AnalysisSettings {
             .map(|block| block.flatten(&self.templates))
             .collect::<Result<_, String>>()
     }
-    
+
     pub(crate) fn flatten_metrics(&self) -> Result<Vec<FlatMetric>, String> {
         self.metrics
             .iter()
@@ -109,23 +100,23 @@ impl AnalysisSettings {
             .collect::<Result<_, String>>()
     }
 
-    pub(crate) fn get_bucket_block_index_if<F>(&self, name: &str, when: F) -> Option<usize> where F : Fn(&BucketBlock) -> bool {
-        self.buckets.iter()
+    pub(crate) fn get_bucket_block_index_if<F>(&self, name: &str, when: F) -> Option<usize>
+    where
+        F: Fn(&BucketBlock) -> bool,
+    {
+        self.buckets
+            .iter()
             .enumerate()
-            .filter(|(_,x)|when(x))
-            .find_map(|(index, block)|
-                (block.name == name).then_some(index)
-            )
+            .filter(|(_, x)| when(x))
+            .find_map(|(index, block)| (block.name == name).then_some(index))
     }
 
     pub(crate) fn get_metric_index(&self, name: &str) -> Option<usize> {
-        self.metrics.iter()
+        self.metrics
+            .iter()
             .enumerate()
-            .find_map(|(index, metric)|
-                metric.has_name(name).then_some(index)
-            )
+            .find_map(|(index, metric)| metric.has_name(name).then_some(index))
     }
-    
 }
 
 ///
@@ -146,7 +137,7 @@ impl Array {
     }
 
     pub(crate) fn get_element(&self, index: usize) -> f64 {
-        self.values.get(index).unwrap().clone() // FIXME: Handle Error
+        self.values.get(index).unwrap() // FIXME: Handle Error
     }
 }
 

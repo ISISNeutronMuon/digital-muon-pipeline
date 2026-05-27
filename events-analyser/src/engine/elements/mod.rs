@@ -11,5 +11,5 @@ pub(crate) use {
     chart::{Chart, FlatChart},
     criteria::Criteria,
     metric::{FlatMetric, FlatMetricFalseCount, Metric},
-    waveform::{FlatWaveform, Waveform}
+    waveform::{FlatWaveform, Waveform},
 };

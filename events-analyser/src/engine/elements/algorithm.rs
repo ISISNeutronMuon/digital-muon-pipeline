@@ -11,7 +11,7 @@ pub(crate) enum Algorithm {
         threshold: Value<f64>,
         duration: Value<Time>,
         cool_down: Value<Time>,
-    }
+    },
 }
 
 impl FlattenableWithIndex for Algorithm {
@@ -49,15 +49,25 @@ pub(crate) enum FlatAlgorithm {
 }
 
 impl FlatAlgorithm {
-    pub(crate) fn is_true_positive(&self, waveform: &FlatWaveform, time: Time, intensity: Intensity, dist: i32) -> bool {
+    pub(crate) fn is_true_positive(
+        &self,
+        waveform: &FlatWaveform,
+        time: Time,
+        intensity: Intensity,
+        dist: i32,
+    ) -> bool {
         match self {
-            FlatAlgorithm::FixedThreshold { threshold, duration, cool_down } => {
+            FlatAlgorithm::FixedThreshold {
+                threshold,
+                duration,
+                cool_down,
+            } => {
                 match waveform {
                     FlatWaveform::Flat { width } => (),
                     FlatWaveform::Triangular { base_width } => (),
                     FlatWaveform::Gaussian { sd } => (),
                 };
-            },
+            }
         }
         true
     }

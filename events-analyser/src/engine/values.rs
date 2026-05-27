@@ -60,7 +60,7 @@ impl<T: Number> FlattenableWithIndex for ValueFilter<T> {
                 Dependancy::Array(array) => T::from(
                     arrays
                         .iter()
-                        .find(|a| a.has_name(&array))
+                        .find(|a| a.has_name(array))
                         .ok_or_else(|| format!("Cannot find {array} in list of arrays."))?
                         .get_element(index),
                 )
@@ -93,7 +93,7 @@ impl<T: Number> FlattenableWithIndex for Value<T> {
                 Dependancy::Array(array) => T::from(
                     arrays
                         .iter()
-                        .find(|a| a.has_name(&array))
+                        .find(|a| a.has_name(array))
                         .ok_or_else(|| format!("Cannot find {array} in list of arrays."))?
                         .get_element(index),
                 )
@@ -103,7 +103,7 @@ impl<T: Number> FlattenableWithIndex for Value<T> {
                         .ok_or_else(|| format!("Cannot convert array element to correct type."))?,
                 ),
             }),
-            Value::Constant(constant) => Ok(constant.clone()),
+            Value::Constant(constant) => Ok(constant),
         }
     }
 }

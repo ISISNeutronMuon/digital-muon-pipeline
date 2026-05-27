@@ -1,4 +1,6 @@
-use crate::engine::{AnalysisSettings, Flattenable, FlattenableWithIndex, Templates, values::Value};
+use crate::engine::{
+    AnalysisSettings, Flattenable, FlattenableWithIndex, Templates, values::Value,
+};
 use serde::Deserialize;
 use tracing::error;
 
@@ -22,28 +24,32 @@ impl Flattenable for Chart {
     type Error = String;
 
     fn flatten(&self, library: &Self::Library) -> Result<Self::Flat, Self::Error> {
-        let from_buckets = self.from_buckets
+        let from_buckets = self
+            .from_buckets
             .iter()
-            .map(|bucket|library.get_bucket_block_index_if(bucket, |bucket|bucket.number==self.width))
+            .map(|bucket| {
+                library.get_bucket_block_index_if(bucket, |bucket| bucket.number == self.width)
+            })
             .collect::<Option<Vec<_>>>()
-            .ok_or_else(||format!("Bucket block name not found"))?;
+            .ok_or_else(|| format!("Bucket block name not found"))?;
 
         let x_axis = (0..self.width)
-            .map(|i|self.x_axis.flatten(library.templates.get_arrays(),i))
-            .collect::<Result<Vec<_>,_>>()?;
+            .map(|i| self.x_axis.flatten(library.templates.get_arrays(), i))
+            .collect::<Result<Vec<_>, _>>()?;
 
-        let metrics = self.metrics
+        let metrics = self
+            .metrics
             .iter()
-            .map(|metric|library.get_metric_index(metric))
+            .map(|metric| library.get_metric_index(metric))
             .collect::<Option<Vec<_>>>()
-            .ok_or_else(||format!("Metric name not found"))?;
+            .ok_or_else(|| format!("Metric name not found"))?;
 
         Ok(FlatChart {
             from_buckets,
             x_axis,
             metrics,
             x_axis_label: self.x_axis_label.clone(),
-            title: self.title.clone()
+            title: self.title.clone(),
         })
     }
 }

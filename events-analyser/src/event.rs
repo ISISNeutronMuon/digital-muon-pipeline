@@ -19,14 +19,16 @@ impl ChannelData {
     pub(crate) fn get_temporal_distance_from(&self, index: usize, target: Time) -> Option<i32> {
         self.time_intensity
             .get(index)
-            .map(|(time,_)|(*time as i32 - target as i32).abs())
+            .map(|(time, _)| (*time as i32 - target as i32).abs())
     }
 
     pub(crate) fn find_nearest_in_time_after_index(&self, index: usize, target: Time) -> usize {
-        if self.get_temporal_distance_from(index, target) < self.get_temporal_distance_from(index + 1, target) {
-            return index;
+        if self.get_temporal_distance_from(index, target)
+            < self.get_temporal_distance_from(index + 1, target)
+        {
+            index
         } else {
-            return index + 1;
+            index + 1
         }
     }
 }

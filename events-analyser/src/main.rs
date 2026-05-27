@@ -71,7 +71,7 @@ use std::{fmt::Debug, fs::File, io, net::SocketAddr, path::PathBuf, time::Durati
 use tokio::{
     select,
     signal::unix::{Signal, SignalKind, signal},
-    sync::mpsc::{channel, Receiver, Sender, error::SendError},
+    sync::mpsc::{Receiver, Sender, channel, error::SendError},
     task::JoinHandle,
 };
 use tracing::{debug, error, info, info_span, instrument, warn};
@@ -403,8 +403,7 @@ fn create_evaluator_task(
     analysis_engine: AnalysisEngine,
     send_frame_buffer_size: usize,
 ) -> io::Result<(Sender<EventlistsCollection>, JoinHandle<()>)> {
-    let (channel_send, channel_recv) =
-        channel::<EventlistsCollection>(send_frame_buffer_size);
+    let (channel_send, channel_recv) = channel::<EventlistsCollection>(send_frame_buffer_size);
 
     let sigint = signal(SignalKind::interrupt())?;
     let handle = tokio::spawn(recv_and_evaluate(
@@ -471,12 +470,7 @@ async fn close_and_flush_evaluate_channel(
 
     loop {
         let eventlists_collection = channel_recv.recv().await?;
-        flush_eventlists_collection(
-            use_otel,
-            analysis_engine,
-            eventlists_collection
-        )
-        .await?;
+        flush_eventlists_collection(use_otel, analysis_engine, eventlists_collection).await?;
     }
 }
 
@@ -496,12 +490,7 @@ async fn flush_eventlists_collection(
     //producer: &FutureProducer,
     //output_topic: &str,
 ) -> Option<()> {
-    evaluate_eventlists_collection(
-        use_otel,
-        analysis_engine,
-        eventlists_collection
-    )
-    .await;
+    evaluate_eventlists_collection(use_otel, analysis_engine, eventlists_collection).await;
     Some(())
 }
 

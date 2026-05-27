@@ -30,18 +30,29 @@ impl Flattenable for Metric {
 
     fn flatten(&self, library: &Self::Library) -> Result<Self::Flat, Self::Error> {
         Ok(match self {
-            Metric::FalseCount { name, true_topic, estimate_topic } => 
-            FlatMetric::FalseCount(FlatMetricFalseCount {
+            Metric::FalseCount {
+                name,
+                true_topic,
+                estimate_topic,
+            } => FlatMetric::FalseCount(FlatMetricFalseCount {
                 name: name.to_owned(),
-                true_topic: library.iter().enumerate().find_map(|(index, topic)|(topic == true_topic).then_some(index)).ok_or_else(||format!("Cannot find index of topic {true_topic}"))?,
-                estimate_topic: library.iter().enumerate().find_map(|(index, topic)|(topic == estimate_topic).then_some(index)).ok_or_else(||format!("Cannot find index of topic {estimate_topic}"))?,
+                true_topic: library
+                    .iter()
+                    .enumerate()
+                    .find_map(|(index, topic)| (topic == true_topic).then_some(index))
+                    .ok_or_else(|| format!("Cannot find index of topic {true_topic}"))?,
+                estimate_topic: library
+                    .iter()
+                    .enumerate()
+                    .find_map(|(index, topic)| (topic == estimate_topic).then_some(index))
+                    .ok_or_else(|| format!("Cannot find index of topic {estimate_topic}"))?,
             }),
         })
     }
 }
 
 pub(crate) enum FlatMetric {
-    FalseCount(FlatMetricFalseCount)
+    FalseCount(FlatMetricFalseCount),
 }
 
 pub(crate) struct FlatMetricFalseCount {
@@ -49,7 +60,6 @@ pub(crate) struct FlatMetricFalseCount {
     pub(crate) true_topic: usize,
     pub(crate) estimate_topic: usize,
 }
-
 
 ///
 /// This struct is created from the configuration JSON file.

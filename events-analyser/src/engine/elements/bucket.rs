@@ -3,8 +3,9 @@ use crate::{
         Flattenable, FlattenableWithIndex, Templates,
         elements::{
             algorithm::FlatAlgorithm,
-            criteria::{Criteria, FlatCriteria}, waveform::{self, FlatWaveform},
-        }
+            criteria::{Criteria, FlatCriteria},
+            waveform::{self, FlatWaveform},
+        },
     },
     eventlists::EventlistsCollection,
 };
@@ -38,10 +39,12 @@ impl Flattenable for BucketBlock {
     type Error = String;
 
     fn flatten(&self, library: &Templates) -> Result<FlatBucketBlock, Self::Error> {
-        let algorithm = library.get_algorithm(&self.algorithm)
+        let algorithm = library
+            .get_algorithm(&self.algorithm)
             .ok_or_else(|| format!("Could not find algorithm template in bucket {}.", self.name))?;
 
-        let waveform = library.get_waveform(&self.waveform)
+        let waveform = library
+            .get_waveform(&self.waveform)
             .ok_or_else(|| format!("Could not find waveform template in bucket {}.", self.name))?;
 
         let buckets = (0..self.number)
@@ -52,7 +55,7 @@ impl Flattenable for BucketBlock {
                 Ok(FlatBucket {
                     criteria,
                     algorithm,
-                    waveform
+                    waveform,
                 })
             })
             .collect::<Result<Vec<_>, Self::Error>>()?;
@@ -81,11 +84,14 @@ pub(crate) struct FlatBucketBlock {
 }
 
 impl FlatBucketBlock {
-    pub(crate) fn find_bucket_matching(&self, collection: &EventlistsCollection) -> Option<(usize, &FlatBucket)> {
+    pub(crate) fn find_bucket_matching(
+        &self,
+        collection: &EventlistsCollection,
+    ) -> Option<(usize, &FlatBucket)> {
         self.buckets
             .iter()
             .enumerate()
-            .find(|(_, bucket)| bucket.is_collection_in(&collection))
+            .find(|(_, bucket)| bucket.is_collection_in(collection))
     }
 }
 
