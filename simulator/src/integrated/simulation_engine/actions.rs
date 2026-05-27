@@ -138,6 +138,7 @@ pub(crate) enum DigitiserAction {
     //
     GenerateTrace(GenerateTrace),
     GenerateEventList(GenerateEventList),
+    GenerateEventListAndTraces(GenerateEventList),
 }
 
 #[derive(Clone, Debug, Deserialize)]

@@ -97,6 +97,16 @@ pub(crate) struct EventList<'a> {
     pub(crate) noises: &'a [NoiseSource],
 }
 
+impl<'a> Clone for EventList<'a> {
+    fn clone(&self) -> Self {
+        Self {
+            span: SpanOnce::Spanned(tracing::Span::current()),
+            pulses: self.pulses.clone(),
+            noises: self.noises,
+        }
+    }
+}
+
 impl<'a> EventList<'a> {
     #[instrument(skip_all, level = "debug", "New Event List", err(level = "error"))]
     pub(crate) fn new(

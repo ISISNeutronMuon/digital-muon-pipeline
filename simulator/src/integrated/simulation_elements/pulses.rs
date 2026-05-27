@@ -32,7 +32,7 @@ pub(crate) enum PulseTemplate {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum PulseEvent {
     Flat {
         start: f64,
