@@ -10,109 +10,92 @@
             "channels": {"constant": "any" },
             "digitiser-ids": {"constant": "any" }
         }],
+        "bucket-templates": [{
+            "name": "by-threshold",
+            "number": 1,
+            "algorithm": "threshold-only",
+            "waveform": "gaussian",
+            "limits": { "min": 128, "max": 50000 }
+        }],
         "arrays": [
-            { "name": "Thresholds", "values": [900, 950, 1000, 1050, 1100, 1150, 1200, 1250, 1300] }
+            { "name": "Thresholds", "values": [900] }
         ],
         "algorithms": [{
             "name": "threshold-only",
-            "value": {
-                "fixed-threshold": {
-                    "threshold": {"dependant": {"array": "Thresholds" } },
-                    "duration": {"constant": 1 },
-                    "cool_down": {"constant": 0 }
-                }
+            "fixed-threshold": {
+                "threshold": {"dependant": {"array": "Thresholds" } },
+                "duration": {"constant": 1 },
+                "cool_down": {"constant": 0 }
             }
         }],
         "waveforms": [{
             "name" : "gaussian",
-            "value": {
-                "pulse-type": "gaussian",
-                "sd": {"constant": 10 }
-            }
+            "pulse-type": "gaussian",
+            "sd": {"constant": 10 }
         }]
     },
     "buckets": [
         {
+            "source": "by-threshold",
             "name": "no-noise-low-count-by-theshold",
-            "number": 9,
             "criteria" : {
-                "name": "period-only",
+                "source": "period-only",
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 0} } }
-            },
-            "algorithm": "threshold-only",
-            "waveform": "gaussian",
-            "min": 500,
-            "max": 50000
+            }
         },
         {
+            "source": "by-threshold",
             "name": "low-noise-low-count-by-theshold",
-            "number": 9,
             "criteria" : {
-                "name": "period-only",
+                "source": "period-only",
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 1} } }
-            },
-            "algorithm": "threshold-only",
-            "waveform": "gaussian",
-            "min": 500,
-            "max": 50000
+            }
         },
         {
+            "source": "by-threshold",
             "name": "high-noise-low-count-by-theshold",
-            "number": 9,
             "criteria" : {
-                "name": "period-only",
+                "source": "period-only",
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 2} } }
-            },
-            "algorithm": "threshold-only",
-            "waveform": "gaussian",
-            "min": 500,
-            "max": 50000
+            }
         },
         {
+            "source": "by-threshold",
             "name": "no-noise-high-count-by-theshold",
-            "number": 9,
             "criteria" : {
-                "name": "period-only",
+                "source": "period-only",
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 3} } }
-            },
-            "algorithm": "threshold-only",
-            "waveform": "gaussian",
-            "min": 500,
-            "max": 50000
+            }
         },
         {
+            "source": "by-threshold",
             "name": "low-noise-high-count-by-theshold",
-            "number": 9,
             "criteria" : {
-                "name": "period-only",
+                "source": "period-only",
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 4} } }
-            },
-            "algorithm": "threshold-only",
-            "waveform": "gaussian",
-            "min": 500,
-            "max": 50000
+            }
         },
         {
+            "source": "by-threshold",
             "name": "high-noise-high-count-by-theshold",
-            "number": 9,
             "criteria" : {
-                "name": "period-only",
+                "source": "period-only",
                 "periods": {"dependant": { "function": { "scale": 6, "value-at-zero": 5} } }
-            },
-            "algorithm": "threshold-only",
-            "waveform": "gaussian",
-            "min": 500,
-            "max": 50000
+            }
         }
     ],
     "charts": [
         {
-            "from-buckets": ["no-noise-high-count-by-theshold", "low-noise-high-count-by-theshold", "high-noise-high-count-by-theshold"],
-            "width": 9,
+            "width": 1,
             "x-axis": {"dependant": {"array": "Thresholds" } },
-            "metrics": ["false"],
+            "series": [
+                {"metric": "false", "property": "false-positives-mean", "from-bucket": "no-noise-low-count-by-theshold"},
+                {"metric": "false", "property": "false-positives-sd",   "from-bucket": "no-noise-low-count-by-theshold"},
+                {"metric": "false", "property": "false-negatives-mean", "from-bucket": "no-noise-low-count-by-theshold"},
+                {"metric": "false", "property": "false-negatives-sd",   "from-bucket": "no-noise-low-count-by-theshold"}
+            ],
             "x-axis-label": "Threshold",
-            "title": "No Noise, High Count"
+            "title": "No Noise, Low Count"
         }
     ]
 }

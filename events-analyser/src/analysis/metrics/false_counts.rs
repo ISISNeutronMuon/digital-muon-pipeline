@@ -2,14 +2,15 @@ use digital_muon_common::{Channel, Intensity, Time};
 use std::{collections::HashMap, iter::once};
 
 use crate::{
-    analysis::metrics::{MetricAggregatedResult, MetricChannelResult, SumWithSumOfSqrs},
-    engine::{FlatAlgorithm, FlatMetricFalseCount, FlatWaveform, Metric},
+    analysis::metrics::{
+        MetricAggregatedResult, MetricChannelResult, MetricOutput, SumWithSumOfSqrs,
+    },
+    engine::{FlatAlgorithm, FlatMetricFalseCount, FlatWaveform, Metric, WithName},
     event::ChannelData,
 };
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub(crate) struct FalseCount {
-    name: String,
     num: usize,
     true_topic: usize,
     estimate_topic: usize,
@@ -23,7 +24,6 @@ impl MetricChannelResult for FalseCount {
 
     fn make_default(source: FlatMetricFalseCount) -> Self {
         Self {
-            name: source.name,
             num: Default::default(),
             true_topic: source.true_topic,
             estimate_topic: source.estimate_topic,
@@ -38,6 +38,7 @@ impl MetricChannelResult for FalseCount {
         algorithm: &FlatAlgorithm,
         by_topic: &[ChannelData],
     ) {
+        self.num += 1;
         self.positive_sum.add_to(get_false_positives(
             self.true_topic,
             self.estimate_topic,
@@ -55,7 +56,7 @@ impl MetricChannelResult for FalseCount {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct CompletedFalseCount {
     positive_mean: f64,
     positive_sd: f64,
@@ -91,6 +92,22 @@ impl MetricAggregatedResult for CompletedFalseCount {
             positive_sd,
             negative_mean,
             negative_sd,
+        }
+    }
+
+    fn get_property(&self, property: &str) -> Result<MetricOutput<f64>, String> {
+        match property {
+            "false-positives-mean" => Ok(MetricOutput::Scalar(self.positive_mean)),
+            "false-positives-sd" => Ok(MetricOutput::ScalarWithBand(
+                self.positive_mean,
+                self.positive_sd,
+            )),
+            "false-negatives-mean" => Ok(MetricOutput::Scalar(self.negative_mean)),
+            "false-negatives-sd" => Ok(MetricOutput::ScalarWithBand(
+                self.negative_mean,
+                self.negative_sd,
+            )),
+            _ => Err(format!("No property matching {property}")),
         }
     }
 }
@@ -199,5 +216,5 @@ pub(crate) fn get_false_positives(
         algorithm,
         collection_by_topic,
     );
-    0.0
+    1.0
 }

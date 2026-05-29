@@ -16,7 +16,7 @@ pub(crate) struct EventlistsCollection {
     /// The uniquely identifying metadata of the frame, common to all digitiser messages related to this frame (except possibly for [FrameMetadata::veto_flags]).
     pub(crate) metadata: FrameMetadata,
     /// The frame's event data.
-    eventlists: Vec<EventData>,
+    pub(crate) eventlists: Vec<EventData>,
     /// Channels.
     pub(crate) channels: Vec<Channel>,
 }

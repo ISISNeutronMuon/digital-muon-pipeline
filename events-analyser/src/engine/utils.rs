@@ -1,30 +1,75 @@
 use serde::Deserialize;
-use std::{fmt::Debug, ops::RangeInclusive};
+use std::{fmt::Debug, ops::{Deref, DerefMut, RangeInclusive}};
 
 use crate::engine::values::Number;
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct NameValueTemplate<T>
+pub(crate) struct WithName<T>
 where
     T: Debug + Clone,
 {
-    name: String,
-    value: T,
+    pub(crate) name: String,
+    #[serde(flatten)]
+    pub(crate) value: T,
 }
 
-impl<T> NameValueTemplate<T>
+impl<T> WithName<T>
 where
     T: Debug + Clone,
 {
+    pub(crate) fn is_source<S>(&self, object: &WithSource<S>) -> bool 
+    where S: Debug + Clone {
+        self.name == object.source
+    }
+
     pub(crate) fn has_name(&self, name: &str) -> bool {
         self.name == name
     }
+}
 
-    pub(crate) fn get_value(&self) -> &T {
+impl<T> Deref for WithName<T> where T: Debug + Clone {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
         &self.value
     }
 }
+
+impl<T> DerefMut for WithName<T> where T: Debug + Clone {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.value
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct WithSource<T>
+where
+    T: Debug + Clone,
+{
+    source: String,
+    #[serde(flatten)]
+    value: T,
+}
+
+impl<T> WithSource<T>
+where
+    T: Debug + Clone,
+{
+    pub(crate) fn get_source(&self) -> &str {
+        &self.source
+    }
+}
+
+impl<T> Deref for WithSource<T> where T: Debug + Clone {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]

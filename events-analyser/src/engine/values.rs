@@ -1,4 +1,3 @@
-use rand_distr::Distribution;
 use serde::Deserialize;
 use std::ops::{Add, Mul};
 use thiserror::Error;
@@ -7,7 +6,7 @@ use num::NumCast;
 
 use crate::engine::{
     Array, FlattenableWithIndex,
-    utils::{Function, Interval},
+    utils::{Function, Interval, WithName},
 };
 
 pub(crate) trait Number:
@@ -51,23 +50,22 @@ impl<T: Number + PartialEq + PartialOrd> ConstantFilter<T> {
 
 impl<T: Number> FlattenableWithIndex for ValueFilter<T> {
     type Flat = ConstantFilter<T>;
-    type Library = [Array];
-    type Error = String;
+    type Library = [WithName<Array>];
+    type Error = ValueError;
 
-    fn flatten(&self, arrays: &[Array], index: usize) -> Result<ConstantFilter<T>, Self::Error> {
+    fn flatten(&self, arrays: &Self::Library, index: usize) -> Result<ConstantFilter<T>, Self::Error> {
         match self {
             ValueFilter::Dependant(dependancy) => Ok(ConstantFilter::Is(match dependancy {
                 Dependancy::Array(array) => T::from(
                     arrays
                         .iter()
                         .find(|a| a.has_name(array))
-                        .ok_or_else(|| format!("Cannot find {array} in list of arrays."))?
+                        .ok_or_else(||ValueError::CannotFindArray(array.clone()))?
                         .get_element(index),
                 )
-                .ok_or_else(|| format!("Cannot convert array element to correct type."))?,
+                .ok_or(ValueError::ArrayConvert)?,
                 Dependancy::Function(function) => function.apply(
-                    T::from(index)
-                        .ok_or_else(|| format!("Cannot convert array element to correct type."))?,
+                    T::from(index).ok_or(ValueError::ArrayConvert)?,
                 ),
             })),
             ValueFilter::Constant(constant) => Ok(constant.clone()),
@@ -84,26 +82,26 @@ pub(crate) enum Value<T: Number> {
 
 impl<T: Number> FlattenableWithIndex for Value<T> {
     type Flat = T;
-    type Library = [Array];
-    type Error = String;
+    type Library = [WithName<Array>];
+    type Error = ValueError;
 
-    fn flatten(&self, arrays: &[Array], index: usize) -> Result<T, Self::Error> {
+    fn flatten(&self, arrays: &Self::Library, index: usize) -> Result<T, Self::Error> {
         match self {
             Value::Dependant(dependancy) => Ok(match dependancy {
                 Dependancy::Array(array) => T::from(
                     arrays
                         .iter()
                         .find(|a| a.has_name(array))
-                        .ok_or_else(|| format!("Cannot find {array} in list of arrays."))?
+                        .ok_or_else(||ValueError::CannotFindArray(array.clone()))?
                         .get_element(index),
                 )
-                .ok_or_else(|| format!("Cannot convert array element to correct type."))?,
+                .ok_or(ValueError::ArrayConvert)?,
                 Dependancy::Function(function) => function.apply(
                     T::from(index)
-                        .ok_or_else(|| format!("Cannot convert array element to correct type."))?,
+                        .ok_or(ValueError::ArrayConvert)?,
                 ),
             }),
-            Value::Constant(constant) => Ok(constant),
+            Value::Constant(constant) => Ok(*constant),
         }
     }
 }
@@ -116,13 +114,9 @@ pub(crate) enum Dependancy<T> {
 }
 
 #[derive(Debug, Error)]
-pub(crate) enum SimulationError {
-    #[error("Event Pulse Template index {0} out of range {1}")]
-    EventListIndexOutOfRange(usize, usize),
-    #[error("Event Pulse Template index {0} out of range {1}")]
-    EventPulseTemplateIndexOutOfRange(usize, usize),
-    //#[error("Json Float error: {0}")]
-    //sonValue(#[from] JsonValueError),
-    //#[error("Build error: {0}")]
-    //Build(#[from] BuildError),
+pub(crate) enum ValueError {
+    #[error("Cannot convert array element to correct type.")]
+    ArrayConvert,
+    #[error("Cannot find array {0} in array list.")]
+    CannotFindArray(String),
 }

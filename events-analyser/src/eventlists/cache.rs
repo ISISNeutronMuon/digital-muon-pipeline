@@ -43,11 +43,11 @@ impl MessageCache {
         topic_index: usize,
         data: EventData,
     ) -> Result<(), RejectMessageError> {
-        let frame_dig = {
+        let collection = {
             match self.eventlists.iter_mut().find(
-                |frame_dig: &&mut PartialEventslistsCollection| {
-                    frame_dig.metadata.equals_ignoring_veto_flags(metadata)
-                        && frame_dig.digitiser_id == digitiser_id
+                |collection: &&mut PartialEventslistsCollection| {
+                    collection.metadata.equals_ignoring_veto_flags(metadata)
+                        && collection.digitiser_id == digitiser_id
                 },
             ) {
                 Some(frame_dig) => {
@@ -91,7 +91,7 @@ impl MessageCache {
             .enumerate()
             .find_map(|(index, frame_dig)| (!frame_dig.is_expired()).then_some(index))
         {
-            //debug!("Draining indices 0 to {index}");
+            debug!("Draining indices 0 to {index}");
             self.eventlists.drain(0..index);
         }
         // Find a frame which is completed

@@ -48,7 +48,6 @@ use digital_muon_common::{
         names::{FAILURES, FRAMES_SENT, MESSAGES_PROCESSED, MESSAGES_RECEIVED},
     },
     record_metadata_fields_to_span,
-    spanned::Spanned,
     tracer::{OptionalHeaderTracerExt, TracerEngine, TracerOptions},
 };
 use digital_muon_streaming_types::{
@@ -92,11 +91,9 @@ struct Cli {
     #[clap(long = "group")]
     consumer_group: String,
 
-    /// A list of expected digitiser IDs.
-    /// Can be passed as `-d0 -d1 ...` or `-d=0,1,...`
-    /// A frame is only "complete" when a message has been received from each of these IDs.
-    #[clap(short, long, value_delimiter = ',')]
-    digitiser_ids: Vec<DigitizerId>,
+    /// Kafka consumer group
+    #[clap(long)]
+    chart_output: PathBuf,
 
     /// Frame TTL in milliseconds.
     /// The time in which messages for a given frame must have been received from all digitisers.
@@ -196,10 +193,11 @@ async fn main() -> miette::Result<()> {
 
     let mut cache_poll_interval = tokio::time::interval(Duration::from_millis(args.cache_poll_ms));
 
-    let analysis_engine = AnalysisEngine::new(analysis_settings).expect("FIXME: This may fail.");
+    let analysis_engine =
+        AnalysisEngine::new(analysis_settings, args.chart_output).expect("FIXME: This may fail.");
 
     // Creates Send-Frame thread and returns channel sender
-    let (channel_send, producer_task_handle) = create_evaluator_task(
+    let (channel_send, evaluator_task_handle) = create_evaluator_task(
         tracer.use_otel(),
         analysis_engine,
         args.send_frame_buffer_size,
@@ -211,7 +209,7 @@ async fn main() -> miette::Result<()> {
 
     component_info_metric("digitiser-aggregator");
 
-    loop {
+    while !evaluator_task_handle.is_finished() {
         tokio::select! {
             event = consumer.recv() => {
                 match event {
@@ -236,11 +234,12 @@ async fn main() -> miette::Result<()> {
             _ = sigint.recv() => {
                 //  Wait for the channel to close and
                 //  all pending production tasks to finish
-                producer_task_handle.await.into_diagnostic()?;
+                evaluator_task_handle.await.into_diagnostic()?;
                 return Ok(());
             }
         }
     }
+    Ok(())
 }
 
 ///  This function wraps the [root_as_digitizer_event_list_message] function, allowing it to be instrumented.
@@ -433,6 +432,7 @@ async fn recv_and_evaluate(
     mut channel_recv: Receiver<EventlistsCollection>,
     mut sigint: Signal,
 ) {
+    let mut chart_poll_interval = tokio::time::interval(Duration::from_millis(2000));
     loop {
         select! {
             message = channel_recv.recv() => {
@@ -447,8 +447,14 @@ async fn recv_and_evaluate(
                     }
                 }
             }
+            _ = chart_poll_interval.tick() => {
+                info!("Polling for chart completion.");
+                if analysis_engine.chart_poll().expect("This should never fail.") {
+                    close_and_flush_evaluate_channel(use_otel, &mut analysis_engine ,&mut channel_recv).await;
+                };
+            }
             _ = sigint.recv() => {
-                close_and_flush_evaluate_channel(use_otel, &mut analysis_engine ,&mut channel_recv, /*&producer,&output_topic*/).await;
+                close_and_flush_evaluate_channel(use_otel, &mut analysis_engine ,&mut channel_recv).await;
             }
         }
     }
@@ -506,5 +512,6 @@ async fn evaluate_eventlists_collection(
     analysis_engine: &mut AnalysisEngine,
     eventlists_collection: EventlistsCollection,
 ) {
+    info!("New Collection Received");
     analysis_engine.push(eventlists_collection);
 }

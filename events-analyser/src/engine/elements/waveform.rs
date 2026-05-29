@@ -1,4 +1,4 @@
-use crate::engine::{Array, FlattenableWithIndex, values::Value};
+use crate::engine::{Array, FlattenableWithIndex, utils::WithName, values::{Value, ValueError}};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -11,10 +11,10 @@ pub(crate) enum Waveform {
 
 impl FlattenableWithIndex for Waveform {
     type Flat = FlatWaveform;
-    type Library = [Array];
-    type Error = String;
+    type Library = [WithName<Array>];
+    type Error = ValueError;
 
-    fn flatten(&self, arrays: &[Array], index: usize) -> Result<FlatWaveform, Self::Error> {
+    fn flatten(&self, arrays: &Self::Library, index: usize) -> Result<FlatWaveform, Self::Error> {
         match self {
             Waveform::Flat { width } => Ok(FlatWaveform::Flat {
                 width: width.flatten(arrays, index)?,
@@ -29,7 +29,7 @@ impl FlattenableWithIndex for Waveform {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum FlatWaveform {
     Flat { width: f64 },
     Triangular { base_width: f64 },
