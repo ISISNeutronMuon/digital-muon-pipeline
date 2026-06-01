@@ -72,7 +72,7 @@ use tokio::{
     sync::mpsc::{Receiver, Sender, channel, error::SendError},
     task::JoinHandle,
 };
-use tracing::{debug, error, info, info_span, instrument, warn};
+use tracing::{debug, error, info, info_span, instrument, trace, warn};
 
 use crate::{analysis::AnalysisEngine, engine::AnalysisSettings};
 
@@ -447,8 +447,14 @@ async fn recv_and_evaluate(
                 }
             }
             _ = chart_poll_interval.tick() => {
-                info!("Polling for chart completion.");
+                trace!("Polling for chart completion.");
                 if analysis_engine.chart_poll().expect("This should never fail.") {
+                    match analysis_engine.build_charts() {
+                        Ok(_) => (),
+                        Err(e) => {
+                            error!("{e}");
+                        },
+                    }
                     close_and_flush_evaluate_channel(use_otel, &mut analysis_engine ,&mut channel_recv).await;
                 };
             }

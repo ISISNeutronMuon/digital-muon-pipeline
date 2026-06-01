@@ -114,7 +114,7 @@ impl Flattenable<(&AnalysisSettings, &[WithName<FlatBucketBlock>])> for Chart {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(FlatChart {
-            built: false,
+            ready: false,
             x_axis,
             series,
             x_axis_label: self.x_axis_label.clone(),
@@ -128,7 +128,7 @@ impl Flattenable<(&AnalysisSettings, &[WithName<FlatBucketBlock>])> for Chart {
 ///
 #[derive(Debug)]
 pub(crate) struct FlatChart {
-    built: bool,
+    ready: bool,
     pub(crate) x_axis: Vec<f64>,
     pub(crate) series: Vec<FlatSeries>,
     pub(crate) x_axis_label: String,
@@ -137,6 +137,9 @@ pub(crate) struct FlatChart {
 
 impl FlatChart {
     pub(crate) fn poll(&self, buckets: &[WithName<FlatBucketBlock>]) -> bool {
+        if self.ready {
+            return true;
+        }
         for series in &self.series {
             let block = buckets
                 .get(series.from_bucket)
@@ -148,11 +151,7 @@ impl FlatChart {
         true
     }
 
-    pub(crate) fn set_built(&mut self) {
-        self.built = true;
-    }
-
-    pub(crate) fn is_built(&self) -> bool {
-        self.built
+    pub(crate) fn set_ready(&mut self) {
+        self.ready = true;
     }
 }

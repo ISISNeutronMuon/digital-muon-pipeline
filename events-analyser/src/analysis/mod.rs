@@ -13,7 +13,7 @@ use digital_muon_streaming_types::FrameMetadata;
 use metrics::PatrtialMetricResult;
 use std::{fs::File, io::Write, path::PathBuf};
 use thiserror::Error;
-use tracing::info;
+use tracing::{info, trace};
 
 #[derive(Debug, Error)]
 pub(crate) enum AnalysisError {
@@ -89,14 +89,21 @@ impl AnalysisEngine {
     }
 
     pub(crate) fn build_charts(&mut self) -> Result<(), String> {
-        for chart in &mut self.charts {
-            if chart.is_built() {
-                continue;
-            }
-            chart.set_built();
+        for chart in &self.charts {
+            // Create File.
             let mut path = self.path.clone();
             path.push(&chart.title);
             let mut file = File::create(path).unwrap();
+
+            // Ensure all series' metrics have been aggregated.
+            for series in &chart.series {
+                self.metrics
+                    .get_mut(series.metric)
+                    .expect("This should never fail")
+                    .build_aggregate();
+            }
+            
+            // Get Series Output
             let series = chart
                 .series
                 .iter()
@@ -110,56 +117,22 @@ impl AnalysisEngine {
                 .collect::<Result<Vec<_>, _>>()?;
 
             for series in series {
-                match series {
-                    MetricOutput::Scalar(values) => {
-                        let string = values
-                            .iter()
-                            .map(|val| val.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        writeln!(&mut file, "{string}").unwrap();
-                    }
-                    MetricOutput::ScalarWithBand(values, bands) => {
-                        let string = Iterator::zip(values.iter(), bands.iter())
-                            .map(|(val, band)| (val - band).to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        writeln!(&mut file, "{string}").unwrap();
-                        let string = Iterator::zip(values.iter(), bands.iter())
-                            .map(|(val, band)| (val + band).to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        writeln!(&mut file, "{string}").unwrap();
-                    }
-                }
+                writeln!(&mut file, "{}", series.to_string()).unwrap();
             }
         }
         Ok(())
     }
 
     pub(crate) fn chart_poll(&mut self) -> Result<bool, String> {
-        for chart in &self.charts {
+        for chart in &mut self.charts {
             if chart.poll(&self.buckets) {
-                info!("{}, complete.", chart.title);
+                chart.set_ready();
+                trace!("{}, ready.", chart.title);
             } else {
-                info!("{}, pending.", chart.title);
+                trace!("{}, not ready.", chart.title);
                 return Ok(false);
             }
         }
-        for chart in &mut self.charts {
-            if chart.is_built() {
-                continue;
-            }
-            for series in &mut chart.series {
-                let metric = self
-                    .metrics
-                    .get_mut(series.metric)
-                    .expect("This should never fail");
-                metric.build_aggregate();
-            }
-        }
-
-        self.build_charts()?;
         Ok(true)
     }
 }

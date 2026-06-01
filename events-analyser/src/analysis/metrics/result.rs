@@ -30,46 +30,19 @@ where
 
 impl<C: MetricChannelResult> CompletedMetricResultClass<C> {
     fn get_property(&self, block: usize, property: &str) -> Result<MetricOutput<Vec<f64>>, String> {
-        let mut agg: Option<MetricOutput<Vec<f64>>> = None;
-        for metric in self.by_bucket.get(block).expect("This should never fail.") {
-            match &mut agg {
-                Some(agg) => match (agg, metric.get_property(property)?) {
-                    (MetricOutput::Scalar(value_acc), MetricOutput::Scalar(value)) => {
-                        value_acc.push(value)
-                    }
-                    (
-                        MetricOutput::ScalarWithBand(value_acc, band_acc),
-                        MetricOutput::ScalarWithBand(value, band),
-                    ) => {
-                        value_acc.push(value);
-                        band_acc.push(band);
-                    }
-                    _ => unreachable!(),
-                },
-                None => {
-                    agg = Some(match metric.get_property(property)? {
-                        MetricOutput::Scalar(value) => MetricOutput::Scalar({
-                            let mut temp = Vec::with_capacity(self.by_bucket.len());
-                            temp.push(value);
-                            temp
-                        }),
-                        MetricOutput::ScalarWithBand(value, band) => MetricOutput::ScalarWithBand(
-                            {
-                                let mut temp = Vec::with_capacity(self.by_bucket.len());
-                                temp.push(value);
-                                temp
-                            },
-                            {
-                                let mut temp = Vec::with_capacity(self.by_bucket.len());
-                                temp.push(band);
-                                temp
-                            },
-                        ),
-                    })
-                }
+        let block = self.by_bucket.get(block).expect("This should never fail.");
+        if let Some((first, rest)) = block.split_first() {
+            let mut agg: MetricOutput<Vec<f64>> = first
+                .get_property(property)?
+                .to_vector(self.by_bucket.len());
+            
+            for metric in rest {
+                agg.append(&metric.get_property(property)?);
             }
-        }
-        agg.ok_or_else(|| format!("No buckets, this should never fail."))
+            Some(agg)
+        } else {
+            None
+        }.ok_or_else(|| format!("No buckets, this should never fail."))
     }
 }
 

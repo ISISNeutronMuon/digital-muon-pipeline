@@ -96,6 +96,18 @@
             ],
             "x-axis-label": "Threshold",
             "title": "No Noise, Low Count"
+        },
+        {
+            "width": 1,
+            "x-axis": {"dependant": {"array": "Thresholds" } },
+            "series": [
+                {"metric": "false", "property": "false-positives-mean", "from-bucket": "no-noise-high-count-by-theshold"},
+                {"metric": "false", "property": "false-positives-sd",   "from-bucket": "no-noise-high-count-by-theshold"},
+                {"metric": "false", "property": "false-negatives-mean", "from-bucket": "no-noise-high-count-by-theshold"},
+                {"metric": "false", "property": "false-negatives-sd",   "from-bucket": "no-noise-high-count-by-theshold"}
+            ],
+            "x-axis-label": "Threshold",
+            "title": "No Noise, High Count"
         }
     ]
 }
