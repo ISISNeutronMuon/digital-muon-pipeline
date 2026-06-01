@@ -4,8 +4,7 @@ use digital_muon_common::Channel;
 
 use crate::{
     analysis::metrics::{
-        MetricAggregatedResult, MetricChannelResult, MetricOutput,
-        false_counts::FalseCount,
+        MetricAggregatedResult, MetricChannelResult, MetricOutput, false_counts::FalseCount,
         muon_lifetime::MuonLifetime,
     },
     engine::{FlatAlgorithm, FlatMetric, FlatWaveform},

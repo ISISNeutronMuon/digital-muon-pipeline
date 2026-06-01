@@ -16,13 +16,14 @@ impl ChannelData {
     pub(crate) fn new(time_intensity: Vec<(Time, Intensity)>) -> Self {
         Self { time_intensity }
     }
-    
+
     pub(crate) fn get_time_intensity(&self) -> &[(Time, Intensity)] {
         &self.time_intensity
     }
 
     pub(crate) fn get_temporal_distance_from(&self, index: usize, target: Time) -> u32 {
-        let (time, _) = self.time_intensity
+        let (time, _) = self
+            .time_intensity
             .get(index)
             .expect("`index` should be valid, this should never fail");
         (*time as i32 - target as i32)
@@ -83,12 +84,12 @@ mod test {
     #[test]
     fn test() {
         let data = ChannelData {
-            time_intensity: vec![(33,0), (38,0), (51,0)],
+            time_intensity: vec![(33, 0), (38, 0), (51, 0)],
         };
         assert_eq!(data.get_temporal_distance_from(0, 42), 9);
         assert_eq!(data.get_temporal_distance_from(1, 42), 4);
         assert_eq!(data.get_temporal_distance_from(2, 42), 9);
-        
+
         assert_eq!(data.find_nearest_in_time_after_index(0, 32), 0);
         assert_eq!(data.find_nearest_in_time_after_index(0, 34), 0);
         assert_eq!(data.find_nearest_in_time_after_index(0, 42), 1);

@@ -63,7 +63,7 @@ use metrics_exporter_prometheus::PrometheusBuilder;
 use miette::{Context, IntoDiagnostic};
 use rdkafka::{
     consumer::{CommitMode, Consumer},
-    message::{BorrowedMessage, Message}
+    message::{BorrowedMessage, Message},
 };
 use std::{fmt::Debug, fs::File, io, net::SocketAddr, path::PathBuf, time::Duration};
 use tokio::{
@@ -516,6 +516,6 @@ async fn evaluate_eventlists_collection(
         Ok(_) => (),
         Err(e) => {
             warn!("Error {e}")
-        },
+        }
     }
 }

@@ -82,15 +82,18 @@ impl AnalysisEngine {
             self.metrics.iter_mut().for_each(|metric| {
                 metric.push(&bucket.waveform, &bucket.algorithm, index, &collection)
             });
+        } else {
+            info!("Bucket {}, {} full", index.0, index.1);
         }
         Ok(())
     }
 
-    pub(crate) fn build_charts(&self) -> Result<(), String> {
-        for chart in &self.charts {
+    pub(crate) fn build_charts(&mut self) -> Result<(), String> {
+        for chart in &mut self.charts {
             if chart.is_built() {
                 continue;
             }
+            chart.set_built();
             let mut path = self.path.clone();
             path.push(&chart.title);
             let mut file = File::create(path).unwrap();
@@ -117,12 +120,6 @@ impl AnalysisEngine {
                         writeln!(&mut file, "{string}").unwrap();
                     }
                     MetricOutput::ScalarWithBand(values, bands) => {
-                        let string = values
-                            .iter()
-                            .map(|val| val.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        writeln!(&mut file, "{string}").unwrap();
                         let string = Iterator::zip(values.iter(), bands.iter())
                             .map(|(val, band)| (val - band).to_string())
                             .collect::<Vec<_>>()

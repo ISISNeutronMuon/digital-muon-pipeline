@@ -43,12 +43,13 @@ impl MessageCache {
         topic_index: usize,
         data: EventData,
     ) -> Result<(), RejectMessageError> {
-        match self.eventlists.iter_mut().find(
-            |collection: &&mut PartialEventslistsCollection| {
+        match self
+            .eventlists
+            .iter_mut()
+            .find(|collection: &&mut PartialEventslistsCollection| {
                 collection.metadata.equals_ignoring_veto_flags(metadata)
                     && collection.digitiser_id == digitiser_id
-            },
-        ) {
+            }) {
             Some(frame_dig) => {
                 debug!("Partial Collection Found");
                 frame_dig.push(topic_index, data)?;

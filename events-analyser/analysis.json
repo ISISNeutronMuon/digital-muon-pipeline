@@ -15,7 +15,7 @@
             "number": 1,
             "algorithm": "threshold-only",
             "waveform": "gaussian",
-            "limits": { "min": 128, "max": 50000 }
+            "limits": { "min": 64, "max": 50000 }
         }],
         "arrays": [
             { "name": "Thresholds", "values": [900] }

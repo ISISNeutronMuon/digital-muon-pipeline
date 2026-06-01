@@ -8,7 +8,10 @@ use std::{collections::HashMap, time::Duration};
 use tokio::time::Instant;
 use tracing::{Span, debug, info_span};
 
-use crate::{event::{ChannelData, EventData}, eventlists::RejectMessageError};
+use crate::{
+    event::{ChannelData, EventData},
+    eventlists::RejectMessageError,
+};
 
 #[derive(Debug)]
 pub(crate) struct EventlistsCollection {
@@ -112,7 +115,11 @@ impl PartialEventslistsCollection {
     /// # Parameters
     /// - digitiser_id: the id of the digitiser sending the data.
     /// - data: the data in the message.
-    pub(crate) fn push(&mut self, topic_index: usize, data: EventData) -> Result<(), RejectMessageError> {
+    pub(crate) fn push(
+        &mut self,
+        topic_index: usize,
+        data: EventData,
+    ) -> Result<(), RejectMessageError> {
         let socket = self
             .eventlists
             .get_mut(topic_index)

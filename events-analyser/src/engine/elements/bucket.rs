@@ -15,6 +15,7 @@ use crate::{
 };
 use serde::Deserialize;
 use thiserror::Error;
+use tracing::info;
 
 #[derive(Debug, Error)]
 pub(crate) enum BucketError {
@@ -160,9 +161,13 @@ impl FlatBucketBlock {
     }
 
     pub(crate) fn are_buckets_full_enough(&self) -> bool {
-        self.buckets
-            .iter()
-            .all(|bucket| bucket.count >= self.limits.min)
+        self.buckets.iter().all(|bucket| {
+            info!(
+                "Count: {}, min: {}, max: {}",
+                bucket.count, self.limits.min, self.limits.max
+            );
+            bucket.count >= self.limits.min
+        })
     }
 }
 
