@@ -1,5 +1,8 @@
 use serde::Deserialize;
-use std::{fmt::Debug, ops::{Deref, DerefMut, RangeInclusive}};
+use std::{
+    fmt::Debug,
+    ops::{Deref, DerefMut, RangeInclusive},
+};
 
 use crate::engine::values::Number;
 
@@ -18,8 +21,10 @@ impl<T> WithName<T>
 where
     T: Debug + Clone,
 {
-    pub(crate) fn is_source<S>(&self, object: &WithSource<S>) -> bool 
-    where S: Debug + Clone {
+    pub(crate) fn is_source<S>(&self, object: &WithSource<S>) -> bool
+    where
+        S: Debug + Clone,
+    {
         self.name == object.source
     }
 
@@ -28,7 +33,10 @@ where
     }
 }
 
-impl<T> Deref for WithName<T> where T: Debug + Clone {
+impl<T> Deref for WithName<T>
+where
+    T: Debug + Clone,
+{
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -36,7 +44,10 @@ impl<T> Deref for WithName<T> where T: Debug + Clone {
     }
 }
 
-impl<T> DerefMut for WithName<T> where T: Debug + Clone {
+impl<T> DerefMut for WithName<T>
+where
+    T: Debug + Clone,
+{
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.value
     }
@@ -62,14 +73,16 @@ where
     }
 }
 
-impl<T> Deref for WithSource<T> where T: Debug + Clone {
+impl<T> Deref for WithSource<T>
+where
+    T: Debug + Clone,
+{
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
         &self.value
     }
 }
-
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]

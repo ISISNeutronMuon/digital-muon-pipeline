@@ -2,7 +2,11 @@ use digital_muon_common::{Intensity, Time};
 use serde::Deserialize;
 use std::fmt::Debug;
 
-use crate::engine::{Array, FlatWaveform, FlattenableWithIndex, utils::WithName, values::{Value, ValueError}};
+use crate::engine::{
+    Array, FlatWaveform, FlattenableWithIndex,
+    utils::WithName,
+    values::{Value, ValueError},
+};
 
 ///
 #[derive(Debug, Deserialize, Clone)]
@@ -59,7 +63,7 @@ impl FlatAlgorithm {
         waveform: &FlatWaveform,
         time: Time,
         intensity: Intensity,
-        dist: i32,
+        dist: u32,
     ) -> bool {
         match self {
             FlatAlgorithm::FixedThreshold {

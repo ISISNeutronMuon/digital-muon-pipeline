@@ -53,20 +53,24 @@ impl<T: Number> FlattenableWithIndex for ValueFilter<T> {
     type Library = [WithName<Array>];
     type Error = ValueError;
 
-    fn flatten(&self, arrays: &Self::Library, index: usize) -> Result<ConstantFilter<T>, Self::Error> {
+    fn flatten(
+        &self,
+        arrays: &Self::Library,
+        index: usize,
+    ) -> Result<ConstantFilter<T>, Self::Error> {
         match self {
             ValueFilter::Dependant(dependancy) => Ok(ConstantFilter::Is(match dependancy {
                 Dependancy::Array(array) => T::from(
                     arrays
                         .iter()
                         .find(|a| a.has_name(array))
-                        .ok_or_else(||ValueError::CannotFindArray(array.clone()))?
+                        .ok_or_else(|| ValueError::CannotFindArray(array.clone()))?
                         .get_element(index),
                 )
                 .ok_or(ValueError::ArrayConvert)?,
-                Dependancy::Function(function) => function.apply(
-                    T::from(index).ok_or(ValueError::ArrayConvert)?,
-                ),
+                Dependancy::Function(function) => {
+                    function.apply(T::from(index).ok_or(ValueError::ArrayConvert)?)
+                }
             })),
             ValueFilter::Constant(constant) => Ok(constant.clone()),
         }
@@ -92,14 +96,13 @@ impl<T: Number> FlattenableWithIndex for Value<T> {
                     arrays
                         .iter()
                         .find(|a| a.has_name(array))
-                        .ok_or_else(||ValueError::CannotFindArray(array.clone()))?
+                        .ok_or_else(|| ValueError::CannotFindArray(array.clone()))?
                         .get_element(index),
                 )
                 .ok_or(ValueError::ArrayConvert)?,
-                Dependancy::Function(function) => function.apply(
-                    T::from(index)
-                        .ok_or(ValueError::ArrayConvert)?,
-                ),
+                Dependancy::Function(function) => {
+                    function.apply(T::from(index).ok_or(ValueError::ArrayConvert)?)
+                }
             }),
             Value::Constant(constant) => Ok(*constant),
         }

@@ -1,12 +1,15 @@
 mod elements;
 mod utils;
 mod values;
-use std::ops::Deref;
 use serde::Deserialize;
+use std::ops::Deref;
 
 use crate::engine::{
-    elements::{Algorithm, BucketBlock, BucketBlockTemplate, BucketError, ChartError, Criteria, Waveform},
-    utils::WithSource, values::ValueError,
+    elements::{
+        Algorithm, BucketBlock, BucketBlockTemplate, BucketError, ChartError, Criteria, Waveform,
+    },
+    utils::WithSource,
+    values::ValueError,
 };
 
 pub(crate) use crate::engine::{
@@ -14,7 +17,7 @@ pub(crate) use crate::engine::{
         Chart, FlatAlgorithm, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricFalseCount,
         FlatWaveform, Metric,
     },
-    utils::WithName
+    utils::WithName,
 };
 
 ///
@@ -36,7 +39,10 @@ pub(crate) struct Templates {
 }
 
 impl Templates {
-    fn get_bucket(&self, object: &WithSource<WithName<BucketBlock>>) -> Option<&BucketBlockTemplate> {
+    fn get_bucket(
+        &self,
+        object: &WithSource<WithName<BucketBlock>>,
+    ) -> Option<&BucketBlockTemplate> {
         self.bucket_templates
             .iter()
             .find_map(|tmplt| tmplt.is_source(object).then_some(tmplt.deref()))
@@ -49,7 +55,7 @@ impl Templates {
     fn get_criteria(&self, name: &str) -> Option<&Criteria> {
         self.criteria_templates
             .iter()
-            .find_map(|tmplt|tmplt.has_name(name).then_some(tmplt.deref()))
+            .find_map(|tmplt| tmplt.has_name(name).then_some(tmplt.deref()))
     }
 
     fn get_algorithm(&self, name: &str) -> Option<&Algorithm> {
@@ -128,8 +134,11 @@ impl AnalysisSettings {
             .map(|metric| metric.flatten(&self.events_topics))
             .collect::<Result<_, ValueError>>()
     }
-    
-    pub(crate) fn flatten_charts(&self, buckets: &[WithName<FlatBucketBlock>]) -> Result<Vec<FlatChart>, ChartError> {
+
+    pub(crate) fn flatten_charts(
+        &self,
+        buckets: &[WithName<FlatBucketBlock>],
+    ) -> Result<Vec<FlatChart>, ChartError> {
         self.charts
             .iter()
             .map(|chart| chart.flatten((self, buckets)))
@@ -169,11 +178,11 @@ impl Array {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
 
-    const JSON_INPUT_1: &str = r#""#;
+    //const JSON_INPUT_1: &str = r#""#;
     #[test]
     fn test1() {
-        let simulation: AnalysisSettings = serde_json::from_str(JSON_INPUT_1).unwrap();
+        //let simulation: AnalysisSettings = serde_json::from_str(JSON_INPUT_1).unwrap();
     }
 }

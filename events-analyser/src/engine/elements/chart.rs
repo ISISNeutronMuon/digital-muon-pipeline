@@ -1,4 +1,7 @@
-use crate::engine::{AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex, WithName, values::{Value, ValueError}};
+use crate::engine::{
+    AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex, WithName,
+    values::{Value, ValueError},
+};
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -75,11 +78,14 @@ pub(crate) struct Chart {
     title: String,
 }
 
-impl Flattenable<(&AnalysisSettings,&[WithName<FlatBucketBlock>])> for Chart {
+impl Flattenable<(&AnalysisSettings, &[WithName<FlatBucketBlock>])> for Chart {
     type Flat = FlatChart;
     type Error = ChartError;
 
-    fn flatten(&self, (library, buckets): (&AnalysisSettings,&[WithName<FlatBucketBlock>])) -> Result<Self::Flat, Self::Error> {
+    fn flatten(
+        &self,
+        (library, buckets): (&AnalysisSettings, &[WithName<FlatBucketBlock>]),
+    ) -> Result<Self::Flat, Self::Error> {
         let x_axis = (0..self.width)
             .map(|x| self.x_axis.flatten(library.templates.get_arrays(), x))
             .collect::<Result<Vec<_>, _>>()?;
@@ -89,14 +95,17 @@ impl Flattenable<(&AnalysisSettings,&[WithName<FlatBucketBlock>])> for Chart {
             .iter()
             .map(|series| {
                 series.flatten(library).and_then(|flat| {
-                    let bucket_number = 
-                        buckets
+                    let bucket_number = buckets
                         .get(flat.from_bucket)
                         .expect("This should never fail.")
                         .buckets
                         .len();
                     if bucket_number != self.width {
-                        Err(SeriesError::BucketInconsistancy(series.metric.clone(), bucket_number, self.width))
+                        Err(SeriesError::BucketInconsistancy(
+                            series.metric.clone(),
+                            bucket_number,
+                            self.width,
+                        ))
                     } else {
                         Ok(flat)
                     }
@@ -129,7 +138,9 @@ pub(crate) struct FlatChart {
 impl FlatChart {
     pub(crate) fn poll(&self, buckets: &[WithName<FlatBucketBlock>]) -> bool {
         for series in &self.series {
-            let block = buckets.get(series.from_bucket).expect("This should never fail");
+            let block = buckets
+                .get(series.from_bucket)
+                .expect("This should never fail");
             if !block.are_buckets_full_enough() {
                 return false;
             }

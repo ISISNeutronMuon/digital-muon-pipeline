@@ -8,7 +8,8 @@ use crate::{
             criteria::{Criteria, CriteriaError, FlatCriteria},
             waveform::FlatWaveform,
         },
-        utils::{Interval, WithName, WithSource}, values::ValueError,
+        utils::{Interval, WithName, WithSource},
+        values::ValueError,
     },
     eventlists::EventlistsCollection,
 };
@@ -34,7 +35,6 @@ pub(crate) enum BucketError {
     #[error("Value Error: {0}")]
     Criteria(#[from] CriteriaError),
 }
-
 
 ///
 /// This struct is created from the configuration JSON file.
@@ -79,22 +79,26 @@ impl Flattenable<&Templates> for WithSource<WithName<BucketBlock>> {
 
     fn flatten(&self, library: &Templates) -> Result<WithName<FlatBucketBlock>, Self::Error> {
         let template = library.get_bucket(self);
-        let number = self.templatable
+        let number = self
+            .templatable
             .number
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.number.as_ref()))
             .ok_or_else(|| BucketError::NoNumber(self.get_source().into()))?;
-        let algorithm = self.templatable
+        let algorithm = self
+            .templatable
             .algorithm
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.algorithm.as_ref()))
             .ok_or_else(|| BucketError::NoAlgorithm(self.get_source().into()))?;
-        let waveform = self.templatable
+        let waveform = self
+            .templatable
             .waveform
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.waveform.as_ref()))
             .ok_or_else(|| BucketError::NoWaveform(self.get_source().into()))?;
-        let limits = self.templatable
+        let limits = self
+            .templatable
             .limits
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.limits.as_ref()))
@@ -102,11 +106,11 @@ impl Flattenable<&Templates> for WithSource<WithName<BucketBlock>> {
 
         let algorithm = library
             .get_algorithm(&algorithm)
-            .ok_or_else(|| BucketError::NoAlgorithm(algorithm.into()))?;
+            .ok_or_else(|| BucketError::CannotFindAlgorithm(algorithm.into()))?;
 
         let waveform = library
             .get_waveform(&waveform)
-            .ok_or_else(|| BucketError::NoWaveform(waveform.into()))?;
+            .ok_or_else(|| BucketError::CannotFindWaveform(waveform.into()))?;
 
         let buckets = (0..*number)
             .map(|index| {
@@ -117,16 +121,16 @@ impl Flattenable<&Templates> for WithSource<WithName<BucketBlock>> {
                     criteria,
                     algorithm,
                     waveform,
-                    count: Default::default()
+                    count: Default::default(),
                 })
             })
             .collect::<Result<Vec<_>, Self::Error>>()?;
         Ok(WithName::<FlatBucketBlock> {
             name: self.name.clone(),
             value: FlatBucketBlock {
-            buckets,
-            limits: limits.clone(),
-            }
+                buckets,
+                limits: limits.clone(),
+            },
         })
     }
 }
@@ -152,16 +156,14 @@ impl FlatBucketBlock {
             .iter_mut()
             .enumerate()
             .find(|(_, bucket)| bucket.is_collection_in(collection))
-            .map(|(index, bucket)| (index,
-                (self.limits.max > bucket.count)
-                    .then_some(bucket)
-            ))
+            .map(|(index, bucket)| (index, (self.limits.max > bucket.count).then_some(bucket)))
     }
 
     pub(crate) fn are_buckets_full_enough(&self) -> bool {
-        self.buckets.iter().all(|bucket|bucket.count >= self.limits.min)
+        self.buckets
+            .iter()
+            .all(|bucket| bucket.count >= self.limits.min)
     }
-
 }
 
 ///
@@ -213,9 +215,20 @@ mod tests {
     #[test]
     fn criteria_any() {
         let bucket = FlatBucket {
-            criteria: FlatCriteria { periods: ConstantFilter::Any, frames: ConstantFilter::Any, channels: ConstantFilter::Any, digitiser_ids: ConstantFilter::Any },
-            algorithm: FlatAlgorithm::FixedThreshold { threshold: Default::default(), duration: Default::default(), cool_down: Default::default()} ,
-            waveform: FlatWaveform::Flat { width: Default::default() },
+            criteria: FlatCriteria {
+                periods: ConstantFilter::Any,
+                frames: ConstantFilter::Any,
+                channels: ConstantFilter::Any,
+                digitiser_ids: ConstantFilter::Any,
+            },
+            algorithm: FlatAlgorithm::FixedThreshold {
+                threshold: Default::default(),
+                duration: Default::default(),
+                cool_down: Default::default(),
+            },
+            waveform: FlatWaveform::Flat {
+                width: Default::default(),
+            },
             count: 0,
         };
         let collection = EventlistsCollection {
@@ -229,7 +242,7 @@ mod tests {
                 veto_flags: 0,
             },
             eventlists: Default::default(),
-            channels: vec![0,1],
+            channels: vec![0, 1],
         };
         assert!(bucket.is_collection_in(&collection));
     }
@@ -237,15 +250,37 @@ mod tests {
     #[test]
     fn criteria_periods() {
         let bucket_1 = FlatBucket {
-            criteria: FlatCriteria { periods: ConstantFilter::Is(0), frames: ConstantFilter::Any, channels: ConstantFilter::Any, digitiser_ids: ConstantFilter::Any },
-            algorithm: FlatAlgorithm::FixedThreshold { threshold: Default::default(), duration: Default::default(), cool_down: Default::default()} ,
-            waveform: FlatWaveform::Flat { width: Default::default() },
+            criteria: FlatCriteria {
+                periods: ConstantFilter::Is(0),
+                frames: ConstantFilter::Any,
+                channels: ConstantFilter::Any,
+                digitiser_ids: ConstantFilter::Any,
+            },
+            algorithm: FlatAlgorithm::FixedThreshold {
+                threshold: Default::default(),
+                duration: Default::default(),
+                cool_down: Default::default(),
+            },
+            waveform: FlatWaveform::Flat {
+                width: Default::default(),
+            },
             count: 0,
         };
         let bucket_2 = FlatBucket {
-            criteria: FlatCriteria { periods: ConstantFilter::Is(1), frames: ConstantFilter::Any, channels: ConstantFilter::Any, digitiser_ids: ConstantFilter::Any },
-            algorithm: FlatAlgorithm::FixedThreshold { threshold: Default::default(), duration: Default::default(), cool_down: Default::default()} ,
-            waveform: FlatWaveform::Flat { width: Default::default() },
+            criteria: FlatCriteria {
+                periods: ConstantFilter::Is(1),
+                frames: ConstantFilter::Any,
+                channels: ConstantFilter::Any,
+                digitiser_ids: ConstantFilter::Any,
+            },
+            algorithm: FlatAlgorithm::FixedThreshold {
+                threshold: Default::default(),
+                duration: Default::default(),
+                cool_down: Default::default(),
+            },
+            waveform: FlatWaveform::Flat {
+                width: Default::default(),
+            },
             count: 0,
         };
         let collection = EventlistsCollection {
@@ -259,7 +294,7 @@ mod tests {
                 veto_flags: 0,
             },
             eventlists: Default::default(),
-            channels: vec![0,1],
+            channels: vec![0, 1],
         };
         assert!(bucket_1.is_collection_in(&collection));
         assert!(!bucket_2.is_collection_in(&collection));

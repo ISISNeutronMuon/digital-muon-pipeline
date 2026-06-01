@@ -1,4 +1,8 @@
-use crate::engine::{Array, FlattenableWithIndex, utils::WithName, values::{Value, ValueError}};
+use crate::engine::{
+    Array, FlattenableWithIndex,
+    utils::WithName,
+    values::{Value, ValueError},
+};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone)]

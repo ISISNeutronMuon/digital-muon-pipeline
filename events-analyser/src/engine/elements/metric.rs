@@ -11,6 +11,7 @@ pub(crate) enum Metric {
         true_topic: String,
         estimate_topic: String,
     },
+    MuonLifetime,
 }
 
 impl Flattenable<&[String]> for Metric {
@@ -34,6 +35,7 @@ impl Flattenable<&[String]> for Metric {
                     .find_map(|(index, topic)| (topic == estimate_topic).then_some(index))
                     .expect("This should never fail."),
             }),
+            Metric::MuonLifetime => FlatMetric::MuonLifetime,
         })
     }
 }
@@ -41,6 +43,7 @@ impl Flattenable<&[String]> for Metric {
 #[derive(Debug, Clone)]
 pub(crate) enum FlatMetric {
     FalseCount(FlatMetricFalseCount),
+    MuonLifetime,
 }
 
 #[derive(Debug, Clone)]

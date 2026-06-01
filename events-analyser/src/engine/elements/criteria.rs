@@ -3,7 +3,9 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::engine::{
-    FlattenableWithIndex, Templates, utils::WithSource, values::{ConstantFilter, ValueError, ValueFilter}
+    FlattenableWithIndex, Templates,
+    utils::WithSource,
+    values::{ConstantFilter, ValueError, ValueFilter},
 };
 
 #[derive(Debug, Error)]
@@ -61,36 +63,35 @@ impl FlattenableWithIndex for WithSource<Criteria> {
     type Error = CriteriaError;
 
     fn flatten(&self, libraries: &Templates, index: usize) -> Result<FlatCriteria, Self::Error> {
-        let template: Option<&Criteria> = libraries
-            .get_criteria(self.get_source());
+        let template: Option<&Criteria> = libraries.get_criteria(self.get_source());
         let periods = self
             .periods
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.periods.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
-            .ok_or_else(||CriteriaError::NoPeriods(self.get_source().into()))?;
+            .ok_or_else(|| CriteriaError::NoPeriods(self.get_source().into()))?;
         let frames = self
             .frames
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.frames.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
-            .ok_or_else(||CriteriaError::NoFrames(self.get_source().into()))?;
+            .ok_or_else(|| CriteriaError::NoFrames(self.get_source().into()))?;
         let channels = self
             .channels
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.channels.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
-            .ok_or_else(||CriteriaError::NoChannels(self.get_source().into()))?;
+            .ok_or_else(|| CriteriaError::NoChannels(self.get_source().into()))?;
         let digitiser_ids = self
             .digitiser_ids
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.digitiser_ids.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
-            .ok_or_else(||CriteriaError::NoDigitiserIds(self.get_source().into()))?;
+            .ok_or_else(|| CriteriaError::NoDigitiserIds(self.get_source().into()))?;
 
         Ok(FlatCriteria {
             periods,

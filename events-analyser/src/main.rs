@@ -40,7 +40,7 @@ mod eventlists;
 
 use clap::Parser;
 use digital_muon_common::{
-    CommonKafkaOpts, DigitizerId, init_tracer,
+    CommonKafkaOpts, init_tracer,
     metrics::{
         component_info_metric,
         failures::{self, FailureKind},
@@ -63,8 +63,7 @@ use metrics_exporter_prometheus::PrometheusBuilder;
 use miette::{Context, IntoDiagnostic};
 use rdkafka::{
     consumer::{CommitMode, Consumer},
-    message::{BorrowedMessage, Message},
-    util::Timeout,
+    message::{BorrowedMessage, Message}
 };
 use std::{fmt::Debug, fs::File, io, net::SocketAddr, path::PathBuf, time::Duration};
 use tokio::{
@@ -77,8 +76,8 @@ use tracing::{debug, error, info, info_span, instrument, warn};
 
 use crate::{analysis::AnalysisEngine, engine::AnalysisSettings};
 
-/// Triggers error if the producer takes longer than this to dispatch a message.
-const PRODUCER_TIMEOUT: Timeout = Timeout::After(Duration::from_millis(100));
+// /// Triggers error if the producer takes longer than this to dispatch a message.
+//const PRODUCER_TIMEOUT: Timeout = Timeout::After(Duration::from_millis(100));
 
 /// [clap] derived struct to handle command line parameters.
 #[derive(Debug, Parser)]
@@ -439,7 +438,7 @@ async fn recv_and_evaluate(
                 // Blocks until a frame is received
                 match message {
                     Some(eventlists_collection) => {
-                        evaluate_eventlists_collection(use_otel, &mut analysis_engine, eventlists_collection, /*&producer, &output_topic*/).await;
+                        evaluate_eventlists_collection(use_otel, &mut analysis_engine, eventlists_collection).await;
                     }
                     None => {
                         info!("Send-Frame channel closed");
@@ -513,5 +512,10 @@ async fn evaluate_eventlists_collection(
     eventlists_collection: EventlistsCollection,
 ) {
     info!("New Collection Received");
-    analysis_engine.push(eventlists_collection);
+    match analysis_engine.push(eventlists_collection) {
+        Ok(_) => (),
+        Err(e) => {
+            warn!("Error {e}")
+        },
+    }
 }
