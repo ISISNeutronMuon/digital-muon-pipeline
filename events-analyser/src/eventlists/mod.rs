@@ -6,21 +6,18 @@ mod cache;
 mod partial;
 
 pub(crate) use cache::MessageCache;
-pub(crate) use partial::{EventlistsCollection, PartialEventslistsCollection};
+pub(crate) use partial::EventlistsCollection;
 
 /// Represents the reason why a digitiser event list message is rejected
 pub(crate) enum RejectMessageError {
     /// The frame has already encountered an event list from this digitiser.
-    IdAlreadyPresent,
-    /// The event list's timestamp occurs before [FrameCache::latest_timestamp_dispatched].
-    TimestampTooEarly,
+    AlreadyPresent,
 }
 
 impl From<RejectMessageError> for &'static str {
     fn from(value: RejectMessageError) -> Self {
         match value {
-            RejectMessageError::IdAlreadyPresent => "id_already_present",
-            RejectMessageError::TimestampTooEarly => "timestamp_too_early",
+            RejectMessageError::AlreadyPresent => "already_present",
         }
     }
 }

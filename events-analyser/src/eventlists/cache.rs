@@ -43,38 +43,36 @@ impl MessageCache {
         topic_index: usize,
         data: EventData,
     ) -> Result<(), RejectMessageError> {
-        let collection = {
-            match self.eventlists.iter_mut().find(
-                |collection: &&mut PartialEventslistsCollection| {
-                    collection.metadata.equals_ignoring_veto_flags(metadata)
-                        && collection.digitiser_id == digitiser_id
-                },
-            ) {
-                Some(frame_dig) => {
-                    debug!("Partial Collection Found");
-                    frame_dig.push(topic_index, data);
-                    frame_dig
-                }
-                None => {
-                    let mut frame_dig = PartialEventslistsCollection::new(
-                        self.num_topics,
-                        self.ttl,
-                        metadata,
-                        digitiser_id,
-                    );
+        match self.eventlists.iter_mut().find(
+            |collection: &&mut PartialEventslistsCollection| {
+                collection.metadata.equals_ignoring_veto_flags(metadata)
+                    && collection.digitiser_id == digitiser_id
+            },
+        ) {
+            Some(frame_dig) => {
+                debug!("Partial Collection Found");
+                frame_dig.push(topic_index, data)?;
+                frame_dig
+            }
+            None => {
+                let mut frame_dig = PartialEventslistsCollection::new(
+                    self.num_topics,
+                    self.ttl,
+                    metadata,
+                    digitiser_id,
+                );
 
-                    // Initialise the span field
-                    if let Err(e) = frame_dig.span_init() {
-                        warn!("Frame span initiation failed {e}")
-                    }
-
-                    frame_dig.push(topic_index, data);
-                    self.eventlists.push_back(frame_dig);
-                    debug!("New Partial Collection created {}", self.eventlists.len());
-                    self.eventlists
-                        .back()
-                        .expect("self.frames should be non-empty, this should never fails")
+                // Initialise the span field
+                if let Err(e) = frame_dig.span_init() {
+                    warn!("Frame span initiation failed {e}")
                 }
+
+                frame_dig.push(topic_index, data)?;
+                self.eventlists.push_back(frame_dig);
+                debug!("New Partial Collection created {}", self.eventlists.len());
+                self.eventlists
+                    .back()
+                    .expect("self.frames should be non-empty, this should never fails")
             }
         };
 

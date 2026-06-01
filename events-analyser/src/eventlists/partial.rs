@@ -8,7 +8,7 @@ use std::{collections::HashMap, time::Duration};
 use tokio::time::Instant;
 use tracing::{Span, debug, info_span};
 
-use crate::event::{ChannelData, EventData};
+use crate::{event::{ChannelData, EventData}, eventlists::RejectMessageError};
 
 #[derive(Debug)]
 pub(crate) struct EventlistsCollection {
@@ -112,13 +112,19 @@ impl PartialEventslistsCollection {
     /// # Parameters
     /// - digitiser_id: the id of the digitiser sending the data.
     /// - data: the data in the message.
-    pub(crate) fn push(&mut self, topic_index: usize, data: EventData) {
-        *self
+    pub(crate) fn push(&mut self, topic_index: usize, data: EventData) -> Result<(), RejectMessageError> {
+        let socket = self
             .eventlists
             .get_mut(topic_index)
-            .expect("topic_index should not be too large, this should never fail.") = Some(data);
+            .expect("topic_index should not be too large, this should never fail.");
+        if socket.is_none() {
+            socket.replace(data);
+        } else {
+            return Err(RejectMessageError::AlreadyPresent);
+        }
         self.set_completion_status();
         debug!("Completed: {}", self.complete);
+        Ok(())
     }
 
     /// Ammends the metadata [veto_flags] field with `veto_flags` from a new digitiser message.

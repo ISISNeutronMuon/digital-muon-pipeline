@@ -1,13 +1,14 @@
-use std::{collections::HashMap, ops::Deref};
+use std::collections::HashMap;
 
 use digital_muon_common::Channel;
 
 use crate::{
     analysis::metrics::{
         MetricAggregatedResult, MetricChannelResult, MetricOutput,
-        false_counts::{CompletedFalseCount, FalseCount},
+        false_counts::FalseCount,
+        muon_lifetime::MuonLifetime,
     },
-    engine::{FlatAlgorithm, FlatMetric, FlatWaveform, WithName},
+    engine::{FlatAlgorithm, FlatMetric, FlatWaveform},
     event::ChannelData,
 };
 
@@ -123,16 +124,22 @@ pub(crate) enum PatrtialMetricResult {
         PatrtialMetricResultClass<FalseCount>,
         Option<CompletedMetricResultClass<FalseCount>>,
     ),
+    MuonLifetime(
+        PatrtialMetricResultClass<MuonLifetime>,
+        Option<CompletedMetricResultClass<MuonLifetime>>,
+    ),
 }
 
 impl PatrtialMetricResult {
     pub(crate) fn new(source: FlatMetric, bucket_block_sizes: &[usize]) -> Self {
-        //let WithName { name, value } = source;
         match source {
             FlatMetric::FalseCount(flat_metric_false_count) => Self::FalseCount(
                 PatrtialMetricResultClass::new(flat_metric_false_count, bucket_block_sizes),
                 None,
             ),
+            FlatMetric::MuonLifetime => {
+                Self::MuonLifetime(PatrtialMetricResultClass::new((), bucket_block_sizes), None)
+            }
         }
     }
 
@@ -147,17 +154,28 @@ impl PatrtialMetricResult {
             PatrtialMetricResult::FalseCount(patrial_metric_result_class, _) => {
                 patrial_metric_result_class.push(waveform, algorithm, bucket_index, collection)
             }
+            PatrtialMetricResult::MuonLifetime(patrial_metric_result_class, _) => {
+                patrial_metric_result_class.push(waveform, algorithm, bucket_index, collection)
+            }
         }
     }
 
     pub(crate) fn build_aggregate(&mut self) {
         match self {
-            PatrtialMetricResult::FalseCount(patrial_metric_result_class, completed) => 
-            if completed.is_none() {
-                completed.replace(CompletedMetricResultClass {
-                    by_bucket: patrial_metric_result_class.aggregate(),
-                });
-            },
+            PatrtialMetricResult::FalseCount(patrial_metric_result_class, completed) => {
+                if completed.is_none() {
+                    completed.replace(CompletedMetricResultClass {
+                        by_bucket: patrial_metric_result_class.aggregate(),
+                    });
+                }
+            }
+            PatrtialMetricResult::MuonLifetime(patrial_metric_result_class, completed) => {
+                if completed.is_none() {
+                    completed.replace(CompletedMetricResultClass {
+                        by_bucket: patrial_metric_result_class.aggregate(),
+                    });
+                }
+            }
         };
     }
 
@@ -171,6 +189,12 @@ impl PatrtialMetricResult {
                 completed.get_property(block, property)
             }
             PatrtialMetricResult::FalseCount(_, None) => Err("False Count Not Aggregated".into()),
+            PatrtialMetricResult::MuonLifetime(_, Some(completed)) => {
+                completed.get_property(block, property)
+            }
+            PatrtialMetricResult::MuonLifetime(_, None) => {
+                Err("Muon Lifetime Not Aggregated".into())
+            }
         }
     }
 }
