@@ -249,13 +249,13 @@ pub(crate) fn run_schedule(engine: &mut SimulationEngine) -> Result<(), Simulati
                 )?;
             }
             Action::SetVetoFlags(vetoes) => {
-                engine.state.metadata.veto_flags = *vetoes;
+                engine.state.metadata.veto_flags = vetoes.value()?;
             }
             Action::SetPeriod(period) => {
-                engine.state.metadata.period_number = *period;
+                engine.state.metadata.period_number = period.value()?;
             }
             Action::SetProtonsPerPulse(ppp) => {
-                engine.state.metadata.protons_per_pulse = *ppp;
+                engine.state.metadata.protons_per_pulse = ppp.value()?;
             }
             Action::SetRunning(running) => {
                 engine.state.metadata.running = *running;
