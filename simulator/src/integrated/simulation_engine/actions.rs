@@ -98,9 +98,9 @@ pub(crate) enum Action {
     LogLoop(Loop<LogAction>),
     //
     SetTimestamp(Timestamp),
-    SetVetoFlags(u16),
-    SetPeriod(u64),
-    SetProtonsPerPulse(u8),
+    SetVetoFlags(NumConstant<u16>),
+    SetPeriod(NumConstant<u64>),
+    SetProtonsPerPulse(NumConstant<u8>),
     SetRunning(bool),
     //
     GenerateTrace(GenerateTrace),
