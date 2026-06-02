@@ -13,10 +13,14 @@ use crate::{
     eventlists::RejectMessageError,
 };
 
-#[derive(Debug)]
 pub(crate) struct EventlistsCollection {
+    /// Used by the implementation of [SpannedAggregator].
+    ///
+    /// [SpannedAggregator]: digital_muon_common::spanned::SpannedAggregator
+    pub(crate) span: SpanOnce,
+    /// The digitise id of the message.
     pub(crate) digitiser_id: DigitizerId,
-    /// The uniquely identifying metadata of the frame, common to all digitiser messages related to this frame (except possibly for [FrameMetadata::veto_flags]).
+    /// The identifying metadata of the message, common to all digitiser messages related to this frame (except possibly for [FrameMetadata::veto_flags]).
     pub(crate) metadata: FrameMetadata,
     /// The frame's event data.
     pub(crate) eventlists: Vec<EventData>,
@@ -25,7 +29,7 @@ pub(crate) struct EventlistsCollection {
 }
 
 impl EventlistsCollection {
-    fn new(digitiser_id: DigitizerId, metadata: FrameMetadata, eventlists: Vec<EventData>) -> Self {
+    fn new(span: SpanOnce, digitiser_id: DigitizerId, metadata: FrameMetadata, eventlists: Vec<EventData>) -> Self {
         let mut channels = eventlists
             .iter()
             .flat_map(|eventlist| eventlist.get_channels())
@@ -33,6 +37,7 @@ impl EventlistsCollection {
         channels.sort();
         channels.dedup();
         Self {
+            span,
             digitiser_id,
             metadata,
             eventlists,
@@ -56,6 +61,12 @@ impl EventlistsCollection {
     }
 }
 
+impl Spanned for EventlistsCollection {
+    fn span(&self) -> &SpanOnce {
+        &self.span
+    }
+}
+
 /// Holds the data of a frame, whislt it is in cache being built from digitiser messages.
 pub(crate) struct PartialEventslistsCollection {
     /// Used by the implementation of [SpannedAggregator].
@@ -72,6 +83,44 @@ pub(crate) struct PartialEventslistsCollection {
     pub(super) metadata: FrameMetadata,
     /// The frame's event data.
     eventlists: Vec<Option<EventData>>,
+}
+
+impl Spanned for PartialEventslistsCollection {
+    fn span(&self) -> &SpanOnce {
+        &self.span
+    }
+}
+
+impl SpannedMut for PartialEventslistsCollection {
+    fn span_mut(&mut self) -> &mut SpanOnce {
+        &mut self.span
+    }
+}
+
+impl SpannedAggregator for PartialEventslistsCollection {
+    fn span_init(&mut self) -> Result<(), SpanOnceError> {
+        self.span.init(info_span!(parent: None, "Collection",
+            "metadata_timestamp" = self.metadata.timestamp.to_rfc3339(),
+            "metadata_frame_number" = self.metadata.frame_number,
+            "metadata_period_number" = self.metadata.period_number,
+            "metadata_veto_flags" = self.metadata.veto_flags,
+            "metadata_protons_per_pulse" = self.metadata.protons_per_pulse,
+            "metadata_running" = self.metadata.running,
+        ))
+    }
+
+    fn link_current_span<F: Fn() -> Span>(
+        &self,
+        aggregated_span_fn: F,
+    ) -> Result<(), SpanOnceError> {
+        let span = self.span.get()?.in_scope(aggregated_span_fn);
+        span.follows_from(tracing::Span::current());
+        Ok(())
+    }
+
+    fn end_span(&self) -> Result<(), SpanOnceError> {
+        Ok(())
+    }
 }
 
 impl PartialEventslistsCollection {
@@ -134,15 +183,6 @@ impl PartialEventslistsCollection {
         Ok(())
     }
 
-    /// Ammends the metadata [veto_flags] field with `veto_flags` from a new digitiser message.
-    /// This is necessary until it is determined whether [veto_flags] should be identical accross
-    /// all digitisers during a frame.
-    ///
-    /// [veto_flags]: FrameMetadata::veto_flags
-    pub(super) fn push_veto_flags(&mut self, veto_flags: u16) {
-        self.metadata.veto_flags |= veto_flags;
-    }
-
     /// Returns value of [self.complete].
     ///
     /// [self.complete]: Self::complete
@@ -155,55 +195,13 @@ impl PartialEventslistsCollection {
         Instant::now() > self.expiry
     }
 
-    pub(crate) fn try_complete(self) -> Option<EventlistsCollection> {
+    pub(crate) fn try_complete(mut self) -> Option<EventlistsCollection> {
+        let span = self.span.take().expect("This should never fail.");
         self.eventlists
             .into_iter()
             .collect::<Option<Vec<EventData>>>()
             .map(|eventlists| {
-                EventlistsCollection::new(self.digitiser_id, self.metadata, eventlists)
+                EventlistsCollection::new(span, self.digitiser_id, self.metadata, eventlists)
             })
-    }
-}
-
-impl Spanned for PartialEventslistsCollection {
-    fn span(&self) -> &SpanOnce {
-        &self.span
-    }
-}
-
-impl SpannedMut for PartialEventslistsCollection {
-    fn span_mut(&mut self) -> &mut SpanOnce {
-        &mut self.span
-    }
-}
-
-impl SpannedAggregator for PartialEventslistsCollection {
-    fn span_init(&mut self) -> Result<(), SpanOnceError> {
-        self.span.init(info_span!(parent: None, "Frame",
-            "metadata_timestamp" = self.metadata.timestamp.to_rfc3339(),
-            "metadata_frame_number" = self.metadata.frame_number,
-            "metadata_period_number" = self.metadata.period_number,
-            "metadata_veto_flags" = self.metadata.veto_flags,
-            "metadata_protons_per_pulse" = self.metadata.protons_per_pulse,
-            "metadata_running" = self.metadata.running,
-            "frame_is_expired" = tracing::field::Empty,
-        ))
-    }
-
-    fn link_current_span<F: Fn() -> Span>(
-        &self,
-        aggregated_span_fn: F,
-    ) -> Result<(), SpanOnceError> {
-        let span = self.span.get()?.in_scope(aggregated_span_fn);
-        span.follows_from(tracing::Span::current());
-        Ok(())
-    }
-
-    fn end_span(&self) -> Result<(), SpanOnceError> {
-        #[cfg(not(test))] //   In test mode, the frame.span() are not initialised
-        self.span()
-            .get()?
-            .record("frame_is_expired", self.is_expired() && !self.is_complete());
-        Ok(())
     }
 }

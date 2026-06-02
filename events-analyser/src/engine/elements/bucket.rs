@@ -1,5 +1,4 @@
-use std::ops::Deref;
-
+use std::{fmt::Debug, ops::Deref};
 use crate::{
     engine::{
         Flattenable, FlattenableWithIndex, Templates,
@@ -13,9 +12,10 @@ use crate::{
     },
     eventlists::EventlistsCollection,
 };
+use digital_muon_common::spanned::{SpanOnce, SpanOnceError, Spanned, SpannedAggregator, SpannedMut};
 use serde::Deserialize;
 use thiserror::Error;
-use tracing::info;
+use tracing::{info, info_span, instrument};
 
 #[derive(Debug, Error)]
 pub(crate) enum BucketError {
@@ -35,6 +35,8 @@ pub(crate) enum BucketError {
     Value(#[from] ValueError),
     #[error("Value Error: {0}")]
     Criteria(#[from] CriteriaError),
+    #[error("Span Error: {0}")]
+    Span(#[from] SpanOnceError)
 }
 
 ///
@@ -56,7 +58,7 @@ pub(crate) struct BucketBlockTemplate {
 ///
 /// This struct is created from the configuration JSON file.
 ///
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct BucketBlock {
     // Is applied to all voltages when traces are created
@@ -78,6 +80,7 @@ impl Flattenable<&Templates> for WithSource<WithName<BucketBlock>> {
     type Flat = WithName<FlatBucketBlock>;
     type Error = BucketError;
 
+    #[instrument(skip_all, name = "Bucket Block")]
     fn flatten(&self, library: &Templates) -> Result<WithName<FlatBucketBlock>, Self::Error> {
         let template = library.get_bucket(self);
         let number = self
@@ -118,17 +121,21 @@ impl Flattenable<&Templates> for WithSource<WithName<BucketBlock>> {
                 let criteria = self.criteria.flatten(library, index)?;
                 let algorithm = algorithm.flatten(library.get_arrays(), index)?;
                 let waveform = waveform.flatten(&library.arrays, index)?;
-                Ok(FlatBucket {
+                let mut bucket = FlatBucket {
+                    span: SpanOnce::default(),
                     criteria,
                     algorithm,
                     waveform,
                     count: Default::default(),
-                })
+                };
+                bucket.span_init()?;
+                Ok(bucket)
             })
             .collect::<Result<Vec<_>, Self::Error>>()?;
         Ok(WithName::<FlatBucketBlock> {
             name: self.name.clone(),
             value: FlatBucketBlock {
+                span: SpanOnce::Spanned(tracing::Span::current()),
                 buckets,
                 limits: limits.clone(),
             },
@@ -139,13 +146,22 @@ impl Flattenable<&Templates> for WithSource<WithName<BucketBlock>> {
 ///
 /// This struct is created from the configuration JSON file.
 ///
-#[derive(Debug, Clone)]
 pub(crate) struct FlatBucketBlock {
+    span: SpanOnce,
     // Is applied to all voltages when traces are created
     pub(crate) buckets: Vec<FlatBucket>,
     // Is applied to all voltages when traces are created
     pub(crate) limits: Interval<usize>,
     // Is applied to all voltages when traces are created
+}
+
+impl Debug for FlatBucketBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FlatBucketBlock")
+            .field("buckets", &self.buckets)
+            .field("limits", &self.limits)
+            .finish()
+    }
 }
 
 impl FlatBucketBlock {
@@ -174,8 +190,8 @@ impl FlatBucketBlock {
 ///
 /// This struct is created from the configuration JSON file.
 ///
-#[derive(Debug, Clone)]
 pub(crate) struct FlatBucket {
+    span: SpanOnce,
     // Is applied to all voltages when traces are created
     pub(crate) criteria: FlatCriteria,
     // Is applied to all voltages when traces are created
@@ -183,6 +199,48 @@ pub(crate) struct FlatBucket {
     // Is applied to all voltages when traces are created
     pub(crate) waveform: FlatWaveform,
     pub(crate) count: usize,
+}
+
+impl Spanned for FlatBucket {
+    fn span(&self) -> &SpanOnce {
+        &self.span
+    }
+}
+
+impl SpannedMut for FlatBucket {
+    fn span_mut(&mut self) -> &mut SpanOnce {
+        &mut self.span
+    }
+}
+
+impl SpannedAggregator for FlatBucket {
+    fn span_init(&mut self) -> Result<(), SpanOnceError> {
+        self.span.init(info_span!("Bucket"))
+    }
+
+    fn link_current_span<F: Fn() -> tracing::Span>(
+        &self,
+        aggregated_span_fn: F,
+    ) -> Result<(), SpanOnceError> {
+        let span = self.span.get()?.in_scope(aggregated_span_fn);
+        span.follows_from(tracing::Span::current());
+        Ok(())
+    }
+
+    fn end_span(&self) -> Result<(), SpanOnceError> {
+        Ok(())
+    }
+}
+
+impl Debug for FlatBucket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FlatBucket")
+            .field("criteria", &self.criteria)
+            .field("algorithm", &self.algorithm)
+            .field("waveform", &self.waveform)
+            .field("count", &self.count)
+            .finish()
+    }
 }
 
 impl FlatBucket {
@@ -220,6 +278,7 @@ mod tests {
     #[test]
     fn criteria_any() {
         let bucket = FlatBucket {
+            span: Default::default(),
             criteria: FlatCriteria {
                 periods: ConstantFilter::Any,
                 frames: ConstantFilter::Any,
@@ -237,6 +296,7 @@ mod tests {
             count: 0,
         };
         let collection = EventlistsCollection {
+            span: Default::default(),
             digitiser_id: 0,
             metadata: FrameMetadata {
                 timestamp: Utc::now(),
@@ -247,7 +307,7 @@ mod tests {
                 veto_flags: 0,
             },
             eventlists: Default::default(),
-            channels: vec![0, 1],
+            channels: vec![0, 1]
         };
         assert!(bucket.is_collection_in(&collection));
     }
@@ -255,6 +315,7 @@ mod tests {
     #[test]
     fn criteria_periods() {
         let bucket_1 = FlatBucket {
+            span: Default::default(),
             criteria: FlatCriteria {
                 periods: ConstantFilter::Is(0),
                 frames: ConstantFilter::Any,
@@ -272,6 +333,7 @@ mod tests {
             count: 0,
         };
         let bucket_2 = FlatBucket {
+            span: Default::default(),
             criteria: FlatCriteria {
                 periods: ConstantFilter::Is(1),
                 frames: ConstantFilter::Any,
@@ -289,6 +351,7 @@ mod tests {
             count: 0,
         };
         let collection = EventlistsCollection {
+            span: Default::default(),
             digitiser_id: 0,
             metadata: FrameMetadata {
                 timestamp: Utc::now(),

@@ -4,27 +4,26 @@
 mod metrics;
 
 use crate::{
-    analysis::metrics::MetricOutput,
-    engine::{AnalysisSettings, FlatBucketBlock, FlatChart, WithName},
-    eventlists::EventlistsCollection,
+    analysis::metrics::MetricResult, engine::{AnalysisSettings, FlatBucketBlock, FlatChart, WithName}, eventlists::EventlistsCollection
 };
-use digital_muon_common::{Channel, DigitizerId};
+use digital_muon_common::{Channel, DigitizerId, spanned::{SpanOnceError, SpanWrapper, Spanned, SpannedAggregator}};
 use digital_muon_streaming_types::FrameMetadata;
-use metrics::PatrtialMetricResult;
 use std::{fs::File, io::Write, path::PathBuf};
 use thiserror::Error;
-use tracing::{info, trace};
+use tracing::{info, info_span, trace};
 
 #[derive(Debug, Error)]
 pub(crate) enum AnalysisError {
     #[error("No bucket found matching eventlist criteria: {0}, {1:?}, {2:?}.")]
     NoBucketMatchesCriteria(DigitizerId, FrameMetadata, Vec<Channel>),
+    #[error("Span Error: {0}")]
+    Span(#[from] SpanOnceError)
 }
 
 pub(crate) struct AnalysisEngine {
     path: PathBuf,
     buckets: Vec<WithName<FlatBucketBlock>>,
-    metrics: Vec<PatrtialMetricResult>,
+    metrics: Vec<SpanWrapper<MetricResult>>,
     charts: Vec<FlatChart>,
 }
 
@@ -45,7 +44,7 @@ impl AnalysisEngine {
             .flatten_metrics()
             .expect("Fixme: This may fail.")
             .into_iter()
-            .map(|metric| PatrtialMetricResult::new(metric, &bucket_block_sizes))
+            .map(|metric| SpanWrapper::new_with_current(MetricResult::new(metric, &bucket_block_sizes)))
             .collect::<Vec<_>>();
 
         Ok(Self {
@@ -76,6 +75,10 @@ impl AnalysisEngine {
 
         if let Some(bucket) = bucket {
             bucket.increment_count();
+            collection.span().get()
+                .expect("This should never fail")
+                .in_scope(||bucket.link_current_span(||info_span!("EventList")))
+                .expect("This should never fail");
 
             info!("Pushing to bucket {}, {}.", index.0, index.1);
             let collection = collection.into_channel_collection();

@@ -2,6 +2,7 @@ use crate::engine::{
     AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex, WithName,
     values::{Value, ValueError},
 };
+use digital_muon_common::spanned::SpanWrapper;
 use serde::Deserialize;
 use thiserror::Error;
 

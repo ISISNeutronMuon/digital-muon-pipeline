@@ -1,6 +1,7 @@
 mod elements;
 mod utils;
 mod values;
+use digital_muon_common::spanned::SpanWrapper;
 use serde::Deserialize;
 use std::ops::Deref;
 

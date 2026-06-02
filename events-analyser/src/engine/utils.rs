@@ -10,7 +10,7 @@ use crate::engine::values::Number;
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct WithName<T>
 where
-    T: Debug + Clone,
+    T: Debug,
 {
     pub(crate) name: String,
     #[serde(flatten)]
@@ -19,11 +19,11 @@ where
 
 impl<T> WithName<T>
 where
-    T: Debug + Clone,
+    T: Debug,
 {
     pub(crate) fn is_source<S>(&self, object: &WithSource<S>) -> bool
     where
-        S: Debug + Clone,
+        S: Debug,
     {
         self.name == object.source
     }
@@ -35,7 +35,7 @@ where
 
 impl<T> Deref for WithName<T>
 where
-    T: Debug + Clone,
+    T: Debug,
 {
     type Target = T;
 
@@ -46,18 +46,18 @@ where
 
 impl<T> DerefMut for WithName<T>
 where
-    T: Debug + Clone,
+    T: Debug,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.value
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct WithSource<T>
 where
-    T: Debug + Clone,
+    T: Debug,
 {
     source: String,
     #[serde(flatten)]
@@ -66,7 +66,7 @@ where
 
 impl<T> WithSource<T>
 where
-    T: Debug + Clone,
+    T: Debug,
 {
     pub(crate) fn get_source(&self) -> &str {
         &self.source
@@ -75,7 +75,7 @@ where
 
 impl<T> Deref for WithSource<T>
 where
-    T: Debug + Clone,
+    T: Debug,
 {
     type Target = T;
 

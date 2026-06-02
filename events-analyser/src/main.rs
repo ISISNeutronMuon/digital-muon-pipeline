@@ -251,8 +251,9 @@ fn spanned_root_as_digitizer_event_list_message(
 
 /// Extracts the payload of a Kafka message and passes it to [process_digitiser_event_list_message]
 /// # Parameters
-/// - channel_send: send channel which takes [AggregatedFrame] objects to dispatch.
+/// - channel_send: send channel which takes [EventlistsCollection] objects to dispatch.
 /// - cache: the cache in which frames are stored whilst awaiting digitiser messages.
+/// - topics: the names of the topics the consumer is subscribed to.
 /// - msg: the message.
 ///
 /// [Span]: tracing::Span
@@ -310,7 +311,7 @@ async fn process_kafka_message(
     Ok(())
 }
 
-/// Processes a [DigitizerEventListMessage], pushing it to the given [FrameCache].
+/// Processes a [DigitizerEventListMessage], pushing it to the given [MessageCache].
 /// # Parameters
 /// - channel_send: send channel which takes [AggregatedFrame] objects to dispatch.
 /// - kafka_message_timestamp_ms: the timestamp in milliseconds as reported in the Kafka message header. Only used for tracing.
@@ -364,12 +365,12 @@ async fn process_digitiser_event_list_message(
     Ok(())
 }
 
-/// Polls the given [FrameCache] to see if there are any [AggregatedFrame]s ready to be dispatched.
+/// Polls the given [MessageCache] to see if there are any [EventlistsCollection]s ready to be dispatched.
 ///
 /// If there are, this function removes them from the cache and sends them to the given send channel.
 /// # Parameters
-/// - channel_send: send channel which takes [AggregatedFrame] objects to dispatch.
-/// - cache: the cache in which frames are stored whilst awaiting digitiser messages.
+/// - channel_send: send channel which takes [EventlistsCollection] objects to dispatch.
+/// - cache: the cache in which [EventlistsCollection] are stored whilst awaiting their counterparts from other topics.
 #[tracing::instrument(skip_all, level = "trace")]
 async fn cache_poll(
     channel_send: &Sender<EventlistsCollection>,
@@ -389,13 +390,12 @@ async fn cache_poll(
     Ok(())
 }
 
-// The following functions control the kafka producer thread.
-/// Create a new thread and setup the producer task.
+// The following functions control the eventlist evaluator thread.
+/// Create a new thread and setup the evaluator task.
 /// # Parameters
-/// - use_otel: if true, then the thread attempts to inject [AggregatedFrame::span()] into the Kafka header.
-/// - send_frame_buffer_size: the maximum number of [AggregatedFrame] objects to store in the channel's buffer. If the buffer is filled, then sending another frame will block until there is sufficient space in the buffer.
-/// - producer: the Kafka producer object.
-/// - output_topic: the Kafka topic to produce the message to.
+/// - use_otel: if true, then the thread attempts to inject [EventlistsCollection::span()] into the Kafka header.
+/// - send_frame_buffer_size: the maximum number of [EventlistsCollection] objects to store in the channel's buffer. If the buffer is filled, then sending another will block until there is sufficient space in the buffer.
+/// - analysis_engine: the analysis engine object.
 fn create_evaluator_task(
     use_otel: bool,
     analysis_engine: AnalysisEngine,
@@ -413,18 +413,18 @@ fn create_evaluator_task(
     Ok((channel_send, handle))
 }
 
-/// Runs infinitely, and waits on any [AggregatedFrame]s received through the given receive channel.
+/// Runs infinitely, and waits on any [EventlistsCollection]s received through the given receive channel.
 ///
 /// Calling this function returns a Future, which should be passed to a async task,
-/// as in function [create_producer_task]. The general form of this is:
+/// as in function [create_evaluator_task]. The general form of this is:
 /// ```rust
-/// let join_handle = tokio::spawn(produce_to_kafka(...))?;
+/// let join_handle = tokio::spawn(create_evaluator_task(...))?;
 /// ```
 /// # Parameters
-/// - use_otel: if true, then the thread attempts to inject [AggregatedFrame::span()] into the Kafka header.
-/// - channel_recv: receive channel that can receive [AggregatedFrame] objects.
-/// - producer: the Kafka producer object.
-/// - output_topic: the Kafka topic to produce the message to.
+/// - use_otel: if true, then the thread attempts to inject [EventlistsCollection::span()] into the Kafka header.
+/// - channel_recv: receive channel that can receive [EventlistsCollection] objects.
+/// - analysis_engine: the analysis engine object.
+/// - sigint: FIXME.
 async fn recv_and_evaluate(
     use_otel: bool,
     mut analysis_engine: AnalysisEngine,
@@ -465,12 +465,11 @@ async fn recv_and_evaluate(
     }
 }
 
-/// Closes the producer channel and dispatch all [AggregatedFrame]s remaining in the channel.
+/// Closes the evaluator channel and dispatch all [EventlistsCollection]s remaining in the channel.
 /// # Parameters
-/// - use_otel: if true, then the thread attempts to inject [AggregatedFrame::span()] into the Kafka header.
-/// - channel_recv: receive channel that can receive [AggregatedFrame] objects.
-/// - producer: the Kafka producer object.
-/// - output_topic: the Kafka topic to produce the message to.
+/// - use_otel: if true, then the thread attempts to inject [EventlistsCollection::span()] into the Kafka header.
+/// - channel_recv: receive channel that can receive [EventlistsCollection] objects.
+/// - analysis_engine: the analysis engine object.
 #[tracing::instrument(skip_all, name = "Closing", level = "info", fields(capacity = channel_recv.capacity(), max_capacity = channel_recv.max_capacity()))]
 async fn close_and_flush_evaluate_channel(
     use_otel: bool,
@@ -487,19 +486,16 @@ async fn close_and_flush_evaluate_channel(
 
 /// Dispatches the given frame to the Kafka broker on the given topic.
 ///
-/// This function exists just to encapsulate [produce_frame_to_kafka] in a span, it might be better to do this directly in [close_and_flush_producer_channel].
+/// This function exists just to encapsulate [evaluate_eventlists_collection] in a span, it might be better to do this directly in [close_and_flush_evaluate_channel].
 /// # Parameters
-/// - use_otel: if true, then the thread attempts to inject [AggregatedFrame::span()] into the Kafka header.
-/// - frame: the frame to dispatch.
-/// - producer: the Kafka producer object.
-/// - output_topic: the Kafka topic to produce the message to.|
+/// - use_otel: if true, then the thread attempts to inject [EventlistsCollection::span()] into the Kafka header.
+/// - eventlists_collection: the [EventlistsCollection] to dispatch.
+/// - analysis_engine: the analysis engine object.
 #[tracing::instrument(skip_all, name = "Flush Frame")]
 async fn flush_eventlists_collection(
     use_otel: bool,
     analysis_engine: &mut AnalysisEngine,
-    eventlists_collection: EventlistsCollection,
-    //producer: &FutureProducer,
-    //output_topic: &str,
+    eventlists_collection: EventlistsCollection
 ) -> Option<()> {
     evaluate_eventlists_collection(use_otel, analysis_engine, eventlists_collection).await;
     Some(())
@@ -507,10 +503,9 @@ async fn flush_eventlists_collection(
 
 /// Dispatches the given frame to the Kafka broker on the given topic.
 /// # Parameters
-/// - use_otel: if true, then the thread attempts to inject [AggregatedFrame::span()] into the Kafka header.
-/// - frame: the frame to dispatch.
-/// - producer: the Kafka producer object.
-/// - output_topic: the Kafka topic to produce the message to.
+/// - use_otel: if true, then the thread attempts to inject [EventlistsCollection::span()] into the Kafka header.
+/// - eventlists_collection: the [EventlistsCollection] to dispatch.
+/// - analysis_engine: the analysis engine object.
 #[tracing::instrument(skip_all)]
 async fn evaluate_eventlists_collection(
     use_otel: bool,

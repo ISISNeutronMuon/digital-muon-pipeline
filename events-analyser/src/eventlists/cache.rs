@@ -5,7 +5,7 @@ use super::{RejectMessageError, partial::PartialEventslistsCollection};
 use digital_muon_common::{DigitizerId, spanned::SpannedAggregator};
 use digital_muon_streaming_types::FrameMetadata;
 use std::{collections::VecDeque, time::Duration};
-use tracing::{debug, warn};
+use tracing::{debug, info_span, warn};
 
 /// Contains all the partial frames as well as handling the frame lifetime and completeness.
 pub(crate) struct MessageCache {
@@ -43,20 +43,20 @@ impl MessageCache {
         topic_index: usize,
         data: EventData,
     ) -> Result<(), RejectMessageError> {
-        match self
+        let collection = match self
             .eventlists
             .iter_mut()
             .find(|collection: &&mut PartialEventslistsCollection| {
                 collection.metadata.equals_ignoring_veto_flags(metadata)
                     && collection.digitiser_id == digitiser_id
             }) {
-            Some(frame_dig) => {
+            Some(collection) => {
                 debug!("Partial Collection Found");
-                frame_dig.push(topic_index, data)?;
-                frame_dig
+                collection.push(topic_index, data)?;
+                collection
             }
             None => {
-                let mut frame_dig = PartialEventslistsCollection::new(
+                let mut collection = PartialEventslistsCollection::new(
                     self.num_topics,
                     self.ttl,
                     metadata,
@@ -64,19 +64,20 @@ impl MessageCache {
                 );
 
                 // Initialise the span field
-                if let Err(e) = frame_dig.span_init() {
+                if let Err(e) = collection.span_init() {
                     warn!("Frame span initiation failed {e}")
                 }
 
-                frame_dig.push(topic_index, data)?;
-                self.eventlists.push_back(frame_dig);
+                collection.push(topic_index, data)?;
+                self.eventlists.push_back(collection);
                 debug!("New Partial Collection created {}", self.eventlists.len());
                 self.eventlists
                     .back()
-                    .expect("self.frames should be non-empty, this should never fails")
+                    .expect("self.frames should be non-empty, this should never fail.")
             }
         };
-
+        collection.link_current_span(||info_span!("Digitiser Message")).expect("This should never fail.");
+        
         Ok(())
     }
 
