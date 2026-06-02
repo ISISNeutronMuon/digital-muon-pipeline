@@ -51,10 +51,3 @@ pub(crate) struct FlatMetricFalseCount {
     pub(crate) true_topic: usize,
     pub(crate) estimate_topic: usize,
 }
-
-///
-/// This struct is created from the configuration JSON file.
-///
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "metric-type")]
-pub(crate) struct FalseCount {}

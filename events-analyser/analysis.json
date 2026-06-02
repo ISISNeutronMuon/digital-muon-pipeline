@@ -12,13 +12,13 @@
         }],
         "bucket-templates": [{
             "name": "by-threshold",
-            "number": 1,
+            "number": 2,
             "algorithm": "threshold-only",
             "waveform": "gaussian",
             "limits": { "min": 64, "max": 50000 }
         }],
         "arrays": [
-            { "name": "Thresholds", "values": [900] }
+            { "name": "Thresholds", "values": [900, 950] }
         ],
         "algorithms": [{
             "name": "threshold-only",
@@ -86,28 +86,17 @@
     ],
     "charts": [
         {
-            "width": 1,
+            "width": 2,
             "x-axis": {"dependant": {"array": "Thresholds" } },
             "series": [
-                {"metric": "false", "property": "false-positives-mean", "from-bucket": "no-noise-low-count-by-theshold"},
-                {"metric": "false", "property": "false-positives-sd",   "from-bucket": "no-noise-low-count-by-theshold"},
-                {"metric": "false", "property": "false-negatives-mean", "from-bucket": "no-noise-low-count-by-theshold"},
-                {"metric": "false", "property": "false-negatives-sd",   "from-bucket": "no-noise-low-count-by-theshold"}
+                {"metric": "false", "name": "False Positives (Low Count)", "colour": "red", "property": "false-positives-sd", "from-bucket": "no-noise-low-count-by-theshold"},
+                {"metric": "false", "name": "False Negatives (Low Count)", "colour": "blue", "property": "false-negatives-sd", "from-bucket": "no-noise-low-count-by-theshold"},
+                {"metric": "false", "name": "False Positives (High Count)", "colour": "green", "property": "false-positives-sd", "from-bucket": "no-noise-high-count-by-theshold"},
+                {"metric": "false", "name": "False Negatives (High Count)", "colour": "black", "property": "false-negatives-sd", "from-bucket": "no-noise-high-count-by-theshold"}
             ],
             "x-axis-label": "Threshold",
-            "title": "No Noise, Low Count"
-        },
-        {
-            "width": 1,
-            "x-axis": {"dependant": {"array": "Thresholds" } },
-            "series": [
-                {"metric": "false", "property": "false-positives-mean", "from-bucket": "no-noise-high-count-by-theshold"},
-                {"metric": "false", "property": "false-positives-sd",   "from-bucket": "no-noise-high-count-by-theshold"},
-                {"metric": "false", "property": "false-negatives-mean", "from-bucket": "no-noise-high-count-by-theshold"},
-                {"metric": "false", "property": "false-negatives-sd",   "from-bucket": "no-noise-high-count-by-theshold"}
-            ],
-            "x-axis-label": "Threshold",
-            "title": "No Noise, High Count"
+            "y-axis-label": "Average Count",
+            "title": "No Noise"
         }
     ]
 }

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+        <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+        
+</head>
+
+<body>
+    <div>
+        <div id="plotly-html-element" class="plotly-graph-div" style="height:100%; width:100%;"></div>
+
+        <script type="module">
+            const graph_div = document.getElementById("plotly-html-element");
+            await Plotly.newPlot(graph_div, {"data":[{"type":"scatter","name":"False Positives (Low Count)","x":[900.0,950.0,1000.0,1050.0,1100.0,1150.0,1200.0],"y":[41.16796875,30.634765625,23.900390625,20.455078125,17.76953125,16.763671875,16.1640625],"line":{},"error_y":{"type":"data","array":[6.333728102116288,4.646550532888954,4.155624617713767,3.9447202602625886,3.6158994284222468,3.6063194277603956,3.765438507447482]}},{"type":"scatter","name":"False Negatives (Low Count)","x":[900.0,950.0,1000.0,1050.0,1100.0,1150.0,1200.0],"y":[15.07421875,14.564453125,14.064453125,14.32421875,13.880859375,14.24609375,14.634765625],"line":{},"error_y":{"type":"data","array":[2.4468524612333162,2.5152996195220294,2.6247153339106477,2.9200545366472506,3.3191449470888528,3.7487497605071605,4.159807147127486]}},{"type":"scatter","name":"False Positives (High Count)","x":[900.0,950.0,1000.0,1050.0,1100.0,1150.0,1200.0],"y":[189.681640625,185.974609375,182.625,180.33984375,178.375,176.822265625,175.51953125],"line":{},"error_y":{"type":"data","array":[6.501764498825869,7.248049849736745,7.245847831969699,7.721904445473665,7.472534588519307,7.5555344170751235,7.790995151183265]}},{"type":"scatter","name":"False Negatives (High Count)","x":[900.0,950.0,1000.0,1050.0,1100.0,1150.0,1200.0],"y":[183.255859375,188.2109375,190.564453125,192.64453125,193.0625,193.80859375,194.013671875],"line":{},"error_y":{"type":"data","array":[9.741667694306765,8.816429236393088,8.165931502479774,6.706702306064064,6.580435583080636,5.517525238998994,5.472134363167983]}}],"layout":{"title":{"text":"High Noise"},"showlegend":true,"autosize":true,"modebar":{},"xaxis":{"title":{"text":"Threshold"}},"yaxis":{"title":{"text":"Average Count"}}},"config":{},"frames":null});
+        </script>
+    </div>
+</body>
+
+</html>

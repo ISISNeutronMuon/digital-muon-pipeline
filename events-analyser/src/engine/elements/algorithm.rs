@@ -61,23 +61,23 @@ impl FlatAlgorithm {
     pub(crate) fn is_true_positive(
         &self,
         waveform: &FlatWaveform,
-        time: Time,
         intensity: Intensity,
         dist: u32,
     ) -> bool {
         match self {
-            FlatAlgorithm::FixedThreshold {
+            &FlatAlgorithm::FixedThreshold {
                 threshold,
                 duration,
                 cool_down,
             } => {
-                match waveform {
-                    FlatWaveform::Flat { width } => (),
-                    FlatWaveform::Triangular { base_width } => (),
-                    FlatWaveform::Gaussian { sd } => (),
+                let _height = threshold / intensity as f64;
+                let width = match waveform {
+                    &FlatWaveform::Flat { width } => width,
+                    &FlatWaveform::Triangular { base_width } => base_width,
+                    &FlatWaveform::Gaussian { sd } => sd,
                 };
+                (dist as f64) < (duration + cool_down) as f64 + width
             }
         }
-        true
     }
 }

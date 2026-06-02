@@ -178,10 +178,6 @@ impl FlatBucketBlock {
 
     pub(crate) fn are_buckets_full_enough(&self) -> bool {
         self.buckets.iter().all(|bucket| {
-            info!(
-                "Count: {}, min: {}, max: {}",
-                bucket.count, self.limits.min, self.limits.max
-            );
             bucket.count >= self.limits.min
         })
     }

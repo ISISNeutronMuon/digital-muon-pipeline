@@ -18,10 +18,6 @@ pub(crate) enum CriteriaError {
     NoPeriods(String),
     #[error("Frame conditions not found in instance, or source {0}")]
     NoFrames(String),
-    #[error("Cannot find algorithm {0}.")]
-    CannotFindAlgorithm(String),
-    #[error("Cannot find waveform {0}.")]
-    CannotFindWaveform(String),
     #[error("Value Error: {0}")]
     Value(#[from] ValueError),
 }

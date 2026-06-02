@@ -2,9 +2,10 @@
 //!
 //! [FrameCache]: crate::frame::FrameCache
 mod metrics;
+mod graphs;
 
 use crate::{
-    analysis::metrics::MetricResult, engine::{AnalysisSettings, FlatBucketBlock, FlatChart, WithName}, eventlists::EventlistsCollection
+    analysis::{graphs::build_graph, metrics::MetricResult}, engine::{AnalysisSettings, FlatBucketBlock, FlatChart, WithName}, eventlists::EventlistsCollection
 };
 use digital_muon_common::{Channel, DigitizerId, spanned::{SpanOnceError, SpanWrapper, Spanned, SpannedAggregator}};
 use digital_muon_streaming_types::FrameMetadata;
@@ -74,13 +75,13 @@ impl AnalysisEngine {
             })?;
 
         if let Some(bucket) = bucket {
-            bucket.increment_count();
             collection.span().get()
                 .expect("This should never fail")
                 .in_scope(||bucket.link_current_span(||info_span!("EventList")))
                 .expect("This should never fail");
 
-            info!("Pushing to bucket {}, {}.", index.0, index.1);
+            bucket.increment_count();
+            info!("Pushing to bucket {}, {}. Count: {}", index.0, index.1, bucket.count);
             let collection = collection.into_channel_collection();
             self.metrics.iter_mut().for_each(|metric| {
                 metric.push(&bucket.waveform, &bucket.algorithm, index, &collection)
@@ -110,7 +111,7 @@ impl AnalysisEngine {
             let series = chart
                 .series
                 .iter()
-                .map(|series| {
+                .map(|series: &crate::engine::FlatSeries| {
                     let metric = self
                         .metrics
                         .get(series.metric)
@@ -119,9 +120,14 @@ impl AnalysisEngine {
                 })
                 .collect::<Result<Vec<_>, _>>()?;
 
-            for series in series {
+            for series in &series {
                 writeln!(&mut file, "{}", series.to_string()).unwrap();
             }
+
+            let mut path = self.path.clone();
+            path.push(&chart.title);
+            path.add_extension("html");
+            build_graph(&path, &chart, &series);
         }
         Ok(())
     }

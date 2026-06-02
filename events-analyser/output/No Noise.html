@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+        <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+        
+</head>
+
+<body>
+    <div>
+        <div id="plotly-html-element" class="plotly-graph-div" style="height:100%; width:100%;"></div>
+
+        <script type="module">
+            const graph_div = document.getElementById("plotly-html-element");
+            await Plotly.newPlot(graph_div, {"data":[{"type":"scatter","name":"False Positives (Low Count)","x":[900.0,950.0],"y":[15.935546875,15.30859375],"line":{},"error_y":{"type":"data","array":[3.9193072691965063,3.68982466949832]}},{"type":"scatter","name":"False Negatives (Low Count)","x":[900.0,950.0],"y":[16.177734375,15.533203125],"line":{},"error_y":{"type":"data","array":[4.396818966800877,4.181357775547765]}},{"type":"scatter","name":"False Positives (High Count)","x":[900.0,950.0],"y":[162.009765625,161.970703125],"line":{},"error_y":{"type":"data","array":[5.631569446947083,5.728903743012395]}},{"type":"scatter","name":"False Negatives (High Count)","x":[900.0,950.0],"y":[197.392578125,197.376953125],"line":{},"error_y":{"type":"data","array":[2.6285975181682653,2.5063050920516536]}}],"layout":{"title":{"text":"No Noise"},"showlegend":true,"autosize":true,"modebar":{},"xaxis":{"title":{"text":"Threshold"}},"yaxis":{"title":{"text":"Average Count"}}},"config":{},"frames":null});
+        </script>
+    </div>
+</body>
+
+</html>

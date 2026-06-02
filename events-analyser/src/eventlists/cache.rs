@@ -43,39 +43,42 @@ impl MessageCache {
         topic_index: usize,
         data: EventData,
     ) -> Result<(), RejectMessageError> {
-        let collection = match self
+        let eventlist = self
             .eventlists
             .iter_mut()
             .find(|collection: &&mut PartialEventslistsCollection| {
-                collection.metadata.equals_ignoring_veto_flags(metadata)
-                    && collection.digitiser_id == digitiser_id
-            }) {
-            Some(collection) => {
-                debug!("Partial Collection Found");
-                collection.push(topic_index, data)?;
-                collection
-            }
-            None => {
-                let mut collection = PartialEventslistsCollection::new(
-                    self.num_topics,
-                    self.ttl,
-                    metadata,
-                    digitiser_id,
-                );
-
-                // Initialise the span field
-                if let Err(e) = collection.span_init() {
-                    warn!("Frame span initiation failed {e}")
+                    collection.metadata.equals_ignoring_veto_flags(metadata)
+                        && collection.digitiser_id == digitiser_id
                 }
+            );
+        let collection = {
+            match eventlist {
+                Some(collection) => {
+                    debug!("Partial Collection Found");
+                    collection
+                }
+                None => {
+                    let mut collection = PartialEventslistsCollection::new(
+                        self.num_topics,
+                        self.ttl,
+                        metadata,
+                        digitiser_id,
+                    );
 
-                collection.push(topic_index, data)?;
-                self.eventlists.push_back(collection);
-                debug!("New Partial Collection created {}", self.eventlists.len());
-                self.eventlists
-                    .back()
-                    .expect("self.frames should be non-empty, this should never fail.")
+                    // Initialise the span field
+                    if let Err(e) = collection.span_init() {
+                        warn!("Frame span initiation failed {e}")
+                    }
+
+                    self.eventlists.push_back(collection);
+                    debug!("New Partial Collection created {}", self.eventlists.len());
+                    self.eventlists
+                        .back_mut()
+                        .expect("self.frames should be non-empty, this should never fail.")
+                }
             }
         };
+        collection.push(topic_index, data)?;
         collection.link_current_span(||info_span!("Digitiser Message")).expect("This should never fail.");
         
         Ok(())

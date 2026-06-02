@@ -2,9 +2,9 @@ use crate::engine::{
     AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex, WithName,
     values::{Value, ValueError},
 };
-use digital_muon_common::spanned::SpanWrapper;
 use serde::Deserialize;
 use thiserror::Error;
+use tracing::info;
 
 #[derive(Debug, Error)]
 pub(crate) enum SeriesError {
@@ -22,6 +22,8 @@ pub(crate) enum SeriesError {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Series {
+    name: String,
+    colour: Option<String>,
     metric: String,
     property: String,
     from_bucket: String,
@@ -41,6 +43,8 @@ impl Flattenable<&AnalysisSettings> for Series {
             .ok_or_else(|| SeriesError::MetricNotFound(self.from_bucket.clone()))?;
 
         Ok(FlatSeries {
+            name: self.name.clone(),
+            colour: self.colour.clone(),
             from_bucket,
             metric,
             property: self.property.clone(),
@@ -53,6 +57,8 @@ impl Flattenable<&AnalysisSettings> for Series {
 ///
 #[derive(Debug)]
 pub(crate) struct FlatSeries {
+    pub(crate) name: String,
+    pub(crate) colour: Option<String>,
     pub(crate) metric: usize,
     pub(crate) property: String,
     pub(crate) from_bucket: usize,
@@ -76,6 +82,7 @@ pub(crate) struct Chart {
     x_axis: Value<f64>,
     series: Vec<Series>,
     x_axis_label: String,
+    y_axis_label: String,
     title: String,
 }
 
@@ -119,6 +126,7 @@ impl Flattenable<(&AnalysisSettings, &[WithName<FlatBucketBlock>])> for Chart {
             x_axis,
             series,
             x_axis_label: self.x_axis_label.clone(),
+            y_axis_label: self.y_axis_label.clone(),
             title: self.title.clone(),
         })
     }
@@ -133,6 +141,7 @@ pub(crate) struct FlatChart {
     pub(crate) x_axis: Vec<f64>,
     pub(crate) series: Vec<FlatSeries>,
     pub(crate) x_axis_label: String,
+    pub(crate) y_axis_label: String,
     pub(crate) title: String,
 }
 
@@ -146,8 +155,10 @@ impl FlatChart {
                 .get(series.from_bucket)
                 .expect("This should never fail");
             if !block.are_buckets_full_enough() {
+                //info!("Testing Bucket Block: {}... block not ready.", block.name);
                 return false;
             }
+            info!("Testing Bucket Block: {}... block ready.", block.name);
         }
         true
     }

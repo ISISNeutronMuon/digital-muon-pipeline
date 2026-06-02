@@ -1,10 +1,9 @@
 mod elements;
 mod utils;
 mod values;
-use digital_muon_common::spanned::SpanWrapper;
+
 use serde::Deserialize;
 use std::ops::Deref;
-
 use crate::engine::{
     elements::{
         Algorithm, BucketBlock, BucketBlockTemplate, BucketError, ChartError, Criteria, Waveform,
@@ -16,7 +15,7 @@ use crate::engine::{
 pub(crate) use crate::engine::{
     elements::{
         Chart, FlatAlgorithm, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricFalseCount,
-        FlatWaveform, Metric,
+        FlatWaveform, Metric, FlatSeries
     },
     utils::WithName,
 };

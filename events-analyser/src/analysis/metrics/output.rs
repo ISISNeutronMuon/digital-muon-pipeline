@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::{Add, Sub}};
+use std::{fmt::Display, iter::once, ops::{Add, Sub}};
 
 pub(crate) enum MetricOutput<T> {
     Scalar(T),
@@ -44,11 +44,13 @@ impl<T : Copy> MetricOutput<T> {
 
 impl<T: ToString + Add<Output=T> + Sub<Output=T> + Copy> Display for MetricOutput<Vec<T>> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let newline = once("\n".into());
         match self {
             MetricOutput::Scalar(values) => {
                 let string = values
                     .iter()
                     .map(|val| val.to_string())
+                    .chain(newline)
                     .collect::<Vec<_>>()
                     .join(",");
                 f.write_str(&string)
@@ -56,11 +58,13 @@ impl<T: ToString + Add<Output=T> + Sub<Output=T> + Copy> Display for MetricOutpu
             MetricOutput::ScalarWithBand(values, bands) => {
                 let string = Iterator::zip(values.iter(), bands.iter())
                     .map(|(val, band)| (*val - *band).to_string())
+                    .chain(newline.clone())
                     .collect::<Vec<_>>()
                     .join(",");
                 f.write_str(&string)?;
                 let string = Iterator::zip(values.iter(), bands.iter())
                     .map(|(val, band)| (*val + *band).to_string())
+                    .chain(newline)
                     .collect::<Vec<_>>()
                     .join(",");
                 f.write_str(&string)

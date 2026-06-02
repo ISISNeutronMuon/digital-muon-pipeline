@@ -1508,6 +1508,7 @@ dependencies = [
  "metrics-exporter-prometheus",
  "miette",
  "num",
+ "plotly",
  "rand 0.10.1",
  "rand_distr",
  "rdkafka",

@@ -154,12 +154,7 @@ impl PartialEventslistsCollection {
             self.complete = true;
         }
     }
-
-    /// Returns `true` if and only if this provided [DigitizerId] has been seen before.
-    pub(super) fn has_topic(&self, topic_index: usize) -> bool {
-        self.eventlists.get(topic_index).expect("").is_some()
-    }
-
+    
     /// Pushes the given data from a digitser to the frame.
     /// # Parameters
     /// - digitiser_id: the id of the digitiser sending the data.
@@ -179,7 +174,6 @@ impl PartialEventslistsCollection {
             return Err(RejectMessageError::AlreadyPresent);
         }
         self.set_completion_status();
-        debug!("Completed: {}", self.complete);
         Ok(())
     }
 

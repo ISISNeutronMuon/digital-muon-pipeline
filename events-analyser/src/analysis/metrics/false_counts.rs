@@ -57,23 +57,18 @@ impl MetricAggregatedResult for CompletedFalseCount {
     type Channel = FalseCount;
 
     fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
+        let accum = |(acc_mean, acc_sd): (f64, f64), (mean, sd): (f64, f64)| (acc_mean + mean, acc_sd + sd);
         let (sum_of_means, sum_of_sds) = source
             .values()
             .map(|count| count.positive_sum.mean_and_stddev(count.num as f64))
-            .fold(
-                Default::default(),
-                |(acc_mean, acc_sd): (f64, f64), (mean, sd)| (acc_mean + mean, acc_sd + sd),
-            );
+            .fold( Default::default(), accum);
         let positive_mean = sum_of_means / source.len() as f64;
         let positive_sd = sum_of_sds / source.len() as f64;
 
         let (sum_of_means, sum_of_sds) = source
             .values()
             .map(|count| count.negative_sum.mean_and_stddev(count.num as f64))
-            .fold(
-                Default::default(),
-                |(acc_mean, acc_sd): (f64, f64), (mean, sd)| (acc_mean + mean, acc_sd + sd),
-            );
+            .fold( Default::default(),accum);
         let negative_mean = sum_of_means / source.len() as f64;
         let negative_sd = sum_of_sds / source.len() as f64;
         Self {
@@ -250,7 +245,7 @@ impl FalseCount {
 
         let filter = |data_to_group: &ChannelData, index, time, intensity| {
             let dist = data_to_group.get_temporal_distance_from(index, time);
-            algorithm.is_true_positive(waveform, time, intensity, dist)
+            algorithm.is_true_positive(waveform, intensity, dist)
         };
         let mut group_data_by = GroupDataBy::new(filter, true_data, estimate_data);
         group_data_by.run();
@@ -263,10 +258,10 @@ impl FalseCount {
         algorithm: &FlatAlgorithm,
         collection_by_topic: &[ChannelData],
     ) -> (usize, usize) {
-        let (true_data_bucket, true_data_reject) =
+        let (estimate_by_true, estimate_reject) =
             self.sort_estimates_by_true(waveform, algorithm, collection_by_topic);
-        let false_positives = true_data_reject.len();
-        let false_negatives = true_data_bucket.into_iter().filter(Vec::is_empty).count();
+        let false_positives = estimate_reject.len();
+        let false_negatives = estimate_by_true.into_iter().filter(Vec::is_empty).count();
         (false_positives, false_negatives)
     }
 }

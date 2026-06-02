@@ -95,9 +95,9 @@ struct Cli {
     chart_output: PathBuf,
 
     /// Frame TTL in milliseconds.
-    /// The time in which messages for a given frame must have been received from all digitisers.
+    /// The time in which messages for a given eventlist must have been received from all topics.
     #[clap(long, default_value = "500")]
-    frame_ttl_ms: u64,
+    eventlist_ttl_ms: u64,
 
     /// Frame cache poll interval in milliseconds.
     /// This may affect the rate at which incomplete frames are transmitted.
@@ -158,7 +158,7 @@ async fn main() -> miette::Result<()> {
     )
     .into_diagnostic()?;
 
-    let ttl = Duration::from_millis(args.frame_ttl_ms);
+    let ttl = Duration::from_millis(args.eventlist_ttl_ms);
 
     let mut cache = MessageCache::new(ttl, analysis_settings.events_topics.len());
 
@@ -512,7 +512,6 @@ async fn evaluate_eventlists_collection(
     analysis_engine: &mut AnalysisEngine,
     eventlists_collection: EventlistsCollection,
 ) {
-    info!("New Collection Received");
     match analysis_engine.push(eventlists_collection) {
         Ok(_) => (),
         Err(e) => {

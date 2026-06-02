@@ -14,6 +14,7 @@ metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 miette = { workspace = true, features = ["fancy"] }
 num.workspace = true
+plotly = { workspace = true }
 rdkafka.workspace = true
 rand.workspace = true
 rand_distr.workspace = true
