@@ -1,11 +1,15 @@
 use std::{fmt::Display, iter::once, ops::{Add, Sub}};
 
-pub(crate) enum MetricOutput<T> {
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum MetricOutput<T> where T: Serialize {
     Scalar(T),
     ScalarWithBand(T, T),
 }
 
-impl<T : Copy> MetricOutput<Vec<T>> {
+impl<T : Copy + Serialize> MetricOutput<Vec<T>> {
     pub(crate) fn append(&mut self, value: &MetricOutput<T>) {
         match (self, value) {
             (MetricOutput::Scalar(agg), MetricOutput::Scalar(val)) => agg.push(*val),
@@ -18,7 +22,7 @@ impl<T : Copy> MetricOutput<Vec<T>> {
     }
 }
 
-impl<T : Copy> MetricOutput<T> {
+impl<T : Copy + Serialize> MetricOutput<T> {
     pub(crate) fn to_vector(&self, capacity: usize) -> MetricOutput<Vec<T>> {
         match self {
             MetricOutput::Scalar(value) => MetricOutput::Scalar({
@@ -42,7 +46,7 @@ impl<T : Copy> MetricOutput<T> {
     }
 }
 
-impl<T: ToString + Add<Output=T> + Sub<Output=T> + Copy> Display for MetricOutput<Vec<T>> {
+impl<T: ToString + Add<Output=T> + Sub<Output=T> + Copy + Serialize> Display for MetricOutput<Vec<T>> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let newline = once("\n".into());
         match self {

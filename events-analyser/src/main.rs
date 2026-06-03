@@ -38,7 +38,7 @@ mod engine;
 mod event;
 mod eventlists;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use digital_muon_common::{
     CommonKafkaOpts, init_tracer,
     metrics::{
@@ -74,25 +74,51 @@ use tokio::{
 };
 use tracing::{debug, error, info, info_span, instrument, trace, warn};
 
-use crate::{analysis::AnalysisEngine, engine::AnalysisSettings};
+use crate::{analysis::{AnalysisEngine, ChartOutput}, engine::AnalysisSettings};
 
 // /// Triggers error if the producer takes longer than this to dispatch a message.
 //const PRODUCER_TIMEOUT: Timeout = Timeout::After(Duration::from_millis(100));
 
 /// [clap] derived struct to handle command line parameters.
-#[derive(Debug, Parser)]
+#[derive(Parser)]
 #[clap(author, version = digital_muon_common::version!(), about)]
 struct Cli {
+    /// Endpoint on which Prometheus text format metrics are available
+    #[clap(long, env, default_value = "127.0.0.1:9090")]
+    observability_address: SocketAddr,
+
+    /// If set, then OpenTelemetry data is sent to the URL specified, otherwise the standard tracing subscriber is used
+    #[clap(long)]
+    otel_endpoint: Option<String>,
+
+    /// All OpenTelemetry spans are emitted with this as the "service.namespace" property. Can be used to track different instances of the pipeline running in parallel.
+    #[clap(long, default_value = "")]
+    otel_namespace: String,
+
+    /// Kafka consumer group
+    #[clap(long)]
+    chart_output: PathBuf,
+
+    #[command(subcommand)]
+    mode: Mode,
+
+}
+
+
+#[derive(Clone, Subcommand)]
+enum Mode {
+    Evaluate(Evaluation),
+    ConvertJson(ConvertJson),
+}
+
+#[derive(Clone, Parser)]
+struct Evaluation {
     #[clap(flatten)]
     common_kafka_options: CommonKafkaOpts,
 
     /// Kafka consumer group
     #[clap(long = "group")]
     consumer_group: String,
-
-    /// Kafka consumer group
-    #[clap(long)]
-    chart_output: PathBuf,
 
     /// Frame TTL in milliseconds.
     /// The time in which messages for a given eventlist must have been received from all topics.
@@ -109,21 +135,14 @@ struct Cli {
     #[clap(long, default_value = "1024")]
     send_frame_buffer_size: usize,
 
-    /// Endpoint on which Prometheus text format metrics are available
-    #[clap(long, env, default_value = "127.0.0.1:9090")]
-    observability_address: SocketAddr,
-
-    /// If set, then OpenTelemetry data is sent to the URL specified, otherwise the standard tracing subscriber is used
-    #[clap(long)]
-    otel_endpoint: Option<String>,
-
-    /// All OpenTelemetry spans are emitted with this as the "service.namespace" property. Can be used to track different instances of the pipeline running in parallel.
-    #[clap(long, default_value = "")]
-    otel_namespace: String,
-
     /// Path to JSON file containing .
     #[clap(long)]
     analysis_settings: PathBuf,
+}
+
+#[derive(Clone, Parser)]
+struct ConvertJson {
+    file_name: String,
 }
 
 /// Entry point.
@@ -136,10 +155,21 @@ async fn main() -> miette::Result<()> {
         args.otel_namespace
     ));
 
-    let kafka_opts = args.common_kafka_options;
+    let eval_args = match args.mode {
+        Mode::Evaluate(eval_args) => eval_args,
+        Mode::ConvertJson(conv_json_args) => {
+            ChartOutput::load_json(&args.chart_output, &conv_json_args.file_name)
+                .into_diagnostic()?
+                .save_plotly(&args.chart_output)
+                .into_diagnostic()?;
+            return Ok(());
+        }
+    };
+
+    let kafka_opts = eval_args.common_kafka_options;
 
     let analysis_settings: AnalysisSettings =
-        serde_json::from_reader(File::open(&args.analysis_settings).into_diagnostic()?)
+        serde_json::from_reader(File::open(&eval_args.analysis_settings).into_diagnostic()?)
             .into_diagnostic()?;
 
     let topics = analysis_settings.events_topics.clone();
@@ -147,7 +177,7 @@ async fn main() -> miette::Result<()> {
         &kafka_opts.broker,
         &kafka_opts.username,
         &kafka_opts.password,
-        &args.consumer_group,
+        &eval_args.consumer_group,
         Some(
             topics
                 .iter()
@@ -158,7 +188,7 @@ async fn main() -> miette::Result<()> {
     )
     .into_diagnostic()?;
 
-    let ttl = Duration::from_millis(args.eventlist_ttl_ms);
+    let ttl = Duration::from_millis(eval_args.eventlist_ttl_ms);
 
     let mut cache = MessageCache::new(ttl, analysis_settings.events_topics.len());
 
@@ -190,7 +220,7 @@ async fn main() -> miette::Result<()> {
         "Number of complete frames sent by the aggregator"
     );
 
-    let mut cache_poll_interval = tokio::time::interval(Duration::from_millis(args.cache_poll_ms));
+    let mut cache_poll_interval = tokio::time::interval(Duration::from_millis(eval_args.cache_poll_ms));
 
     let analysis_engine =
         AnalysisEngine::new(analysis_settings, args.chart_output).expect("FIXME: This may fail.");
@@ -199,7 +229,7 @@ async fn main() -> miette::Result<()> {
     let (channel_send, evaluator_task_handle) = create_evaluator_task(
         tracer.use_otel(),
         analysis_engine,
-        args.send_frame_buffer_size,
+        eval_args.send_frame_buffer_size,
     )
     .into_diagnostic()?;
 

@@ -10,6 +10,6 @@ pub(crate) use {
     bucket::{BucketBlock, BucketBlockTemplate, BucketError, FlatBucketBlock},
     chart::{Chart, ChartError, FlatChart, FlatSeries},
     criteria::Criteria,
-    metric::{FlatMetric, FlatMetricFalseCount, Metric},
+    metric::{FlatMetric, FlatMetricFalseCount, FlatMetricEventCount, Metric, MetricError, MetricProperty},
     waveform::{FlatWaveform, Waveform},
 };

@@ -1,17 +1,18 @@
 //! Defines the data type used in [FrameCache].
 //!
 //! [FrameCache]: crate::frame::FrameCache
+mod chart;
 mod metrics;
-mod graphs;
 
 use crate::{
-    analysis::{graphs::build_graph, metrics::MetricResult}, engine::{AnalysisSettings, FlatBucketBlock, FlatChart, WithName}, eventlists::EventlistsCollection
+    analysis::metrics::MetricResult, engine::{AnalysisSettings, FlatBucketBlock, FlatChart, FlatSeries, WithName}, eventlists::EventlistsCollection
 };
 use digital_muon_common::{Channel, DigitizerId, spanned::{SpanOnceError, SpanWrapper, Spanned, SpannedAggregator}};
 use digital_muon_streaming_types::FrameMetadata;
-use std::{fs::File, io::Write, path::PathBuf};
+use std::path::PathBuf;
 use thiserror::Error;
 use tracing::{info, info_span, trace};
+pub(crate) use chart::ChartOutput;
 
 #[derive(Debug, Error)]
 pub(crate) enum AnalysisError {
@@ -94,11 +95,6 @@ impl AnalysisEngine {
 
     pub(crate) fn build_charts(&mut self) -> Result<(), String> {
         for chart in &self.charts {
-            // Create File.
-            let mut path = self.path.clone();
-            path.push(&chart.title);
-            let mut file = File::create(path).unwrap();
-
             // Ensure all series' metrics have been aggregated.
             for series in &chart.series {
                 self.metrics
@@ -107,27 +103,9 @@ impl AnalysisEngine {
                     .build_aggregate();
             }
             
-            // Get Series Output
-            let series = chart
-                .series
-                .iter()
-                .map(|series: &crate::engine::FlatSeries| {
-                    let metric = self
-                        .metrics
-                        .get(series.metric)
-                        .expect("This should never fail");
-                    metric.get_aggregate_property(series.from_bucket, &series.property)
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-
-            for series in &series {
-                writeln!(&mut file, "{}", series.to_string()).unwrap();
-            }
-
-            let mut path = self.path.clone();
-            path.push(&chart.title);
-            path.add_extension("html");
-            build_graph(&path, &chart, &series);
+            let output = ChartOutput::new(chart, &self.metrics).unwrap();
+            output.save_json(&self.path).unwrap();
+            output.save_plotly(&self.path).unwrap();
         }
         Ok(())
     }

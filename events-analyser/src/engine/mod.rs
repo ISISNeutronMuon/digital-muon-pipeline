@@ -6,7 +6,7 @@ use serde::Deserialize;
 use std::ops::Deref;
 use crate::engine::{
     elements::{
-        Algorithm, BucketBlock, BucketBlockTemplate, BucketError, ChartError, Criteria, Waveform,
+        Algorithm, BucketBlock, BucketBlockTemplate, BucketError, ChartError, Criteria, MetricError, Waveform
     },
     utils::WithSource,
     values::ValueError,
@@ -14,8 +14,8 @@ use crate::engine::{
 
 pub(crate) use crate::engine::{
     elements::{
-        Chart, FlatAlgorithm, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricFalseCount,
-        FlatWaveform, Metric, FlatSeries
+        Chart, FlatAlgorithm, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricFalseCount, FlatMetricEventCount,
+        FlatWaveform, Metric, FlatSeries, MetricProperty
     },
     utils::WithName,
 };
@@ -157,6 +157,10 @@ impl AnalysisSettings {
             .iter()
             .enumerate()
             .find_map(|(index, metric)| metric.has_name(name).then_some(index))
+    }
+
+    pub(crate) fn get_property_of_metric(&self, metric_index: usize, property_name: &str) -> Result<MetricProperty, MetricError> {
+        self.metrics.get(metric_index).expect("").get_property(property_name)
     }
 }
 

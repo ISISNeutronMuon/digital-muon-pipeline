@@ -1,10 +1,11 @@
+mod event_counts;
 mod false_counts;
 mod output;
 mod muon_lifetime;
 mod result;
 
 use crate::{
-    engine::{FlatAlgorithm, FlatWaveform},
+    engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
     event::ChannelData,
 };
 use digital_muon_common::Channel;
@@ -46,9 +47,24 @@ pub(crate) trait MetricChannelResult : Clone {
     );
 }
 
-pub(crate) trait MetricAggregatedResult: Clone {
+trait MetricAggregatedResult: Clone {
     type Channel: MetricChannelResult<Aggregrate = Self>;
 
+    fn stats_aggregator<'a, F, I>(source: I, len: f64, f : F) -> (f64, f64)
+        where
+            F : Fn(&'a Self::Channel) -> (f64,f64), Self::Channel : 'a,
+            I : Iterator<Item = &'a Self::Channel> + ExactSizeIterator
+    {
+        let (sum_of_means, sum_of_sds) = source
+            .map(|count| f(count))
+            .fold(
+                Default::default(),
+                |(acc_mean, acc_sd): (f64, f64), (mean, sd)| (acc_mean + mean, acc_sd + sd),
+            );
+        let mean = sum_of_means / len;
+        let sd = sum_of_sds / len;
+        (mean, sd)
+    }
     fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self;
-    fn get_property(&self, property: &str) -> Result<MetricOutput<f64>, String>;
+    fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String>;
 }

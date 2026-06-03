@@ -1,5 +1,5 @@
 //! Defines the cache stores frames as they are assembled from digitiser messages.
-use crate::{event::EventData, eventlists::partial::EventlistsCollection};
+use crate::{event::EventData, eventlists::complete::EventlistsCollection};
 
 use super::{RejectMessageError, partial::PartialEventslistsCollection};
 use digital_muon_common::{DigitizerId, spanned::SpannedAggregator};

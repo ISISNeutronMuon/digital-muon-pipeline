@@ -5,7 +5,7 @@ use crate::{
     analysis::metrics::{
         MetricAggregatedResult, MetricChannelResult, MetricOutput, SumWithSumOfSqrs,
     },
-    engine::{FlatAlgorithm, FlatMetricFalseCount, FlatWaveform},
+    engine::{FlatAlgorithm, FlatMetricFalseCount, FlatWaveform, MetricProperty},
     event::ChannelData,
 };
 
@@ -57,7 +57,7 @@ impl MetricAggregatedResult for CompletedFalseCount {
     type Channel = FalseCount;
 
     fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
-        let accum = |(acc_mean, acc_sd): (f64, f64), (mean, sd): (f64, f64)| (acc_mean + mean, acc_sd + sd);
+        /*let accum = |(acc_mean, acc_sd): (f64, f64), (mean, sd): (f64, f64)| (acc_mean + mean, acc_sd + sd);
         let (sum_of_means, sum_of_sds) = source
             .values()
             .map(|count| count.positive_sum.mean_and_stddev(count.num as f64))
@@ -71,6 +71,13 @@ impl MetricAggregatedResult for CompletedFalseCount {
             .fold( Default::default(),accum);
         let negative_mean = sum_of_means / source.len() as f64;
         let negative_sd = sum_of_sds / source.len() as f64;
+        */
+        let (positive_mean, positive_sd) = Self::stats_aggregator(source.values(), source.len() as f64,
+            |count|count.positive_sum.mean_and_stddev(count.num as f64)
+        );
+        let (negative_mean, negative_sd) = Self::stats_aggregator(source.values(), source.len() as f64,
+            |count|count.negative_sum.mean_and_stddev(count.num as f64)
+        );
         Self {
             positive_mean,
             positive_sd,
@@ -79,19 +86,19 @@ impl MetricAggregatedResult for CompletedFalseCount {
         }
     }
 
-    fn get_property(&self, property: &str) -> Result<MetricOutput<f64>, String> {
+    fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String> {
         match property {
-            "false-positives-mean" => Ok(MetricOutput::Scalar(self.positive_mean)),
-            "false-positives-sd" => Ok(MetricOutput::ScalarWithBand(
+            MetricProperty::FalsePositivesMean => Ok(MetricOutput::Scalar(self.positive_mean)),
+            MetricProperty::FalsePositivesSD => Ok(MetricOutput::ScalarWithBand(
                 self.positive_mean,
                 self.positive_sd,
             )),
-            "false-negatives-mean" => Ok(MetricOutput::Scalar(self.negative_mean)),
-            "false-negatives-sd" => Ok(MetricOutput::ScalarWithBand(
+            MetricProperty::FalseNegativesMean => Ok(MetricOutput::Scalar(self.negative_mean)),
+            MetricProperty::FalseNegativesSD => Ok(MetricOutput::ScalarWithBand(
                 self.negative_mean,
                 self.negative_sd,
             )),
-            _ => Err(format!("No property matching {property}")),
+            _ => unreachable!()
         }
     }
 }

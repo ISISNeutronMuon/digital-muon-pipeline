@@ -31,7 +31,7 @@
         "waveforms": [{
             "name" : "gaussian",
             "pulse-type": "gaussian",
-            "sd": {"constant": 10 }
+            "sd": {"constant": 200 }
         }]
     },
     "buckets": [
@@ -87,6 +87,7 @@
     "charts": [
         {
             "width": 2,
+            "output-to-json": true,
             "x-axis": {"dependant": {"array": "Thresholds" } },
             "series": [
                 {"metric": "false", "name": "False Positives (Low Count)", "colour": "red", "property": "false-positives-sd", "from-bucket": "no-noise-low-count-by-theshold"},

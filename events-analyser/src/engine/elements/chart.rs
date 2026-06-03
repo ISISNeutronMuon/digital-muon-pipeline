@@ -1,8 +1,7 @@
 use crate::engine::{
-    AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex, WithName,
-    values::{Value, ValueError},
+    AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex, WithName, elements::{MetricError, MetricProperty}, values::{Value, ValueError}
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
 
@@ -14,6 +13,8 @@ pub(crate) enum SeriesError {
     BucketNotFound(String),
     #[error("Metric not found, {0}.")]
     MetricNotFound(String),
+    #[error("{0}.")]
+    Metric(#[from] MetricError),
 }
 
 ///
@@ -42,12 +43,15 @@ impl Flattenable<&AnalysisSettings> for Series {
             .get_metric_index(&self.metric)
             .ok_or_else(|| SeriesError::MetricNotFound(self.from_bucket.clone()))?;
 
+        let property = library
+            .get_property_of_metric(metric, &self.property)?;
+
         Ok(FlatSeries {
             name: self.name.clone(),
             colour: self.colour.clone(),
             from_bucket,
             metric,
-            property: self.property.clone(),
+            property,
         })
     }
 }
@@ -55,12 +59,13 @@ impl Flattenable<&AnalysisSettings> for Series {
 ///
 /// This struct is created from the configuration JSON file.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatSeries {
     pub(crate) name: String,
     pub(crate) colour: Option<String>,
     pub(crate) metric: usize,
-    pub(crate) property: String,
+    pub(crate) property: MetricProperty,
     pub(crate) from_bucket: usize,
 }
 
@@ -70,6 +75,8 @@ pub(crate) enum ChartError {
     Series(#[from] SeriesError),
     #[error("Value Error: {0}")]
     Value(#[from] ValueError),
+    #[error("No output mode is set: set one of `output-to-json`, or `output-to-html` to `true`.")]
+    NoOutputModeSet,
 }
 
 ///
@@ -80,6 +87,10 @@ pub(crate) enum ChartError {
 pub(crate) struct Chart {
     width: usize,
     x_axis: Value<f64>,
+    #[serde(default)]
+    output_to_json: bool,
+    #[serde(default)]
+    output_to_html: bool,
     series: Vec<Series>,
     x_axis_label: String,
     y_axis_label: String,
@@ -94,6 +105,10 @@ impl Flattenable<(&AnalysisSettings, &[WithName<FlatBucketBlock>])> for Chart {
         &self,
         (library, buckets): (&AnalysisSettings, &[WithName<FlatBucketBlock>]),
     ) -> Result<Self::Flat, Self::Error> {
+        if self.output_to_html == false && self.output_to_json == false {
+            return Err(ChartError::NoOutputModeSet);
+        }
+
         let x_axis = (0..self.width)
             .map(|x| self.x_axis.flatten(library.templates.get_arrays(), x))
             .collect::<Result<Vec<_>, _>>()?;
@@ -125,6 +140,8 @@ impl Flattenable<(&AnalysisSettings, &[WithName<FlatBucketBlock>])> for Chart {
             ready: false,
             x_axis,
             series,
+            output_to_html: self.output_to_html,
+            output_to_json: self.output_to_json,
             x_axis_label: self.x_axis_label.clone(),
             y_axis_label: self.y_axis_label.clone(),
             title: self.title.clone(),
@@ -135,9 +152,12 @@ impl Flattenable<(&AnalysisSettings, &[WithName<FlatBucketBlock>])> for Chart {
 ///
 /// This struct is created from the configuration JSON file.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatChart {
     ready: bool,
+    output_to_json: bool,
+    output_to_html: bool,
     pub(crate) x_axis: Vec<f64>,
     pub(crate) series: Vec<FlatSeries>,
     pub(crate) x_axis_label: String,

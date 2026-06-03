@@ -3,10 +3,11 @@
 //! The data stored in each frame is abstracted as a generic type and
 //! defined in the [crate::data] module.
 mod cache;
+mod complete;
 mod partial;
 
 pub(crate) use cache::MessageCache;
-pub(crate) use partial::EventlistsCollection;
+pub(crate) use complete::EventlistsCollection;
 
 /// Represents the reason why a digitiser event list message is rejected.
 pub(crate) enum RejectMessageError {

@@ -5,15 +5,14 @@ use crate::{
     analysis::metrics::{
         MetricAggregatedResult, MetricChannelResult, MetricOutput, SumWithSumOfSqrs,
     },
-    engine::{FlatAlgorithm, FlatWaveform},
+    engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
     event::ChannelData,
 };
 
 #[derive(Clone, Debug)]
 pub(crate) struct MuonLifetime {
     num: usize,
-    positive_sum: SumWithSumOfSqrs,
-    negative_sum: SumWithSumOfSqrs,
+    lifetime: SumWithSumOfSqrs,
 }
 
 impl MetricChannelResult for MuonLifetime {
@@ -23,8 +22,7 @@ impl MetricChannelResult for MuonLifetime {
     fn make_default(_: ()) -> Self {
         Self {
             num: Default::default(),
-            positive_sum: Default::default(),
-            negative_sum: Default::default(),
+            lifetime: Default::default(),
         }
     }
 
@@ -40,56 +38,43 @@ impl MetricChannelResult for MuonLifetime {
 
 #[derive(Clone, Debug)]
 pub(crate) struct CompletedMuonLifetime {
-    positive_mean: f64,
-    positive_sd: f64,
-    negative_mean: f64,
-    negative_sd: f64,
+    lifetime_mean: f64,
+    lifetime_sd: f64,
 }
 
 impl MetricAggregatedResult for CompletedMuonLifetime {
     type Channel = MuonLifetime;
 
     fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
-        let (sum_of_means, sum_of_sds) = source
+        /*let (sum_of_means, sum_of_sds) = source
             .values()
-            .map(|count| count.positive_sum.mean_and_stddev(count.num as f64))
+            .map(|count| count.lifetime.mean_and_stddev(count.num as f64))
             .fold(
                 Default::default(),
                 |(acc_mean, acc_sd): (f64, f64), (mean, sd)| (acc_mean + mean, acc_sd + sd),
             );
-        let positive_mean = sum_of_means / source.len() as f64;
-        let positive_sd = sum_of_sds / source.len() as f64;
+        let lifetime_mean = sum_of_means / source.len() as f64;
+        let lifetime_sd = sum_of_sds / source.len() as f64;
+        */
 
-        let (sum_of_means, sum_of_sds) = source
-            .values()
-            .map(|count| count.negative_sum.mean_and_stddev(count.num as f64))
-            .fold(
-                Default::default(),
-                |(acc_mean, acc_sd): (f64, f64), (mean, sd)| (acc_mean + mean, acc_sd + sd),
-            );
-        let negative_mean = sum_of_means / source.len() as f64;
-        let negative_sd = sum_of_sds / source.len() as f64;
+        let (lifetime_mean, lifetime_sd) = Self::stats_aggregator(source.values(), source.len() as f64,
+            |count|count.lifetime.mean_and_stddev(count.num as f64)
+        );
+
         Self {
-            positive_mean,
-            positive_sd,
-            negative_mean,
-            negative_sd,
+            lifetime_mean,
+            lifetime_sd,
         }
     }
 
-    fn get_property(&self, property: &str) -> Result<MetricOutput<f64>, String> {
+    fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String> {
         match property {
-            "false-positives-mean" => Ok(MetricOutput::Scalar(self.positive_mean)),
-            "false-positives-sd" => Ok(MetricOutput::ScalarWithBand(
-                self.positive_mean,
-                self.positive_sd,
+            MetricProperty::Mean => Ok(MetricOutput::Scalar(self.lifetime_mean)),
+            MetricProperty::SD => Ok(MetricOutput::ScalarWithBand(
+                self.lifetime_mean,
+                self.lifetime_sd,
             )),
-            "false-negatives-mean" => Ok(MetricOutput::Scalar(self.negative_mean)),
-            "false-negatives-sd" => Ok(MetricOutput::ScalarWithBand(
-                self.negative_mean,
-                self.negative_sd,
-            )),
-            _ => Err(format!("No property matching {property}")),
+            _ => unreachable!(),
         }
     }
 }
