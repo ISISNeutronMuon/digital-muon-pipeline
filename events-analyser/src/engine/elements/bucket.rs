@@ -15,7 +15,7 @@ use crate::{
 use digital_muon_common::spanned::{SpanOnce, SpanOnceError, Spanned, SpannedAggregator, SpannedMut};
 use serde::Deserialize;
 use thiserror::Error;
-use tracing::{info, info_span, instrument};
+use tracing::{info_span, instrument};
 
 #[derive(Debug, Error)]
 pub(crate) enum BucketError {

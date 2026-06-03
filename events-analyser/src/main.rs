@@ -65,7 +65,7 @@ use rdkafka::{
     consumer::{CommitMode, Consumer},
     message::{BorrowedMessage, Message},
 };
-use std::{fmt::Debug, fs::File, io, net::SocketAddr, path::PathBuf, time::Duration};
+use std::{fs::File, io, net::SocketAddr, path::PathBuf, time::Duration};
 use tokio::{
     select,
     signal::unix::{Signal, SignalKind, signal},

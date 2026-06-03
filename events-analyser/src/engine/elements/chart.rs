@@ -156,8 +156,8 @@ impl Flattenable<(&AnalysisSettings, &[WithName<FlatBucketBlock>])> for Chart {
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatChart {
     ready: bool,
-    output_to_json: bool,
-    output_to_html: bool,
+    pub(crate) output_to_json: bool,
+    pub(crate) output_to_html: bool,
     pub(crate) x_axis: Vec<f64>,
     pub(crate) series: Vec<FlatSeries>,
     pub(crate) x_axis_label: String,

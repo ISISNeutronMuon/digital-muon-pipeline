@@ -47,7 +47,7 @@ pub(crate) trait MetricChannelResult : Clone {
     );
 }
 
-trait MetricAggregatedResult: Clone {
+pub(crate) trait MetricAggregatedResult: Clone {
     type Channel: MetricChannelResult<Aggregrate = Self>;
 
     fn stats_aggregator<'a, F, I>(source: I, len: f64, f : F) -> (f64, f64)

@@ -55,8 +55,8 @@ impl ChartOutput {
         let mut path = path.to_owned();
         path.push(&self.chart.title);
         path.add_extension("json");
-        let file = File::open(&path)?;
-        serde_json::to_writer(file, self)?;
+        let file = File::create(&path)?;
+        serde_json::to_writer_pretty(file, self)?;
         Ok(())
     }
 

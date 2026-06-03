@@ -5,7 +5,7 @@ mod chart;
 mod metrics;
 
 use crate::{
-    analysis::metrics::MetricResult, engine::{AnalysisSettings, FlatBucketBlock, FlatChart, FlatSeries, WithName}, eventlists::EventlistsCollection
+    analysis::metrics::MetricResult, engine::{AnalysisSettings, FlatBucketBlock, FlatChart, WithName}, eventlists::EventlistsCollection
 };
 use digital_muon_common::{Channel, DigitizerId, spanned::{SpanOnceError, SpanWrapper, Spanned, SpannedAggregator}};
 use digital_muon_streaming_types::FrameMetadata;
@@ -104,8 +104,12 @@ impl AnalysisEngine {
             }
             
             let output = ChartOutput::new(chart, &self.metrics).unwrap();
-            output.save_json(&self.path).unwrap();
-            output.save_plotly(&self.path).unwrap();
+            if chart.output_to_json {
+                output.save_json(&self.path).unwrap();
+            }
+            if chart.output_to_html {
+                output.save_plotly(&self.path).unwrap();
+            }
         }
         Ok(())
     }

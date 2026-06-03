@@ -1,5 +1,5 @@
-use digital_muon_common::{Channel, Intensity, Time};
-use std::{collections::HashMap, iter::once};
+use digital_muon_common::Channel;
+use std::collections::HashMap;
 
 use crate::{
     analysis::metrics::{
@@ -52,14 +52,6 @@ impl MetricAggregatedResult for CompletedEventCount {
     type Channel = EventCount;
 
     fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
-        /*let accum = |(acc_mean, acc_sd): (f64, f64), (mean, sd): (f64, f64)| (acc_mean + mean, acc_sd + sd);
-        let (sum_of_means, sum_of_sds) = source
-            .values()
-            .map(|count| count.count.mean_and_stddev(count.num as f64))
-            .fold( Default::default(), accum);
-        let count_mean = sum_of_means / source.len() as f64;
-        let count_sd = sum_of_sds / source.len() as f64;
-        */
         let (count_mean, count_sd) = Self::stats_aggregator(source.values(), source.len() as f64,
             |count|count.count.mean_and_stddev(count.num as f64)
         );
