@@ -7,7 +7,7 @@ use crate::{
             criteria::{Criteria, CriteriaError, FlatCriteria},
             waveform::FlatWaveform,
         },
-        utils::{Interval, WithName, WithSource},
+        utils::{Interval, HasName, HasSource},
         values::ValueError,
     },
     eventlists::EventlistsCollection,
@@ -45,6 +45,31 @@ pub(crate) enum BucketError {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct BucketBlockTemplate {
+    pub(crate) name: String,
+    #[serde(flatten)]
+    pub(crate) properties: BucketBlockProperties,
+}
+
+impl HasName for BucketBlockTemplate {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl Deref for BucketBlockTemplate {
+    type Target = BucketBlockProperties;
+
+    fn deref(&self) -> &Self::Target {
+        &self.properties
+    }
+}
+
+///
+/// This struct is created from the configuration JSON file.
+///
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct BucketBlockProperties {
     // Is applied to all voltages when traces are created
     pub(crate) number: Option<usize>,
     // Is applied to all voltages when traces are created
@@ -61,48 +86,62 @@ pub(crate) struct BucketBlockTemplate {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct BucketBlock {
+    pub(crate) source: String,
+    pub(crate) name: String,
     // Is applied to all voltages when traces are created
-    pub(crate) criteria: WithSource<Criteria>,
+    pub(crate) criteria: Criteria,
     // Is applied to all voltages when traces are created
     #[serde(flatten)]
-    pub(crate) templatable: BucketBlockTemplate,
+    pub(crate) properties: BucketBlockProperties,
 }
 
-impl Deref for BucketBlock {
-    type Target = BucketBlockTemplate;
-
-    fn deref(&self) -> &Self::Target {
-        &self.templatable
+impl HasSource for BucketBlock {
+    fn get_source(&self) -> &str {
+        &self.source
     }
 }
 
-impl Flattenable<&Templates> for WithSource<WithName<BucketBlock>> {
-    type Flat = WithName<FlatBucketBlock>;
+impl HasName for BucketBlock {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl Deref for BucketBlock {
+    type Target = BucketBlockProperties;
+
+    fn deref(&self) -> &Self::Target {
+        &self.properties
+    }
+}
+
+impl Flattenable<&Templates> for BucketBlock {
+    type Flat = FlatBucketBlock;
     type Error = BucketError;
 
     #[instrument(skip_all, name = "Bucket Block")]
-    fn flatten(&self, library: &Templates) -> Result<WithName<FlatBucketBlock>, Self::Error> {
+    fn flatten(&self, library: &Templates) -> Result<FlatBucketBlock, Self::Error> {
         let template = library.get_bucket(self);
         let number = self
-            .templatable
+            .properties
             .number
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.number.as_ref()))
             .ok_or_else(|| BucketError::NoNumber(self.get_source().into()))?;
         let algorithm = self
-            .templatable
+            .properties
             .algorithm
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.algorithm.as_ref()))
             .ok_or_else(|| BucketError::NoAlgorithm(self.get_source().into()))?;
         let waveform = self
-            .templatable
+            .properties
             .waveform
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.waveform.as_ref()))
             .ok_or_else(|| BucketError::NoWaveform(self.get_source().into()))?;
         let limits = self
-            .templatable
+            .properties
             .limits
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.limits.as_ref()))
@@ -132,13 +171,11 @@ impl Flattenable<&Templates> for WithSource<WithName<BucketBlock>> {
                 Ok(bucket)
             })
             .collect::<Result<Vec<_>, Self::Error>>()?;
-        Ok(WithName::<FlatBucketBlock> {
-            name: self.name.clone(),
-            value: FlatBucketBlock {
-                span: SpanOnce::Spanned(tracing::Span::current()),
-                buckets,
-                limits: limits.clone(),
-            },
+        Ok(FlatBucketBlock {
+            name: self.get_name().to_string(),
+            span: SpanOnce::Spanned(tracing::Span::current()),
+            buckets,
+            limits: limits.clone(),
         })
     }
 }
@@ -147,12 +184,19 @@ impl Flattenable<&Templates> for WithSource<WithName<BucketBlock>> {
 /// This struct is created from the configuration JSON file.
 ///
 pub(crate) struct FlatBucketBlock {
+    pub(crate) name: String,
     span: SpanOnce,
     // Is applied to all voltages when traces are created
     pub(crate) buckets: Vec<FlatBucket>,
     // Is applied to all voltages when traces are created
     pub(crate) limits: Interval<usize>,
     // Is applied to all voltages when traces are created
+}
+
+impl HasName for FlatBucketBlock {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl Debug for FlatBucketBlock {
@@ -174,12 +218,6 @@ impl FlatBucketBlock {
             .enumerate()
             .find(|(_, bucket)| bucket.is_collection_in(collection))
             .map(|(index, bucket)| (index, (self.limits.max > bucket.count).then_some(bucket)))
-    }
-
-    pub(crate) fn are_buckets_full_enough(&self) -> bool {
-        self.buckets.iter().all(|bucket| {
-            bucket.count >= self.limits.min
-        })
     }
 }
 

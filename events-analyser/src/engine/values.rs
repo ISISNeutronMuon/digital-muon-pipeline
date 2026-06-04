@@ -6,7 +6,7 @@ use num::NumCast;
 
 use crate::engine::{
     Array, FlattenableWithIndex,
-    utils::{Function, Interval, WithName},
+    utils::{Function, Interval, HasName},
 };
 
 pub(crate) trait Number:
@@ -50,7 +50,7 @@ impl<T: Number + PartialEq + PartialOrd> ConstantFilter<T> {
 
 impl<T: Number> FlattenableWithIndex for ValueFilter<T> {
     type Flat = ConstantFilter<T>;
-    type Library = [WithName<Array>];
+    type Library = [Array];
     type Error = ValueError;
 
     fn flatten(
@@ -86,7 +86,7 @@ pub(crate) enum Value<T: Number> {
 
 impl<T: Number> FlattenableWithIndex for Value<T> {
     type Flat = T;
-    type Library = [WithName<Array>];
+    type Library = [Array];
     type Error = ValueError;
 
     fn flatten(&self, arrays: &Self::Library, index: usize) -> Result<T, Self::Error> {

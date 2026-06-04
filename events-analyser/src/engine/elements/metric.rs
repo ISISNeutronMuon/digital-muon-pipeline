@@ -1,4 +1,4 @@
-use crate::engine::{Flattenable, values::ValueError};
+use crate::engine::{Flattenable, utils::HasName, values::ValueError};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -12,8 +12,33 @@ pub(crate) enum MetricError {
 /// This struct is created from the configuration JSON file.
 ///
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct Metric {
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) save_to_json: bool,
+    #[serde(flatten)]
+    pub(crate) metric_type: MetricType,
+}
+
+impl HasName for Metric {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl Metric {
+    pub(crate) fn get_property(&self, property: &str) -> Result<MetricProperty, MetricError> {
+        self.metric_type.get_property(property)
+    }
+}
+
+///
+/// This struct is created from the configuration JSON file.
+///
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "metric-type")]
-pub(crate) enum Metric {
+pub(crate) enum MetricType {
     EventCount {
         topic: String,
     },
@@ -35,7 +60,7 @@ pub(crate) enum MetricProperty {
     FalseNegativesSD,
 }
 
-impl Metric {
+impl MetricType {
     pub(crate) fn get_property(&self, property: &str) -> Result<MetricProperty, MetricError> {
         match self {
             Self::EventCount { .. } => match property {
@@ -64,20 +89,20 @@ impl Flattenable<&[String]> for Metric {
     type Error = ValueError;
 
     fn flatten(&self, library: &[String]) -> Result<Self::Flat, Self::Error> {
-        Ok(match self {
-            Metric::EventCount {
+        let metric_type = match &self.metric_type {
+            MetricType::EventCount {
                 topic,
-            } => FlatMetric::EventCount(FlatMetricEventCount {
+            } => FlatMetricType::EventCount(FlatMetricEventCount {
                 topic: library
                     .iter()
                     .enumerate()
                     .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
                     .expect("This should never fail.")
             }),
-            Metric::FalseCount {
+            MetricType::FalseCount {
                 true_topic,
                 estimate_topic,
-            } => FlatMetric::FalseCount(FlatMetricFalseCount {
+            } => FlatMetricType::FalseCount(FlatMetricFalseCount {
                 true_topic: library
                     .iter()
                     .enumerate()
@@ -89,25 +114,42 @@ impl Flattenable<&[String]> for Metric {
                     .find_map(|(index, topic)| (topic == estimate_topic).then_some(index))
                     .expect("This should never fail."),
             }),
-            Metric::MuonLifetime => FlatMetric::MuonLifetime,
-        })
+            MetricType::MuonLifetime => FlatMetricType::MuonLifetime,
+        };
+        Ok(FlatMetric { name: self.get_name().to_string(), save_to_json: self.save_to_json ,metric_type })
     }
 }
 
-#[derive(Debug, Clone)]
-pub(crate) enum FlatMetric {
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct FlatMetric {
+    pub(crate) name: String,
+    pub(crate) save_to_json: bool,
+    #[serde(flatten)]
+    pub(crate) metric_type: FlatMetricType,
+}
+
+impl HasName for FlatMetric {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum FlatMetricType {
     EventCount(FlatMetricEventCount),
     FalseCount(FlatMetricFalseCount),
     MuonLifetime,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct FlatMetricFalseCount {
     pub(crate) true_topic: usize,
     pub(crate) estimate_topic: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct FlatMetricEventCount {
     pub(crate) topic: usize,
 }

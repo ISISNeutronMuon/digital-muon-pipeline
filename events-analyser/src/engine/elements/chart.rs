@@ -1,6 +1,6 @@
-use crate::engine::{
-    AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex, WithName, elements::{MetricError, MetricProperty}, values::{Value, ValueError}
-};
+use crate::{analysis::MetricResult, engine::{
+    AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex, elements::{MetricError, MetricProperty}, values::{Value, ValueError}
+}};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
@@ -97,13 +97,13 @@ pub(crate) struct Chart {
     title: String,
 }
 
-impl Flattenable<(&AnalysisSettings, &[WithName<FlatBucketBlock>])> for Chart {
+impl Flattenable<(&AnalysisSettings, &[FlatBucketBlock])> for Chart {
     type Flat = FlatChart;
     type Error = ChartError;
 
     fn flatten(
         &self,
-        (library, buckets): (&AnalysisSettings, &[WithName<FlatBucketBlock>]),
+        (library, buckets): (&AnalysisSettings, &[FlatBucketBlock]),
     ) -> Result<Self::Flat, Self::Error> {
         if self.output_to_html == false && self.output_to_json == false {
             return Err(ChartError::NoOutputModeSet);
@@ -166,7 +166,7 @@ pub(crate) struct FlatChart {
 }
 
 impl FlatChart {
-    pub(crate) fn poll(&self, buckets: &[WithName<FlatBucketBlock>]) -> bool {
+    pub(crate) fn poll(&self, buckets: &[FlatBucketBlock], metrics: &[MetricResult]) -> bool {
         if self.ready {
             return true;
         }
@@ -174,7 +174,11 @@ impl FlatChart {
             let block = buckets
                 .get(series.from_bucket)
                 .expect("This should never fail");
-            if !block.are_buckets_full_enough() {
+            let metric = metrics
+                .get(series.metric)
+                .expect("This should never fail");
+
+            if !metric.are_buckets_full_enough(series.from_bucket, block.limits.min) {
                 //info!("Testing Bucket Block: {}... block not ready.", block.name);
                 return false;
             }

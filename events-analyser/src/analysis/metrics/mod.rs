@@ -9,12 +9,13 @@ use crate::{
     event::ChannelData,
 };
 use digital_muon_common::Channel;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::collections::HashMap;
 
 pub(crate) use result::MetricResult;
 pub(crate) use output::MetricOutput;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 struct SumWithSumOfSqrs {
     sum: f64,
     sqr_sum: f64,
@@ -34,7 +35,7 @@ impl SumWithSumOfSqrs {
     }
 }
 
-pub(crate) trait MetricChannelResult : Clone {
+pub(crate) trait MetricChannelResult : Clone + Serialize + DeserializeOwned {
     type Source;
     type Aggregrate: MetricAggregatedResult<Channel = Self>;
 
@@ -45,9 +46,10 @@ pub(crate) trait MetricChannelResult : Clone {
         algorithm: &FlatAlgorithm,
         by_topic: &[ChannelData],
     );
+    fn len(&self) -> usize;
 }
 
-pub(crate) trait MetricAggregatedResult: Clone {
+pub(crate) trait MetricAggregatedResult: Clone + Serialize + DeserializeOwned {
     type Channel: MetricChannelResult<Aggregrate = Self>;
 
     fn stats_aggregator<'a, F, I>(source: I, len: f64, f : F) -> (f64, f64)

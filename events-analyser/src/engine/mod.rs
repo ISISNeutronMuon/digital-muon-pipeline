@@ -6,18 +6,17 @@ use serde::Deserialize;
 use std::ops::Deref;
 use crate::engine::{
     elements::{
-        Algorithm, BucketBlock, BucketBlockTemplate, BucketError, ChartError, Criteria, MetricError, Waveform
+        Algorithm, AlgorithmProperties, BucketBlock, BucketBlockProperties, BucketBlockTemplate, BucketError, ChartError, Criteria, CriteriaTemplate, MetricError, Waveform, WaveformProperties
     },
-    utils::WithSource,
     values::ValueError,
 };
 
 pub(crate) use crate::engine::{
     elements::{
-        Chart, FlatAlgorithm, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricFalseCount, FlatMetricEventCount,
+        Chart, FlatAlgorithm, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricType, FlatMetricFalseCount, FlatMetricEventCount,
         FlatWaveform, Metric, FlatSeries, MetricProperty
     },
-    utils::WithName,
+    utils::HasName,
 };
 
 ///
@@ -27,44 +26,44 @@ pub(crate) use crate::engine::{
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Templates {
     // List of metrics to calculate for each phase.
-    pub(crate) criteria_templates: Vec<WithName<Criteria>>,
+    pub(crate) criteria_templates: Vec<CriteriaTemplate>,
     // List of metrics to calculate for each phase.
-    pub(crate) arrays: Vec<WithName<Array>>,
+    pub(crate) arrays: Vec<Array>,
     // List of metrics to calculate for each phase.
-    pub(crate) algorithms: Vec<WithName<Algorithm>>,
+    pub(crate) algorithms: Vec<Algorithm>,
     // List of metrics to calculate for each phase.
-    pub(crate) bucket_templates: Vec<WithName<BucketBlockTemplate>>,
+    pub(crate) bucket_templates: Vec<BucketBlockTemplate>,
     // List of metrics to calculate for each phase.
-    pub(crate) waveforms: Vec<WithName<Waveform>>,
+    pub(crate) waveforms: Vec<Waveform>,
 }
 
 impl Templates {
     fn get_bucket(
         &self,
-        object: &WithSource<WithName<BucketBlock>>,
-    ) -> Option<&BucketBlockTemplate> {
+        object: &BucketBlock,
+    ) -> Option<&BucketBlockProperties> {
         self.bucket_templates
             .iter()
             .find_map(|tmplt| tmplt.is_source(object).then_some(tmplt.deref()))
     }
 
-    fn get_arrays(&self) -> &[WithName<Array>] {
+    fn get_arrays(&self) -> &[Array] {
         &self.arrays
     }
 
-    fn get_criteria(&self, name: &str) -> Option<&Criteria> {
+    fn get_criteria(&self, name: &str) -> Option<&CriteriaTemplate> {
         self.criteria_templates
             .iter()
-            .find_map(|tmplt| tmplt.has_name(name).then_some(tmplt.deref()))
+            .find_map(|tmplt| tmplt.has_name(name).then_some(tmplt))
     }
 
-    fn get_algorithm(&self, name: &str) -> Option<&Algorithm> {
+    fn get_algorithm(&self, name: &str) -> Option<&AlgorithmProperties> {
         self.algorithms
             .iter()
             .find_map(|alg| alg.has_name(name).then_some(alg.deref()))
     }
 
-    fn get_waveform(&self, name: &str) -> Option<&Waveform> {
+    fn get_waveform(&self, name: &str) -> Option<&WaveformProperties> {
         self.waveforms
             .iter()
             .find_map(|wav| wav.has_name(name).then_some(wav.deref()))
@@ -77,14 +76,15 @@ impl Templates {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct AnalysisSettings {
+    pub(crate) metrics_json_name: Option<String>,
     // Topics the consumer should listen to to receive Eventlist messages.
     pub(crate) events_topics: Vec<String>,
     // List of metrics to calculate and are available to the charts.
-    pub(crate) metrics: Vec<WithName<Metric>>,
+    pub(crate) metrics: Vec<Metric>,
     // Templates of structures that are used when metrics, buckets, and charts are flattened.
     pub(crate) templates: Templates,
     // Blocks of buckets that accept collections of eventlists.
-    pub(crate) buckets: Vec<WithSource<WithName<BucketBlock>>>,
+    pub(crate) buckets: Vec<BucketBlock>,
     // List of Charts.
     pub(crate) charts: Vec<Chart>,
 }
@@ -121,7 +121,7 @@ trait FlattenableWithIndex {
 }
 
 impl AnalysisSettings {
-    pub(crate) fn flatten_buckets(&self) -> Result<Vec<WithName<FlatBucketBlock>>, BucketError> {
+    pub(crate) fn flatten_buckets(&self) -> Result<Vec<FlatBucketBlock>, BucketError> {
         self.buckets
             .iter()
             .map(|block| block.flatten(&self.templates))
@@ -137,7 +137,7 @@ impl AnalysisSettings {
 
     pub(crate) fn flatten_charts(
         &self,
-        buckets: &[WithName<FlatBucketBlock>],
+        buckets: &[FlatBucketBlock],
     ) -> Result<Vec<FlatChart>, ChartError> {
         self.charts
             .iter()
@@ -170,6 +170,7 @@ impl AnalysisSettings {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Array {
+    pub(crate) name: String,
     // Is applied to all voltages when traces are created
     pub(crate) values: Vec<f64>,
 }
@@ -177,6 +178,12 @@ pub(crate) struct Array {
 impl Array {
     pub(crate) fn get_element(&self, index: usize) -> f64 {
         *self.values.get(index).unwrap() // FIXME: Handle Error
+    }
+}
+
+impl HasName for Array {
+    fn get_name(&self) -> &str {
+        &self.name
     }
 }
 

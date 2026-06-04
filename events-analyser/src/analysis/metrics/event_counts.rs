@@ -1,4 +1,5 @@
 use digital_muon_common::Channel;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
@@ -9,7 +10,7 @@ use crate::{
     event::ChannelData,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct EventCount {
     num: usize,
     topic: usize,
@@ -40,9 +41,13 @@ impl MetricChannelResult for EventCount {
             .expect("Topic should exist, this should never fail.");
         self.count.add_to(data.get_time_intensity().len() as f64);
     }
+
+    fn len(&self) -> usize {
+        self.num
+    }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct CompletedEventCount {
     count_mean: f64,
     count_sd: f64,

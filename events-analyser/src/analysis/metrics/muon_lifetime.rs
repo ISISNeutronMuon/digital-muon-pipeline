@@ -1,4 +1,5 @@
 use digital_muon_common::Channel;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
@@ -9,7 +10,7 @@ use crate::{
     event::ChannelData,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct MuonLifetime {
     num: usize,
     lifetime: SumWithSumOfSqrs,
@@ -34,9 +35,13 @@ impl MetricChannelResult for MuonLifetime {
     ) {
         self.num += 1;
     }
+
+    fn len(&self) -> usize {
+        self.num
+    }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct CompletedMuonLifetime {
     lifetime_mean: f64,
     lifetime_sd: f64,

@@ -3,9 +3,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::engine::{
-    FlattenableWithIndex, Templates,
-    utils::WithSource,
-    values::{ConstantFilter, ValueError, ValueFilter},
+    FlattenableWithIndex, HasName, Templates, utils::HasSource, values::{ConstantFilter, ValueError, ValueFilter}
 };
 
 #[derive(Debug, Error)]
@@ -27,7 +25,7 @@ pub(crate) enum CriteriaError {
 ///
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct Criteria {
+pub(crate) struct CriteriaProperties {
     /// Is applied to all voltages when traces are created
     pub(crate) periods: Option<ValueFilter<u64>>,
     /// Is applied to all voltages when traces are created
@@ -36,6 +34,40 @@ pub(crate) struct Criteria {
     pub(crate) channels: Option<ValueFilter<Channel>>,
     /// Is applied to all voltages when traces are created
     pub(crate) digitiser_ids: Option<ValueFilter<DigitizerId>>,
+}
+
+///
+/// This struct is created from the configuration JSON file.
+///
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct CriteriaTemplate {
+    pub(crate) name: String,
+    #[serde(flatten)]
+    pub(crate) properties: CriteriaProperties,
+}
+
+impl HasName for CriteriaTemplate {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+}
+
+///
+/// This struct is created from the configuration JSON file.
+///
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct Criteria {
+    pub(crate) source: String,
+    #[serde(flatten)]
+    pub(crate) properties: CriteriaProperties,
+}
+
+impl HasSource for Criteria {
+    fn get_source(&self) -> &str {
+        &self.source
+    }
 }
 
 ///
@@ -53,38 +85,38 @@ pub(crate) struct FlatCriteria {
     pub(crate) digitiser_ids: ConstantFilter<DigitizerId>,
 }
 
-impl FlattenableWithIndex for WithSource<Criteria> {
+impl FlattenableWithIndex for Criteria {
     type Flat = FlatCriteria;
     type Library = Templates;
     type Error = CriteriaError;
 
     fn flatten(&self, libraries: &Templates, index: usize) -> Result<FlatCriteria, Self::Error> {
-        let template: Option<&Criteria> = libraries.get_criteria(self.get_source());
-        let periods = self
+        let template = libraries.get_criteria(self.get_source());
+        let periods = self.properties
             .periods
             .as_ref()
-            .or_else(|| template.and_then(|tmplt| tmplt.periods.as_ref()))
+            .or_else(|| template.and_then(|tmplt| tmplt.properties.periods.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
             .ok_or_else(|| CriteriaError::NoPeriods(self.get_source().into()))?;
-        let frames = self
+        let frames = self.properties
             .frames
             .as_ref()
-            .or_else(|| template.and_then(|tmplt| tmplt.frames.as_ref()))
+            .or_else(|| template.and_then(|tmplt| tmplt.properties.frames.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
             .ok_or_else(|| CriteriaError::NoFrames(self.get_source().into()))?;
-        let channels = self
+        let channels = self.properties
             .channels
             .as_ref()
-            .or_else(|| template.and_then(|tmplt| tmplt.channels.as_ref()))
+            .or_else(|| template.and_then(|tmplt| tmplt.properties.channels.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
             .ok_or_else(|| CriteriaError::NoChannels(self.get_source().into()))?;
-        let digitiser_ids = self
+        let digitiser_ids = self.properties
             .digitiser_ids
             .as_ref()
-            .or_else(|| template.and_then(|tmplt| tmplt.digitiser_ids.as_ref()))
+            .or_else(|| template.and_then(|tmplt| tmplt.properties.digitiser_ids.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
             .ok_or_else(|| CriteriaError::NoDigitiserIds(self.get_source().into()))?;

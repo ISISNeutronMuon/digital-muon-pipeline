@@ -1,17 +1,40 @@
 use digital_muon_common::{Intensity, Time};
 use serde::Deserialize;
-use std::fmt::Debug;
+use std::{fmt::Debug, ops::Deref};
 
 use crate::engine::{
     Array, FlatWaveform, FlattenableWithIndex,
-    utils::WithName,
+    utils::HasName,
     values::{Value, ValueError},
 };
 
 ///
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum Algorithm {
+pub(crate) struct Algorithm {
+    pub(crate) name: String,
+    #[serde(flatten)]
+    pub(crate) properties: AlgorithmProperties,
+}
+
+impl HasName for Algorithm {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl Deref for Algorithm {
+    type Target = AlgorithmProperties;
+
+    fn deref(&self) -> &Self::Target {
+        &self.properties
+    }
+}
+
+///
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum AlgorithmProperties {
     ///
     FixedThreshold {
         ///
@@ -23,14 +46,14 @@ pub(crate) enum Algorithm {
     },
 }
 
-impl FlattenableWithIndex for Algorithm {
+impl FlattenableWithIndex for AlgorithmProperties {
     type Flat = FlatAlgorithm;
-    type Library = [WithName<Array>];
+    type Library = [Array];
     type Error = ValueError;
 
     fn flatten(&self, arrays: &Self::Library, index: usize) -> Result<FlatAlgorithm, Self::Error> {
         match self {
-            Algorithm::FixedThreshold {
+            Self::FixedThreshold {
                 threshold,
                 duration,
                 cool_down,

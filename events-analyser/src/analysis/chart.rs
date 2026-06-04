@@ -1,5 +1,4 @@
 use std::{fs::File, path::Path};
-use digital_muon_common::spanned::SpanWrapper;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use plotly::{self, Layout, Plot, Scatter, common::{ErrorData, ErrorType, Line}, layout::{Axis, ModeBar}};
@@ -24,7 +23,7 @@ pub(crate) struct ChartOutput {
 }
 
 impl ChartOutput {
-    pub(crate) fn new(chart: &FlatChart, metrics: &[SpanWrapper<MetricResult>]) -> Result<Self, ChartOutputError> {
+    pub(crate) fn new(chart: &FlatChart, metrics: &[MetricResult]) -> Result<Self, ChartOutputError> {
         // Get Series Output
         let data = chart
             .series
@@ -48,7 +47,6 @@ impl ChartOutput {
         path.push(chart_name);
         path.add_extension("json");
         Ok(serde_json::from_reader(File::open(&path)?)?)
-        
     }
 
     pub(crate) fn save_json(&self, path: &Path) -> Result<(), ChartOutputError> {

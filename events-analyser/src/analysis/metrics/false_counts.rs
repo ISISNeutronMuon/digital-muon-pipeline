@@ -1,4 +1,5 @@
 use digital_muon_common::{Channel, Intensity, Time};
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, iter::once};
 
 use crate::{
@@ -9,7 +10,7 @@ use crate::{
     event::ChannelData,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct FalseCount {
     num: usize,
     true_topic: usize,
@@ -43,9 +44,13 @@ impl MetricChannelResult for FalseCount {
         self.positive_sum.add_to(positives as f64);
         self.negative_sum.add_to(negatives as f64);
     }
+
+    fn len(&self) -> usize {
+        self.num
+    }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct CompletedFalseCount {
     positive_mean: f64,
     positive_sd: f64,
