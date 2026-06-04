@@ -3,7 +3,9 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::engine::{
-    FlattenableWithIndex, HasName, Templates, utils::HasSource, values::{ConstantFilter, ValueError, ValueFilter}
+    FlattenableWithIndex, HasName, Templates,
+    utils::HasSource,
+    values::{ConstantFilter, ValueError, ValueFilter},
 };
 
 #[derive(Debug, Error)]
@@ -92,28 +94,32 @@ impl FlattenableWithIndex for Criteria {
 
     fn flatten(&self, libraries: &Templates, index: usize) -> Result<FlatCriteria, Self::Error> {
         let template = libraries.get_criteria(self.get_source());
-        let periods = self.properties
+        let periods = self
+            .properties
             .periods
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.properties.periods.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
             .ok_or_else(|| CriteriaError::NoPeriods(self.get_source().into()))?;
-        let frames = self.properties
+        let frames = self
+            .properties
             .frames
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.properties.frames.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
             .ok_or_else(|| CriteriaError::NoFrames(self.get_source().into()))?;
-        let channels = self.properties
+        let channels = self
+            .properties
             .channels
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.properties.channels.as_ref()))
             .map(|v| v.flatten(libraries.get_arrays(), index))
             .transpose()?
             .ok_or_else(|| CriteriaError::NoChannels(self.get_source().into()))?;
-        let digitiser_ids = self.properties
+        let digitiser_ids = self
+            .properties
             .digitiser_ids
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.properties.digitiser_ids.as_ref()))

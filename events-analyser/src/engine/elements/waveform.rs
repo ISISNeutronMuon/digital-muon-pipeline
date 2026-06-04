@@ -1,10 +1,10 @@
 use std::ops::Deref;
 
 use crate::engine::{
-    Array, FlattenableWithIndex, HasName, values::{Value, ValueError}
+    Array, FlattenableWithIndex, HasName,
+    values::{Value, ValueError},
 };
 use serde::Deserialize;
-
 
 ///
 #[derive(Debug, Deserialize, Clone)]

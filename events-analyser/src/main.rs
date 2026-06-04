@@ -35,9 +35,9 @@
 //! [metadata]: DigitizerEventListMessage::metadata()
 mod analysis;
 mod engine;
+mod evaluator_task;
 mod event;
 mod eventlists;
-mod evaluator_task;
 
 use clap::{Parser, Subcommand};
 use digital_muon_common::{
@@ -73,7 +73,11 @@ use tokio::{
 };
 use tracing::{debug, error, info_span, instrument, warn};
 
-use crate::{analysis::{AnalysisEngine, ChartOutput}, engine::AnalysisSettings, evaluator_task::create_evaluator_task};
+use crate::{
+    analysis::{AnalysisEngine, ChartOutput},
+    engine::AnalysisSettings,
+    evaluator_task::create_evaluator_task,
+};
 
 // /// Triggers error if the producer takes longer than this to dispatch a message.
 //const PRODUCER_TIMEOUT: Timeout = Timeout::After(Duration::from_millis(100));
@@ -100,9 +104,7 @@ struct Cli {
 
     #[command(subcommand)]
     mode: Mode,
-
 }
-
 
 #[derive(Clone, Subcommand)]
 enum Mode {
@@ -223,10 +225,12 @@ async fn main() -> miette::Result<()> {
         "Number of complete frames sent by the aggregator"
     );
 
-    let mut cache_poll_interval = tokio::time::interval(Duration::from_millis(eval_args.cache_poll_ms));
+    let mut cache_poll_interval =
+        tokio::time::interval(Duration::from_millis(eval_args.cache_poll_ms));
 
     let analysis_engine =
-        AnalysisEngine::new(analysis_settings, args.chart_output, eval_args.load_metrics).expect("FIXME: This may fail.");
+        AnalysisEngine::new(analysis_settings, args.chart_output, eval_args.load_metrics)
+            .expect("FIXME: This may fail.");
 
     // Creates Send-Frame thread and returns channel sender
     let (channel_send, evaluator_task_handle) = create_evaluator_task(

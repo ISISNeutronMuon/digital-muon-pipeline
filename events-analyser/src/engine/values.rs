@@ -6,7 +6,7 @@ use num::NumCast;
 
 use crate::engine::{
     Array, FlattenableWithIndex,
-    utils::{Function, Interval, HasName},
+    utils::{Function, HasName, Interval},
 };
 
 pub(crate) trait Number:

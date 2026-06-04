@@ -24,7 +24,12 @@ pub(crate) struct EventlistsCollection {
 }
 
 impl EventlistsCollection {
-    pub(crate) fn new(span: SpanOnce, digitiser_id: DigitizerId, metadata: FrameMetadata, eventlists: Vec<EventData>) -> Self {
+    pub(crate) fn new(
+        span: SpanOnce,
+        digitiser_id: DigitizerId,
+        metadata: FrameMetadata,
+        eventlists: Vec<EventData>,
+    ) -> Self {
         let mut channels = eventlists
             .iter()
             .flat_map(|eventlist| eventlist.get_channels())

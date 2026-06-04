@@ -6,10 +6,15 @@ mod metric;
 mod waveform;
 
 pub(crate) use {
-    algorithm::{Algorithm, FlatAlgorithm, AlgorithmProperties},
-    bucket::{BucketBlock, BucketBlockTemplate, BucketBlockProperties, BucketError, FlatBucketBlock},
+    algorithm::{Algorithm, AlgorithmProperties, FlatAlgorithm},
+    bucket::{
+        BucketBlock, BucketBlockProperties, BucketBlockTemplate, BucketError, FlatBucketBlock,
+    },
     chart::{Chart, ChartError, FlatChart, FlatSeries},
     criteria::{Criteria, CriteriaTemplate},
-    metric::{FlatMetric, FlatMetricType, FlatMetricFalseCount, FlatMetricEventCount, Metric, MetricError, MetricProperty},
+    metric::{
+        FlatMetric, FlatMetricEventCount, FlatMetricFalseCount, FlatMetricType, Metric,
+        MetricError, MetricProperty,
+    },
     waveform::{FlatWaveform, Waveform, WaveformProperties},
 };

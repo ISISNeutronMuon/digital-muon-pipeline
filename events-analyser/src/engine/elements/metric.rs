@@ -66,19 +66,28 @@ impl MetricType {
             Self::EventCount { .. } => match property {
                 "mean" => Ok(MetricProperty::Mean),
                 "sd" => Ok(MetricProperty::SD),
-                _ => Err(MetricError::NoProperty(property.to_string(), "Event Count".into())),
+                _ => Err(MetricError::NoProperty(
+                    property.to_string(),
+                    "Event Count".into(),
+                )),
             },
             Self::FalseCount { .. } => match property {
                 "false-positives-mean" => Ok(MetricProperty::FalsePositivesMean),
                 "false-positives-sd" => Ok(MetricProperty::FalsePositivesSD),
                 "false-negatives-mean" => Ok(MetricProperty::FalseNegativesMean),
                 "false-negatives-sd" => Ok(MetricProperty::FalseNegativesSD),
-                _ => Err(MetricError::NoProperty(property.to_string(), "False Count".into())),
+                _ => Err(MetricError::NoProperty(
+                    property.to_string(),
+                    "False Count".into(),
+                )),
             },
             Self::MuonLifetime => match property {
                 "mean" => Ok(MetricProperty::Mean),
                 "sd" => Ok(MetricProperty::SD),
-                _ => Err(MetricError::NoProperty(property.to_string(), "Muon Lifetime".into())),
+                _ => Err(MetricError::NoProperty(
+                    property.to_string(),
+                    "Muon Lifetime".into(),
+                )),
             },
         }
     }
@@ -90,14 +99,12 @@ impl Flattenable<&[String]> for Metric {
 
     fn flatten(&self, library: &[String]) -> Result<Self::Flat, Self::Error> {
         let metric_type = match &self.metric_type {
-            MetricType::EventCount {
-                topic,
-            } => FlatMetricType::EventCount(FlatMetricEventCount {
+            MetricType::EventCount { topic } => FlatMetricType::EventCount(FlatMetricEventCount {
                 topic: library
                     .iter()
                     .enumerate()
                     .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
-                    .expect("This should never fail.")
+                    .expect("This should never fail."),
             }),
             MetricType::FalseCount {
                 true_topic,
@@ -116,7 +123,11 @@ impl Flattenable<&[String]> for Metric {
             }),
             MetricType::MuonLifetime => FlatMetricType::MuonLifetime,
         };
-        Ok(FlatMetric { name: self.get_name().to_string(), save_to_json: self.save_to_json ,metric_type })
+        Ok(FlatMetric {
+            name: self.get_name().to_string(),
+            save_to_json: self.save_to_json,
+            metric_type,
+        })
     }
 }
 

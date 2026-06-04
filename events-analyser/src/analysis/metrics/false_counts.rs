@@ -77,12 +77,14 @@ impl MetricAggregatedResult for CompletedFalseCount {
         let negative_mean = sum_of_means / source.len() as f64;
         let negative_sd = sum_of_sds / source.len() as f64;
         */
-        let (positive_mean, positive_sd) = Self::stats_aggregator(source.values(), source.len() as f64,
-            |count|count.positive_sum.mean_and_stddev(count.num as f64)
-        );
-        let (negative_mean, negative_sd) = Self::stats_aggregator(source.values(), source.len() as f64,
-            |count|count.negative_sum.mean_and_stddev(count.num as f64)
-        );
+        let (positive_mean, positive_sd) =
+            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+                count.positive_sum.mean_and_stddev(count.num as f64)
+            });
+        let (negative_mean, negative_sd) =
+            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+                count.negative_sum.mean_and_stddev(count.num as f64)
+            });
         Self {
             positive_mean,
             positive_sd,
@@ -103,7 +105,7 @@ impl MetricAggregatedResult for CompletedFalseCount {
                 self.negative_mean,
                 self.negative_sd,
             )),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }

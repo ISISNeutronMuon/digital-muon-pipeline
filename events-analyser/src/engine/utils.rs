@@ -10,12 +10,14 @@ pub(crate) trait HasSource {
     fn get_source(&self) -> &str;
 }
 
-
 pub(crate) trait HasName {
-    fn is_source<S>(&self, object: &S) -> bool where S: HasSource {
+    fn is_source<S>(&self, object: &S) -> bool
+    where
+        S: HasSource,
+    {
         self.get_name() == object.get_source()
     }
-    
+
     fn has_name(&self, name: &str) -> bool {
         self.get_name() == name
     }

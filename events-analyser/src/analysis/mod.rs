@@ -5,15 +5,23 @@ mod chart;
 mod metrics;
 
 use crate::{
-    analysis::chart::ChartOutputError, engine::{AnalysisSettings, FlatBucketBlock, FlatChart}, eventlists::EventlistsCollection
+    analysis::chart::ChartOutputError,
+    engine::{AnalysisSettings, FlatBucketBlock, FlatChart},
+    eventlists::EventlistsCollection,
 };
-use digital_muon_common::{Channel, DigitizerId, spanned::{SpanOnceError, Spanned, SpannedAggregator}};
+pub(crate) use chart::ChartOutput;
+use digital_muon_common::{
+    Channel, DigitizerId,
+    spanned::{SpanOnceError, Spanned, SpannedAggregator},
+};
 use digital_muon_streaming_types::FrameMetadata;
-use std::{fs::File, path::{Path, PathBuf}};
+pub(crate) use metrics::MetricResult;
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 use tracing::{info, info_span, trace};
-pub(crate) use chart::ChartOutput;
-pub(crate) use metrics::MetricResult;
 
 #[derive(Debug, Error)]
 pub(crate) enum AnalysisError {
@@ -28,7 +36,7 @@ pub(crate) enum AnalysisError {
     #[error("Span Error: {0}")]
     Span(#[from] SpanOnceError),
     #[error("No Json Metric Specified")]
-    NoJsonMetricSpecified
+    NoJsonMetricSpecified,
 }
 
 pub(crate) struct AnalysisEngine {
@@ -40,7 +48,11 @@ pub(crate) struct AnalysisEngine {
 }
 
 impl AnalysisEngine {
-    pub(crate) fn new(settings: AnalysisSettings, path: PathBuf, load_metrics: bool) -> Result<Self, AnalysisError> {
+    pub(crate) fn new(
+        settings: AnalysisSettings,
+        path: PathBuf,
+        load_metrics: bool,
+    ) -> Result<Self, AnalysisError> {
         let buckets = settings.flatten_buckets().expect("Fixme: This may fail.");
 
         let bucket_block_sizes = buckets
@@ -56,7 +68,7 @@ impl AnalysisEngine {
             .flatten_metrics()
             .expect("Fixme: This may fail.")
             .into_iter()
-            .map(|metric| MetricResult::new(metric, &bucket_block_sizes) )
+            .map(|metric| MetricResult::new(metric, &bucket_block_sizes))
             .collect::<Vec<_>>();
 
         let mut this = Self {
@@ -64,7 +76,7 @@ impl AnalysisEngine {
             metrics,
             buckets,
             charts,
-            metrics_json_name: settings.metrics_json_name
+            metrics_json_name: settings.metrics_json_name,
         };
         if load_metrics {
             this.load_json_metrics()?;
@@ -91,13 +103,18 @@ impl AnalysisEngine {
             })?;
 
         if let Some(bucket) = bucket {
-            collection.span().get()
+            collection
+                .span()
+                .get()
                 .expect("This should never fail")
-                .in_scope(||bucket.link_current_span(||info_span!("EventList")))
+                .in_scope(|| bucket.link_current_span(|| info_span!("EventList")))
                 .expect("This should never fail");
 
             bucket.increment_count();
-            info!("Pushing to bucket {}, {}. Count: {}", index.0, index.1, bucket.count);
+            info!(
+                "Pushing to bucket {}, {}. Count: {}",
+                index.0, index.1, bucket.count
+            );
             let collection = collection.into_channel_collection();
             self.metrics.iter_mut().for_each(|metric| {
                 metric.push(&bucket.waveform, &bucket.algorithm, index, &collection)
@@ -120,7 +137,11 @@ impl AnalysisEngine {
         }
     }
 
-    pub(crate) fn save_metrics_json(&self, path: &Path, metrics_json_name: &str) -> Result<(), AnalysisError> {
+    pub(crate) fn save_metrics_json(
+        &self,
+        path: &Path,
+        metrics_json_name: &str,
+    ) -> Result<(), AnalysisError> {
         let mut path = path.to_owned();
         path.push(metrics_json_name);
         path.add_extension("json");
@@ -141,7 +162,7 @@ impl AnalysisEngine {
                     .expect("This should never fail")
                     .build_aggregate();
             }
-            
+
             let output = ChartOutput::new(chart, &self.metrics)?;
             if chart.output_to_json {
                 output.save_json(&self.path)?;

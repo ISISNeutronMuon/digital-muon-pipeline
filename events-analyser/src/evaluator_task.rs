@@ -113,7 +113,7 @@ async fn close_and_flush_evaluate_channel(
 async fn flush_eventlists_collection(
     use_otel: bool,
     analysis_engine: &mut AnalysisEngine,
-    eventlists_collection: EventlistsCollection
+    eventlists_collection: EventlistsCollection,
 ) -> Option<()> {
     evaluate_eventlists_collection(use_otel, analysis_engine, eventlists_collection).await;
     Some(())

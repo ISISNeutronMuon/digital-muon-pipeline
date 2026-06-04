@@ -1,4 +1,3 @@
-use std::{fmt::Debug, ops::Deref};
 use crate::{
     engine::{
         Flattenable, FlattenableWithIndex, Templates,
@@ -7,13 +6,16 @@ use crate::{
             criteria::{Criteria, CriteriaError, FlatCriteria},
             waveform::FlatWaveform,
         },
-        utils::{Interval, HasName, HasSource},
+        utils::{HasName, HasSource, Interval},
         values::ValueError,
     },
     eventlists::EventlistsCollection,
 };
-use digital_muon_common::spanned::{SpanOnce, SpanOnceError, Spanned, SpannedAggregator, SpannedMut};
+use digital_muon_common::spanned::{
+    SpanOnce, SpanOnceError, Spanned, SpannedAggregator, SpannedMut,
+};
 use serde::Deserialize;
+use std::{fmt::Debug, ops::Deref};
 use thiserror::Error;
 use tracing::{info_span, instrument};
 
@@ -36,7 +38,7 @@ pub(crate) enum BucketError {
     #[error("Value Error: {0}")]
     Criteria(#[from] CriteriaError),
     #[error("Span Error: {0}")]
-    Span(#[from] SpanOnceError)
+    Span(#[from] SpanOnceError),
 }
 
 ///
@@ -341,7 +343,7 @@ mod tests {
                 veto_flags: 0,
             },
             eventlists: Default::default(),
-            channels: vec![0, 1]
+            channels: vec![0, 1],
         };
         assert!(bucket.is_collection_in(&collection));
     }

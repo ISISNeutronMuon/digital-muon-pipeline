@@ -2,19 +2,21 @@ mod elements;
 mod utils;
 mod values;
 
-use serde::Deserialize;
-use std::ops::Deref;
 use crate::engine::{
     elements::{
-        Algorithm, AlgorithmProperties, BucketBlock, BucketBlockProperties, BucketBlockTemplate, BucketError, ChartError, Criteria, CriteriaTemplate, MetricError, Waveform, WaveformProperties
+        Algorithm, AlgorithmProperties, BucketBlock, BucketBlockProperties, BucketBlockTemplate,
+        BucketError, ChartError, Criteria, CriteriaTemplate, MetricError, Waveform,
+        WaveformProperties,
     },
     values::ValueError,
 };
+use serde::Deserialize;
+use std::ops::Deref;
 
 pub(crate) use crate::engine::{
     elements::{
-        Chart, FlatAlgorithm, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricType, FlatMetricFalseCount, FlatMetricEventCount,
-        FlatWaveform, Metric, FlatSeries, MetricProperty
+        Chart, FlatAlgorithm, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricEventCount,
+        FlatMetricFalseCount, FlatMetricType, FlatSeries, FlatWaveform, Metric, MetricProperty,
     },
     utils::HasName,
 };
@@ -38,10 +40,7 @@ pub(crate) struct Templates {
 }
 
 impl Templates {
-    fn get_bucket(
-        &self,
-        object: &BucketBlock,
-    ) -> Option<&BucketBlockProperties> {
+    fn get_bucket(&self, object: &BucketBlock) -> Option<&BucketBlockProperties> {
         self.bucket_templates
             .iter()
             .find_map(|tmplt| tmplt.is_source(object).then_some(tmplt.deref()))
@@ -159,8 +158,15 @@ impl AnalysisSettings {
             .find_map(|(index, metric)| metric.has_name(name).then_some(index))
     }
 
-    pub(crate) fn get_property_of_metric(&self, metric_index: usize, property_name: &str) -> Result<MetricProperty, MetricError> {
-        self.metrics.get(metric_index).expect("").get_property(property_name)
+    pub(crate) fn get_property_of_metric(
+        &self,
+        metric_index: usize,
+        property_name: &str,
+    ) -> Result<MetricProperty, MetricError> {
+        self.metrics
+            .get(metric_index)
+            .expect("")
+            .get_property(property_name)
     }
 }
 

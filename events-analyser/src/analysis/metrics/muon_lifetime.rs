@@ -51,9 +51,10 @@ impl MetricAggregatedResult for CompletedMuonLifetime {
     type Channel = MuonLifetime;
 
     fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
-        let (lifetime_mean, lifetime_sd) = Self::stats_aggregator(source.values(), source.len() as f64,
-            |count|count.lifetime.mean_and_stddev(count.num as f64)
-        );
+        let (lifetime_mean, lifetime_sd) =
+            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+                count.lifetime.mean_and_stddev(count.num as f64)
+            });
 
         Self {
             lifetime_mean,

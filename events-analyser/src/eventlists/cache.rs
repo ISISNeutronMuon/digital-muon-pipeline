@@ -43,14 +43,13 @@ impl MessageCache {
         topic_index: usize,
         data: EventData,
     ) -> Result<(), RejectMessageError> {
-        let eventlist = self
-            .eventlists
-            .iter_mut()
-            .find(|collection: &&mut PartialEventslistsCollection| {
+        let eventlist =
+            self.eventlists
+                .iter_mut()
+                .find(|collection: &&mut PartialEventslistsCollection| {
                     collection.metadata.equals_ignoring_veto_flags(metadata)
                         && collection.digitiser_id == digitiser_id
-                }
-            );
+                });
         let collection = {
             match eventlist {
                 Some(collection) => {
@@ -79,8 +78,10 @@ impl MessageCache {
             }
         };
         collection.push(topic_index, data)?;
-        collection.link_current_span(||info_span!("Digitiser Message")).expect("This should never fail.");
-        
+        collection
+            .link_current_span(|| info_span!("Digitiser Message"))
+            .expect("This should never fail.");
+
         Ok(())
     }
 

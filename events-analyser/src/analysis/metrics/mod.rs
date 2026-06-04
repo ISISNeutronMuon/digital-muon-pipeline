@@ -1,7 +1,7 @@
 mod event_counts;
 mod false_counts;
-mod output;
 mod muon_lifetime;
+mod output;
 mod result;
 
 use crate::{
@@ -12,8 +12,8 @@ use digital_muon_common::Channel;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::collections::HashMap;
 
-pub(crate) use result::MetricResult;
 pub(crate) use output::MetricOutput;
+pub(crate) use result::MetricResult;
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 struct SumWithSumOfSqrs {
@@ -35,7 +35,7 @@ impl SumWithSumOfSqrs {
     }
 }
 
-pub(crate) trait MetricChannelResult : Clone + Serialize + DeserializeOwned {
+pub(crate) trait MetricChannelResult: Clone + Serialize + DeserializeOwned {
     type Source;
     type Aggregrate: MetricAggregatedResult<Channel = Self>;
 
@@ -52,17 +52,16 @@ pub(crate) trait MetricChannelResult : Clone + Serialize + DeserializeOwned {
 pub(crate) trait MetricAggregatedResult: Clone + Serialize + DeserializeOwned {
     type Channel: MetricChannelResult<Aggregrate = Self>;
 
-    fn stats_aggregator<'a, F, I>(source: I, len: f64, f : F) -> (f64, f64)
-        where
-            F : Fn(&'a Self::Channel) -> (f64,f64), Self::Channel : 'a,
-            I : Iterator<Item = &'a Self::Channel> + ExactSizeIterator
+    fn stats_aggregator<'a, F, I>(source: I, len: f64, f: F) -> (f64, f64)
+    where
+        F: Fn(&'a Self::Channel) -> (f64, f64),
+        Self::Channel: 'a,
+        I: Iterator<Item = &'a Self::Channel> + ExactSizeIterator,
     {
-        let (sum_of_means, sum_of_sds) = source
-            .map(|count| f(count))
-            .fold(
-                Default::default(),
-                |(acc_mean, acc_sd): (f64, f64), (mean, sd)| (acc_mean + mean, acc_sd + sd),
-            );
+        let (sum_of_means, sum_of_sds) = source.map(|count| f(count)).fold(
+            Default::default(),
+            |(acc_mean, acc_sd): (f64, f64), (mean, sd)| (acc_mean + mean, acc_sd + sd),
+        );
         let mean = sum_of_means / len;
         let sd = sum_of_sds / len;
         (mean, sd)

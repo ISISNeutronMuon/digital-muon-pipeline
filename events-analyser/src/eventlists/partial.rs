@@ -9,7 +9,7 @@ use tokio::time::Instant;
 use tracing::{Span, info_span};
 
 use crate::{
-    event::{EventData},
+    event::EventData,
     eventlists::{EventlistsCollection, RejectMessageError},
 };
 
@@ -100,7 +100,7 @@ impl PartialEventslistsCollection {
             self.complete = true;
         }
     }
-    
+
     /// Pushes the given data from a digitser to the frame.
     /// # Parameters
     /// - digitiser_id: the id of the digitiser sending the data.

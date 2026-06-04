@@ -1,8 +1,15 @@
-use std::{fs::File, path::Path};
+use crate::{
+    analysis::metrics::{MetricOutput, MetricResult},
+    engine::{FlatChart, FlatSeries},
+};
+use plotly::{
+    self, Layout, Plot, Scatter,
+    common::{ErrorData, ErrorType, Line},
+    layout::{Axis, ModeBar},
+};
 use serde::{Deserialize, Serialize};
+use std::{fs::File, path::Path};
 use thiserror::Error;
-use plotly::{self, Layout, Plot, Scatter, common::{ErrorData, ErrorType, Line}, layout::{Axis, ModeBar}};
-use crate::{analysis::metrics::{MetricOutput, MetricResult}, engine::{FlatChart, FlatSeries}};
 
 #[derive(Debug, Error)]
 pub(crate) enum ChartOutputError {
@@ -14,7 +21,6 @@ pub(crate) enum ChartOutputError {
     Other(String),
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct ChartOutput {
@@ -23,22 +29,23 @@ pub(crate) struct ChartOutput {
 }
 
 impl ChartOutput {
-    pub(crate) fn new(chart: &FlatChart, metrics: &[MetricResult]) -> Result<Self, ChartOutputError> {
+    pub(crate) fn new(
+        chart: &FlatChart,
+        metrics: &[MetricResult],
+    ) -> Result<Self, ChartOutputError> {
         // Get Series Output
         let data = chart
             .series
             .iter()
             .map(|series: &FlatSeries| {
-                let metric = metrics
-                    .get(series.metric)
-                    .expect("This should never fail");
+                let metric = metrics.get(series.metric).expect("This should never fail");
                 metric.get_aggregate_property(series.from_bucket, &series.property)
             })
             .collect::<Result<Vec<_>, _>>()
             .map_err(ChartOutputError::Other)?;
         Ok(Self {
             chart: chart.clone(),
-            data
+            data,
         })
     }
 
@@ -76,7 +83,7 @@ impl ChartOutput {
             .auto_size(true)
             .x_axis(Axis::new().title(&self.chart.x_axis_label))
             .y_axis(Axis::new().title(&self.chart.y_axis_label));
-        
+
         plot.set_layout(layout);
         for (series, data) in Iterator::zip(self.chart.series.iter(), self.data.iter()) {
             match data {
@@ -85,16 +92,14 @@ impl ChartOutput {
                         .line(Line::new())
                         .name(&series.name);
                     plot.add_trace(trace);
-                },
+                }
                 MetricOutput::ScalarWithBand(value, band) => {
                     let trace = Scatter::new(self.chart.x_axis.clone(), value.clone())
                         .line(Line::new())
                         .name(&series.name)
-                        .error_y(ErrorData::new(ErrorType::Data)
-                            .array(band.clone())
-                        );
+                        .error_y(ErrorData::new(ErrorType::Data).array(band.clone()));
                     plot.add_trace(trace);
-                },
+                }
             }
         }
         plot

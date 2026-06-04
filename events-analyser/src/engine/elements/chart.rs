@@ -1,6 +1,11 @@
-use crate::{analysis::MetricResult, engine::{
-    AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex, elements::{MetricError, MetricProperty}, values::{Value, ValueError}
-}};
+use crate::{
+    analysis::MetricResult,
+    engine::{
+        AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex,
+        elements::{MetricError, MetricProperty},
+        values::{Value, ValueError},
+    },
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
@@ -43,8 +48,7 @@ impl Flattenable<&AnalysisSettings> for Series {
             .get_metric_index(&self.metric)
             .ok_or_else(|| SeriesError::MetricNotFound(self.from_bucket.clone()))?;
 
-        let property = library
-            .get_property_of_metric(metric, &self.property)?;
+        let property = library.get_property_of_metric(metric, &self.property)?;
 
         Ok(FlatSeries {
             name: self.name.clone(),
@@ -174,9 +178,7 @@ impl FlatChart {
             let block = buckets
                 .get(series.from_bucket)
                 .expect("This should never fail");
-            let metric = metrics
-                .get(series.metric)
-                .expect("This should never fail");
+            let metric = metrics.get(series.metric).expect("This should never fail");
 
             if !metric.are_buckets_full_enough(series.from_bucket, block.limits.min) {
                 //info!("Testing Bucket Block: {}... block not ready.", block.name);

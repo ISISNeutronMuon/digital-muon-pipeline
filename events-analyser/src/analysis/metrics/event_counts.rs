@@ -25,7 +25,7 @@ impl MetricChannelResult for EventCount {
         Self {
             num: Default::default(),
             topic: source.topic,
-            count: Default::default()
+            count: Default::default(),
         }
     }
 
@@ -57,9 +57,10 @@ impl MetricAggregatedResult for CompletedEventCount {
     type Channel = EventCount;
 
     fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
-        let (count_mean, count_sd) = Self::stats_aggregator(source.values(), source.len() as f64,
-            |count|count.count.mean_and_stddev(count.num as f64)
-        );
+        let (count_mean, count_sd) =
+            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+                count.count.mean_and_stddev(count.num as f64)
+            });
         Self {
             count_mean,
             count_sd,
@@ -69,10 +70,7 @@ impl MetricAggregatedResult for CompletedEventCount {
     fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String> {
         match property {
             MetricProperty::Mean => Ok(MetricOutput::Scalar(self.count_mean)),
-            MetricProperty::SD => Ok(MetricOutput::ScalarWithBand(
-                self.count_mean,
-                self.count_sd,
-            )),
+            MetricProperty::SD => Ok(MetricOutput::ScalarWithBand(self.count_mean, self.count_sd)),
             _ => unreachable!(),
         }
     }
