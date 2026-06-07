@@ -18,7 +18,7 @@ macro_rules! init_tracer {
         // to ensure the warning is emitted in the correct module.
         if tracer.use_otel() {
             if let Some(e) = tracer.get_otel_setup_error() {
-                warn!("{e}");
+                tracing::warn!("{e}");
             }
         }
         tracer

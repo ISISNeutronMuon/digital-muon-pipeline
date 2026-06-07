@@ -6,7 +6,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
 
 jobs:
@@ -85,6 +85,7 @@ jobs:
           - simulator
           - trace-reader
           - trace-to-events
+          - trace-writer
 
     uses: ./.github/workflows/component.yml
     with:
