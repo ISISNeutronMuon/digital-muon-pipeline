@@ -1,10 +1,7 @@
-use digital_muon_common::Channel;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
 use crate::{
     analysis::metrics::{
-        MetricAggregatedResult, MetricChannelResult, MetricOutput, SumWithSumOfSqrs,
+        CompleteMetricResultClass, PartialMetricResultClass, MetricOutput, SumWithSumOfSqrs,
     },
     engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
     event::ChannelData,
@@ -16,11 +13,11 @@ pub(crate) struct MuonLifetime {
     lifetime: SumWithSumOfSqrs,
 }
 
-impl MetricChannelResult for MuonLifetime {
+impl PartialMetricResultClass for MuonLifetime {
     type Source = ();
-    type Aggregrate = CompletedMuonLifetime;
+    type Complete = CompletedMuonLifetime;
 
-    fn make_default(_: ()) -> Self {
+    fn make_default(_: &()) -> Self {
         Self {
             num: Default::default(),
             lifetime: Default::default(),
@@ -47,14 +44,14 @@ pub(crate) struct CompletedMuonLifetime {
     lifetime_sd: f64,
 }
 
-impl MetricAggregatedResult for CompletedMuonLifetime {
-    type Channel = MuonLifetime;
+impl CompleteMetricResultClass for CompletedMuonLifetime {
+    type Partial = MuonLifetime;
 
-    fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
-        let (lifetime_mean, lifetime_sd) =
-            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+    fn aggregate(source: &Self::Partial) -> Self {
+        let (lifetime_mean, lifetime_sd) = source.lifetime.mean_and_stddev(source.num as f64);
+            /*Self::stats_aggregator(source.values(), source.len() as f64, |count| {
                 count.lifetime.mean_and_stddev(count.num as f64)
-            });
+            });*/
 
         Self {
             lifetime_mean,

@@ -1,10 +1,7 @@
-use digital_muon_common::Channel;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
 use crate::{
     analysis::metrics::{
-        MetricAggregatedResult, MetricChannelResult, MetricOutput, SumWithSumOfSqrs,
+        CompleteMetricResultClass, PartialMetricResultClass, MetricOutput, SumWithSumOfSqrs,
     },
     engine::{FlatAlgorithm, FlatMetricEventCount, FlatWaveform, MetricProperty},
     event::ChannelData,
@@ -17,11 +14,11 @@ pub(crate) struct EventCount {
     count: SumWithSumOfSqrs,
 }
 
-impl MetricChannelResult for EventCount {
+impl PartialMetricResultClass for EventCount {
     type Source = FlatMetricEventCount;
-    type Aggregrate = CompletedEventCount;
+    type Complete = CompletedEventCount;
 
-    fn make_default(source: FlatMetricEventCount) -> Self {
+    fn make_default(source: &FlatMetricEventCount) -> Self {
         Self {
             num: Default::default(),
             topic: source.topic,
@@ -53,14 +50,14 @@ pub(crate) struct CompletedEventCount {
     count_sd: f64,
 }
 
-impl MetricAggregatedResult for CompletedEventCount {
-    type Channel = EventCount;
+impl CompleteMetricResultClass for CompletedEventCount {
+    type Partial = EventCount;
 
-    fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
-        let (count_mean, count_sd) =
-            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+    fn aggregate(source: &Self::Partial) -> Self {
+        let (count_mean, count_sd) = source.count.mean_and_stddev(source.num as f64);
+        /*    Self::stats_aggregator(source.values(), source.len() as f64, |count| {
                 count.count.mean_and_stddev(count.num as f64)
-            });
+            }); */
         Self {
             count_mean,
             count_sd,

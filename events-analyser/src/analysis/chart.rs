@@ -1,5 +1,5 @@
 use crate::{
-    analysis::metrics::{MetricOutput, MetricResult},
+    analysis::metrics::{MetricOutput, CompletedMetricResult},
     engine::{FlatChart, FlatSeries},
 };
 use plotly::{
@@ -31,7 +31,7 @@ pub(crate) struct ChartOutput {
 impl ChartOutput {
     pub(crate) fn new(
         chart: &FlatChart,
-        metrics: &[MetricResult],
+        metrics: &[CompletedMetricResult],
     ) -> Result<Self, ChartOutputError> {
         // Get Series Output
         let data = chart

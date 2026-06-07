@@ -72,13 +72,13 @@ impl Deref for BucketBlockTemplate {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct BucketBlockProperties {
-    // Is applied to all voltages when traces are created
+    /// The number of buckets in this block.
     pub(crate) number: Option<usize>,
-    // Is applied to all voltages when traces are created
+    /// The name of the detection algorithm these buckets expect.
     pub(crate) algorithm: Option<String>,
-    // Is applied to all voltages when traces are created
+    /// The name of the modelling waveform these buckets expect.
     pub(crate) waveform: Option<String>,
-    // Is applied to all voltages when traces are created
+    /// Specifies the minimum and maximum number of eventlist collections these buckets allow.
     pub(crate) limits: Option<Interval<usize>>,
 }
 
@@ -88,11 +88,13 @@ pub(crate) struct BucketBlockProperties {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct BucketBlock {
+    /// Bucket Block Template to use as a source.
     pub(crate) source: String,
+    /// Name of this bucket block.
     pub(crate) name: String,
-    // Is applied to all voltages when traces are created
+    /// The crieria that is required for an eventlist collection to belong to one of these buckets.
     pub(crate) criteria: Criteria,
-    // Is applied to all voltages when traces are created
+    /// Fields of [BucketBlockProperties] used in this structure.
     #[serde(flatten)]
     pub(crate) properties: BucketBlockProperties,
 }
@@ -186,13 +188,13 @@ impl Flattenable<&Templates> for BucketBlock {
 /// This struct is created from the configuration JSON file.
 ///
 pub(crate) struct FlatBucketBlock {
+    /// Name of this bucket block.
     pub(crate) name: String,
     span: SpanOnce,
-    // Is applied to all voltages when traces are created
+    /// Buckets in this block.
     pub(crate) buckets: Vec<FlatBucket>,
-    // Is applied to all voltages when traces are created
+    /// Specifies the minimum and maximum number of eventlist collections these buckets allow. 
     pub(crate) limits: Interval<usize>,
-    // Is applied to all voltages when traces are created
 }
 
 impl HasName for FlatBucketBlock {
@@ -228,12 +230,13 @@ impl FlatBucketBlock {
 ///
 pub(crate) struct FlatBucket {
     span: SpanOnce,
-    // Is applied to all voltages when traces are created
+    /// The crieria that is required for an eventlist collection to belong to one of these buckets.
     pub(crate) criteria: FlatCriteria,
-    // Is applied to all voltages when traces are created
+    /// The properties of the detection algorithm this bucket expects.
     pub(crate) algorithm: FlatAlgorithm,
-    // Is applied to all voltages when traces are created
+    /// The properties of the waveform model this buckets expects.
     pub(crate) waveform: FlatWaveform,
+    /// The number of eventlist collections that have been placed in this bucket FIXME: Maybe Remove.
     pub(crate) count: usize,
 }
 
@@ -283,6 +286,8 @@ impl FlatBucket {
     pub(crate) fn increment_count(&mut self) {
         self.count += 1;
     }
+
+    /// Determine whether the eventlist collection satisfies the bucket's criteria.
     pub(crate) fn is_collection_in(&self, collection: &EventlistsCollection) -> bool {
         self.criteria
             .digitiser_ids

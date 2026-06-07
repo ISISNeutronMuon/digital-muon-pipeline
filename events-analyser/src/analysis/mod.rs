@@ -15,7 +15,7 @@ use digital_muon_common::{
     spanned::{SpanOnceError, Spanned, SpannedAggregator},
 };
 use digital_muon_streaming_types::FrameMetadata;
-pub(crate) use metrics::MetricResult;
+pub(crate) use metrics::{PartialMetricResult};
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -43,7 +43,7 @@ pub(crate) struct AnalysisEngine {
     path: PathBuf,
     metrics_json_name: Option<String>,
     buckets: Vec<FlatBucketBlock>,
-    metrics: Vec<MetricResult>,
+    metrics: Vec<PartialMetricResult>,
     charts: Vec<FlatChart>,
 }
 
@@ -68,7 +68,7 @@ impl AnalysisEngine {
             .flatten_metrics()
             .expect("Fixme: This may fail.")
             .into_iter()
-            .map(|metric| MetricResult::new(metric, &bucket_block_sizes))
+            .map(|metric| PartialMetricResult::new(metric.metric_type, &bucket_block_sizes))
             .collect::<Vec<_>>();
 
         let mut this = Self {
@@ -154,16 +154,18 @@ impl AnalysisEngine {
         if let Some(metrics_json_name) = &self.metrics_json_name {
             self.save_metrics_json(&self.path, metrics_json_name)?;
         }
+        let metrics = self.metrics.iter().map(|part|part.build_aggregate()).collect::<Vec<_>>();
         for chart in &self.charts {
+            /*
             // Ensure all series' metrics have been aggregated.
             for series in &chart.series {
                 self.metrics
                     .get_mut(series.metric)
                     .expect("This should never fail")
                     .build_aggregate();
-            }
+            }*/
 
-            let output = ChartOutput::new(chart, &self.metrics)?;
+            let output = ChartOutput::new(chart, &metrics)?;
             if chart.output_to_json {
                 output.save_json(&self.path)?;
             }

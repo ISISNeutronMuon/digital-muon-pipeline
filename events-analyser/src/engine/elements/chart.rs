@@ -1,5 +1,5 @@
 use crate::{
-    analysis::MetricResult,
+    analysis::PartialMetricResult,
     engine::{
         AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex,
         elements::{MetricError, MetricProperty},
@@ -195,7 +195,7 @@ impl FlatChart {
     /// # Parameters
     /// - buckets: 
     /// - metrics: 
-    pub(crate) fn evaluate_readiness(&mut self, buckets: &[FlatBucketBlock], metrics: &[MetricResult]) -> bool {
+    pub(crate) fn evaluate_readiness(&mut self, buckets: &[FlatBucketBlock], metrics: &[PartialMetricResult]) -> bool {
         if self.ready {
             true
         } else {
@@ -214,7 +214,7 @@ impl FlatChart {
     /// # Parameters
     /// - buckets: 
     /// - metrics: 
-    fn is_chart_ready(&self, buckets: &[FlatBucketBlock], metrics: &[MetricResult]) -> bool {
+    fn is_chart_ready(&self, buckets: &[FlatBucketBlock], metrics: &[PartialMetricResult]) -> bool {
         for series in &self.series {
             let block = buckets
                 .get(series.from_bucket)

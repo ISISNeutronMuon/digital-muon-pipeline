@@ -1,10 +1,7 @@
-use digital_muon_common::{Channel, Intensity, Time};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, iter::once};
-
 use crate::{
     analysis::metrics::{
-        MetricAggregatedResult, MetricChannelResult, MetricOutput, SumWithSumOfSqrs,
+        CompleteMetricResultClass, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs, group_by::GroupDataBy
     },
     engine::{FlatAlgorithm, FlatMetricFalseCount, FlatWaveform, MetricProperty},
     event::ChannelData,
@@ -19,11 +16,11 @@ pub(crate) struct FalseCount {
     negative_sum: SumWithSumOfSqrs,
 }
 
-impl MetricChannelResult for FalseCount {
+impl PartialMetricResultClass for FalseCount {
     type Source = FlatMetricFalseCount;
-    type Aggregrate = CompletedFalseCount;
+    type Complete = CompletedFalseCount;
 
-    fn make_default(source: FlatMetricFalseCount) -> Self {
+    fn make_default(source: &FlatMetricFalseCount) -> Self {
         Self {
             num: Default::default(),
             true_topic: source.true_topic,
@@ -94,7 +91,6 @@ impl FalseCount {
 
         let filter = |true_data: &ChannelData, index, detected_time, _detected_intensity| {
             let dist = true_data.get_temporal_distance_from(index, detected_time);
-            //println!("{index} {dist} {detected_time}");
             dist <= width
         };
         let mut group_data_by = GroupDataBy::new(filter, estimate_data, true_data);
@@ -116,146 +112,6 @@ impl FalseCount {
         (false_positives, false_negatives)
     }
 }
-struct GroupDataBy<'a, F>
-where
-    F: Fn(&'a ChannelData, usize, Time, Intensity) -> bool,
-{
-    data_filter: F,
-    group_labels: &'a ChannelData,
-    data_domain: &'a ChannelData,
-    num_groups: usize,
-    data_bucket: Vec<Vec<usize>>,
-    reject_bucket: Vec<usize>,
-}
-
-impl<'a, F> GroupDataBy<'a, F>
-where
-    F: Fn(&'a ChannelData, usize, Time, Intensity) -> bool,
-{
-    fn new(data_filter: F, group_labels: &'a ChannelData, data_domain: &'a ChannelData) -> Self {
-        let num_groups = group_labels.get_time_intensity().len();
-
-        let data_bucket = vec![Vec::<usize>::new(); num_groups];
-        let reject_bucket = Vec::<usize>::new();
-        Self {
-            data_filter,
-            group_labels,
-            data_domain,
-            num_groups,
-            data_bucket,
-            reject_bucket,
-        }
-    }
-
-    fn filter(
-        &mut self,
-        group_index: usize,
-        domain_index: usize,
-        domain_time: Time,
-        domain_intensity: Intensity,
-    ) {
-        if (&self.data_filter)(
-            self.group_labels,
-            group_index,
-            domain_time,
-            domain_intensity,
-        ) {
-            self.data_bucket.get_mut(group_index)
-                .expect("data_bucket should have at least `group_index` elements, this should never fail.")
-                .push(domain_index);
-        } else {
-            self.reject_bucket.push(domain_index);
-        }
-    }
-
-    fn is_group_label_at_index_less_than_current_domain_time(
-        &self,
-        group_label_index: usize,
-        current_domain_time: Time,
-    ) -> bool {
-        self.group_labels
-            .get_time_intensity()
-            .get(group_label_index)
-            .expect("This should never fail.")
-            .0
-            < current_domain_time
-    }
-
-    fn run(&mut self) {
-        // Iterator which iterates through `[None, Some(0), Some(1), ..., Some(some.num_groups - 1)]`.
-        // `None` indicates no left-bound is present, `Some(i)` indicates the left-bound is the ith
-        // element of `data_domain`.
-        let mut labels_left_bound = once(None)
-            .chain((0..(self.num_groups - 1)).map(Some))
-            .peekable();
-
-        for (domain_index, (domain_time, domain_intensity)) in
-            self.data_domain.get_time_intensity().iter().enumerate()
-        {
-            loop {
-                if let Some(labels_left_bound_index) = labels_left_bound.peek() {
-                    match labels_left_bound_index {
-                        None => {
-                            // If the first `data_domain` item is less than the current `group_labels` item.
-                            if self
-                                .is_group_label_at_index_less_than_current_domain_time(0, *domain_time)
-                            {
-                                labels_left_bound.next();
-                            } else {
-                                break;
-                            }
-                        }
-                        Some(labels_left_bound_index) => {
-                            // If the next `data_domain` item is less than the current `group_labels` item.
-                            if self.is_group_label_at_index_less_than_current_domain_time(
-                                labels_left_bound_index + 1,
-                                *domain_time,
-                            ) {
-                                labels_left_bound.next();
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    break;
-                }
-            }
-            match labels_left_bound.peek() {
-                // When `labels_left_bound` is left of the first `group_label` item.
-                Some(None) => {
-                    self.filter(0, domain_index, *domain_time, *domain_intensity);
-                }
-                // When `labels_left_bound` is between the first and last `group_label` items.
-                Some(Some(labels_left_bound_index)) => {
-                    let nearest_bucket_index = self
-                        .group_labels
-                        .find_nearest_in_time_after_index(*labels_left_bound_index, *domain_time);
-
-                    self.filter(
-                        nearest_bucket_index,
-                        domain_index,
-                        *domain_time,
-                        *domain_intensity,
-                    );
-                }
-                // When `labels_left_bound` is right of the last `group_label` item.
-                None => {
-                    self.filter(
-                        self.num_groups - 1,
-                        domain_index,
-                        *domain_time,
-                        *domain_intensity,
-                    );
-                }
-            }
-        }
-    }
-
-    fn finish(self) -> (Vec<Vec<usize>>, Vec<usize>) {
-        (self.data_bucket, self.reject_bucket)
-    }
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct CompletedFalseCount {
@@ -265,18 +121,19 @@ pub(crate) struct CompletedFalseCount {
     negative_sd: f64,
 }
 
-impl MetricAggregatedResult for CompletedFalseCount {
-    type Channel = FalseCount;
+impl CompleteMetricResultClass for CompletedFalseCount {
+    type Partial = FalseCount;
 
-    fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
-        let (positive_mean, positive_sd) =
-            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+    fn aggregate(source: &Self::Partial) -> Self {
+        let (positive_mean, positive_sd) = source.positive_sum.mean_and_stddev(source.num as f64);
+            /*Self::stats_aggregator(source.values(), source.len() as f64, |count| {
                 count.positive_sum.mean_and_stddev(count.num as f64)
-            });
-        let (negative_mean, negative_sd) =
+            });*/
+        let (negative_mean, negative_sd) = source.negative_sum.mean_and_stddev(source.num as f64);
+        /*let (negative_mean, negative_sd) =
             Self::stats_aggregator(source.values(), source.len() as f64, |count| {
                 count.negative_sum.mean_and_stddev(count.num as f64)
-            });
+            });*/
         Self {
             positive_mean,
             positive_sd,
@@ -299,74 +156,5 @@ impl MetricAggregatedResult for CompletedFalseCount {
             )),
             _ => unreachable!(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test1() {
-        let group_labels = ChannelData::new(vec![(31, 6), (50, 12)]);
-        let data_domain = ChannelData::new(vec![(40, 6), (60, 12)]);
-
-        let mut group_data_by = GroupDataBy::new(|_, _, _, _| true, &group_labels, &data_domain);
-        group_data_by.run();
-        let (grouped_data, reject_data) = group_data_by.finish();
-
-        assert!(reject_data.is_empty());
-        assert_eq!(grouped_data, vec![vec![0], vec![1]]);
-    }
-
-    #[test]
-    fn test2() {
-        let group_labels = ChannelData::new(vec![(30, 6), (50, 12)]);
-        let data_domain = ChannelData::new(vec![(40, 6), (60, 12)]);
-
-        let mut group_data_by = GroupDataBy::new(|_, _, _, _| true, &group_labels, &data_domain);
-        group_data_by.run();
-        let (grouped_data, reject_data) = group_data_by.finish();
-
-        assert!(reject_data.is_empty());
-        assert_eq!(grouped_data, vec![vec![], vec![0, 1]]);
-    }
-
-    #[test]
-    fn test3() {
-        let group_labels = ChannelData::new(vec![(49, 6), (77, 12)]);
-        let data_domain = ChannelData::new(vec![(40, 6), (60, 12)]);
-
-        let mut group_data_by = GroupDataBy::new(|_, _, _, _| true, &group_labels, &data_domain);
-        group_data_by.run();
-        let (grouped_data, reject_data) = group_data_by.finish();
-
-        assert!(reject_data.is_empty());
-        assert_eq!(grouped_data, vec![vec![0, 1], vec![]]);
-    }
-
-    #[test]
-    fn test4() {
-        let group_labels = ChannelData::new(vec![(49, 6), (55, 6), (77, 12)]);
-        let data_domain = ChannelData::new(vec![
-            (40, 6),
-            (54, 6),
-            (60, 12),
-            (61, 12),
-            (62, 12),
-            (76, 12),
-            (79, 12),
-        ]);
-
-        const WIDTH: Time = 4;
-        let data_filter = |group_labels: &ChannelData, group_index, time, _| {
-            group_labels.get_temporal_distance_from(group_index, time) <= WIDTH
-        };
-        let mut group_data_by = GroupDataBy::new(data_filter, &group_labels, &data_domain);
-        group_data_by.run();
-        let (grouped_data, reject_data) = group_data_by.finish();
-
-        assert_eq!(grouped_data, vec![vec![], vec![1], vec![5, 6]]);
-        assert_eq!(reject_data, vec![0, 2, 3, 4]);
     }
 }

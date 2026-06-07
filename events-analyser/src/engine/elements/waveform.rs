@@ -1,5 +1,4 @@
 use std::ops::Deref;
-
 use crate::engine::{
     Array, FlattenableWithIndex, HasName,
     values::{Value, ValueError},

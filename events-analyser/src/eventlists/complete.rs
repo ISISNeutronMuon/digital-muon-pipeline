@@ -17,7 +17,7 @@ pub(crate) struct EventlistsCollection {
     pub(crate) digitiser_id: DigitizerId,
     /// The identifying metadata of the message, common to all digitiser messages related to this frame (except possibly for [FrameMetadata::veto_flags]).
     pub(crate) metadata: FrameMetadata,
-    /// The frame's event data.
+    /// The event data from each topic.
     pub(crate) eventlists: Vec<EventData>,
     /// Channels.
     pub(crate) channels: Vec<Channel>,
