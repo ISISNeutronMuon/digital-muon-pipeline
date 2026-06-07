@@ -1,4 +1,4 @@
-use crate::engine::{Flattenable, utils::HasName, values::ValueError};
+use crate::engine::{Flattenable, HasName, values::ValueError};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

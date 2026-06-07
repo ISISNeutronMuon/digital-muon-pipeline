@@ -1,92 +1,14 @@
 mod elements;
-mod utils;
+mod settings;
 mod values;
-
-use crate::engine::{
-    elements::{
-        Algorithm, AlgorithmProperties, BucketBlock, BucketBlockProperties, BucketBlockTemplate,
-        BucketError, ChartError, Criteria, CriteriaTemplate, MetricError, Waveform,
-        WaveformProperties,
-    },
-    values::ValueError,
-};
-use serde::Deserialize;
-use std::ops::Deref;
 
 pub(crate) use crate::engine::{
     elements::{
         Chart, FlatAlgorithm, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricEventCount,
         FlatMetricFalseCount, FlatMetricType, FlatSeries, FlatWaveform, Metric, MetricProperty,
     },
-    utils::HasName,
+    settings::{AnalysisSettings, Array, Templates},
 };
-
-///
-/// This struct is created from the configuration JSON file.
-///
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) struct Templates {
-    // List of metrics to calculate for each phase.
-    pub(crate) criteria_templates: Vec<CriteriaTemplate>,
-    // List of metrics to calculate for each phase.
-    pub(crate) arrays: Vec<Array>,
-    // List of metrics to calculate for each phase.
-    pub(crate) algorithms: Vec<Algorithm>,
-    // List of metrics to calculate for each phase.
-    pub(crate) bucket_templates: Vec<BucketBlockTemplate>,
-    // List of metrics to calculate for each phase.
-    pub(crate) waveforms: Vec<Waveform>,
-}
-
-impl Templates {
-    fn get_bucket(&self, object: &BucketBlock) -> Option<&BucketBlockProperties> {
-        self.bucket_templates
-            .iter()
-            .find_map(|tmplt| tmplt.is_source(object).then_some(tmplt.deref()))
-    }
-
-    fn get_arrays(&self) -> &[Array] {
-        &self.arrays
-    }
-
-    fn get_criteria(&self, name: &str) -> Option<&CriteriaTemplate> {
-        self.criteria_templates
-            .iter()
-            .find_map(|tmplt| tmplt.has_name(name).then_some(tmplt))
-    }
-
-    fn get_algorithm(&self, name: &str) -> Option<&AlgorithmProperties> {
-        self.algorithms
-            .iter()
-            .find_map(|alg| alg.has_name(name).then_some(alg.deref()))
-    }
-
-    fn get_waveform(&self, name: &str) -> Option<&WaveformProperties> {
-        self.waveforms
-            .iter()
-            .find_map(|wav| wav.has_name(name).then_some(wav.deref()))
-    }
-}
-
-///
-/// This struct is created from the configuration JSON file.
-///
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) struct AnalysisSettings {
-    pub(crate) metrics_json_name: Option<String>,
-    // Topics the consumer should listen to to receive Eventlist messages.
-    pub(crate) events_topics: Vec<String>,
-    // List of metrics to calculate and are available to the charts.
-    pub(crate) metrics: Vec<Metric>,
-    // Templates of structures that are used when metrics, buckets, and charts are flattened.
-    pub(crate) templates: Templates,
-    // Blocks of buckets that accept collections of eventlists.
-    pub(crate) buckets: Vec<BucketBlock>,
-    // List of Charts.
-    pub(crate) charts: Vec<Chart>,
-}
 
 /// Provides methods for flattening dependencies.
 pub(crate) trait Flattenable<Lib> {
@@ -119,78 +41,29 @@ trait FlattenableWithIndex {
     fn flatten(&self, library: &Self::Library, index: usize) -> Result<Self::Flat, Self::Error>;
 }
 
-impl AnalysisSettings {
-    pub(crate) fn flatten_buckets(&self) -> Result<Vec<FlatBucketBlock>, BucketError> {
-        self.buckets
-            .iter()
-            .map(|block| block.flatten(&self.templates))
-            .collect::<Result<_, BucketError>>()
-    }
-
-    pub(crate) fn flatten_metrics(&self) -> Result<Vec<FlatMetric>, ValueError> {
-        self.metrics
-            .iter()
-            .map(|metric| metric.flatten(&self.events_topics))
-            .collect::<Result<_, ValueError>>()
-    }
-
-    pub(crate) fn flatten_charts(
-        &self,
-        buckets: &[FlatBucketBlock],
-    ) -> Result<Vec<FlatChart>, ChartError> {
-        self.charts
-            .iter()
-            .map(|chart| chart.flatten((self, buckets)))
-            .collect::<Result<_, ChartError>>()
-    }
-
-    pub(crate) fn get_bucket_block_index(&self, name: &str) -> Option<usize> {
-        self.buckets
-            .iter()
-            .enumerate()
-            .find_map(|(index, block)| (block.has_name(name)).then_some(index))
-    }
-
-    pub(crate) fn get_metric_index(&self, name: &str) -> Option<usize> {
-        self.metrics
-            .iter()
-            .enumerate()
-            .find_map(|(index, metric)| metric.has_name(name).then_some(index))
-    }
-
-    pub(crate) fn get_property_of_metric(
-        &self,
-        metric_index: usize,
-        property_name: &str,
-    ) -> Result<MetricProperty, MetricError> {
-        self.metrics
-            .get(metric_index)
-            .expect("")
-            .get_property(property_name)
-    }
+/// Should be defined for any structures whose fields depend on an external template.
+pub(crate) trait HasSource {
+    /// Returns the object's source.
+    fn get_source(&self) -> &str;
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) struct Array {
-    pub(crate) name: String,
-    // Is applied to all voltages when traces are created
-    pub(crate) values: Vec<f64>,
-}
-
-impl Array {
-    pub(crate) fn get_element(&self, index: usize) -> f64 {
-        *self.values.get(index).unwrap() // FIXME: Handle Error
+/// Should be defined for any structures which can used as a template by a `HasSource` element.
+pub(crate) trait HasName {
+    /// Determines whether this object is the one referenced by a `HasSource` element.
+    fn is_source<S>(&self, object: &S) -> bool
+    where
+        S: HasSource,
+    {
+        self.get_name() == object.get_source()
     }
-}
 
-impl HasName for Array {
-    fn get_name(&self) -> &str {
-        &self.name
+    /// Determines whether this object has the given name.
+    fn has_name(&self, name: &str) -> bool {
+        self.get_name() == name
     }
+
+    /// Returns the object's name.
+    fn get_name(&self) -> &str;
 }
 
 #[cfg(test)]

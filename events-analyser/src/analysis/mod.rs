@@ -174,10 +174,9 @@ impl AnalysisEngine {
         Ok(())
     }
 
-    pub(crate) fn chart_poll(&mut self) -> Result<bool, String> {
+    pub(crate) fn evaluate_chart_readiness(&mut self) -> Result<bool, String> {
         for chart in &mut self.charts {
-            if chart.poll(&self.buckets, &self.metrics) {
-                chart.set_ready();
+            if chart.evaluate_readiness(&self.buckets, &self.metrics) {
                 trace!("{}, ready.", chart.title);
             } else {
                 trace!("{}, not ready.", chart.title);

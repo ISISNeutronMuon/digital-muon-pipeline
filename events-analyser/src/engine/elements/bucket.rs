@@ -6,8 +6,8 @@ use crate::{
             criteria::{Criteria, CriteriaError, FlatCriteria},
             waveform::FlatWaveform,
         },
-        utils::{HasName, HasSource, Interval},
-        values::ValueError,
+        values::{Interval, ValueError},
+        HasName, HasSource
     },
     eventlists::EventlistsCollection,
 };

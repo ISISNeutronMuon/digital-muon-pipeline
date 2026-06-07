@@ -21,6 +21,13 @@ impl ChannelData {
         &self.time_intensity
     }
 
+    pub(crate) fn get_time_intensity_of_index(&self, index: usize) -> (Time, Intensity) {
+        self.time_intensity
+            .get(index)
+            .expect("`index` should be valid, this should never fail")
+            .clone()
+    }
+
     pub(crate) fn get_temporal_distance_from(&self, index: usize, target: Time) -> u32 {
         let (time, _) = self
             .time_intensity

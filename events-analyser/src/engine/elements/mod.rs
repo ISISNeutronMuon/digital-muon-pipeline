@@ -11,7 +11,7 @@ pub(crate) use {
         BucketBlock, BucketBlockProperties, BucketBlockTemplate, BucketError, FlatBucketBlock,
     },
     chart::{Chart, ChartError, FlatChart, FlatSeries},
-    criteria::{Criteria, CriteriaTemplate},
+    criteria::CriteriaTemplate,
     metric::{
         FlatMetric, FlatMetricEventCount, FlatMetricFalseCount, FlatMetricType, Metric,
         MetricError, MetricProperty,

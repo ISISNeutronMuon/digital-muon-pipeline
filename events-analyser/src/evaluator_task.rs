@@ -66,7 +66,7 @@ async fn recv_and_evaluate(
             }
             _ = chart_poll_interval.tick() => {
                 trace!("Polling for chart completion.");
-                if analysis_engine.chart_poll().expect("This should never fail.") {
+                if analysis_engine.evaluate_chart_readiness().expect("This should never fail.") {
                     match analysis_engine.build_charts() {
                         Ok(_) => (),
                         Err(e) => {

@@ -3,7 +3,7 @@ use crate::{
     engine::{
         AnalysisSettings, FlatBucketBlock, Flattenable, FlattenableWithIndex,
         elements::{MetricError, MetricProperty},
-        values::{Value, ValueError},
+        values::{Dependency, ValueError},
     },
 };
 use serde::{Deserialize, Serialize};
@@ -22,16 +22,21 @@ pub(crate) enum SeriesError {
     Metric(#[from] MetricError),
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Encapsulates a series of data-points of a chart.
+/// To specify the values used, the following must be specified:
+/// a metric instance, a property of that metric, a bucket block instance.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Series {
+    /// Name of series that appears in the key.
     name: String,
+    /// Colour to apply to the line and marker on the graph.
     colour: Option<String>,
+    /// Metric instance from which the y-values are collected.
     metric: String,
+    /// Specific property of the metric from which the y-values are collected.
     property: String,
+    /// Bucket block from which the y-values are collected.
     from_bucket: String,
 }
 
@@ -60,16 +65,19 @@ impl Flattenable<&AnalysisSettings> for Series {
     }
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Encapsulates a series of data-points of a chart, with all dependencies flattened.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatSeries {
+    /// Name of series that appears in the key.
     pub(crate) name: String,
+    /// Colour to apply to the line and marker on the graph.
     pub(crate) colour: Option<String>,
+    /// Index of metric instance from which the y-values are collected.
     pub(crate) metric: usize,
+    /// Specific property of the metric from which the y-values are collected.
     pub(crate) property: MetricProperty,
+    /// Index of bucket block from which the y-values are collected.
     pub(crate) from_bucket: usize,
 }
 
@@ -83,21 +91,27 @@ pub(crate) enum ChartError {
     NoOutputModeSet,
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Defines a chart that can be written as a graphical chart, or as a json structure.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Chart {
+    /// Number of values to use in the x-axis.
     width: usize,
-    x_axis: Value<f64>,
+    /// Values to display on the x-axis. This can either be from an array, or a function.
+    x_axis: Dependency<f64>,
     #[serde(default)]
+    /// Whether to write the chart to a json file (default: false).
     output_to_json: bool,
     #[serde(default)]
+    /// Whether to write the chart to a graphical html file (default: false).
     output_to_html: bool,
+    /// List of series to display on the graph.
     series: Vec<Series>,
+    /// Label written on the x-axis.
     x_axis_label: String,
+    /// Label written on the y-axis.
     y_axis_label: String,
+    /// Title that appears on the graph (as well as the file name).
     title: String,
 }
 
@@ -153,27 +167,54 @@ impl Flattenable<(&AnalysisSettings, &[FlatBucketBlock])> for Chart {
     }
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Defines a chart that can be written as a graphical chart, or as a json structure.
+/// Flattened of all dependencies.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatChart {
     ready: bool,
+    /// Whether to write the chart to a json file (default: false).
     pub(crate) output_to_json: bool,
+    /// Whether to write the chart to a graphical html file (default: false).
     pub(crate) output_to_html: bool,
+    /// Values to display on the x-axis. This can either be from an array, or a function.
     pub(crate) x_axis: Vec<f64>,
+    /// List of series to display on the graph.
     pub(crate) series: Vec<FlatSeries>,
+    /// Label written on the x-axis.
     pub(crate) x_axis_label: String,
+    /// Label written on the y-axis.
     pub(crate) y_axis_label: String,
+    /// Title that appears on the graph (as well as the file name).
     pub(crate) title: String,
 }
 
 impl FlatChart {
-    pub(crate) fn poll(&self, buckets: &[FlatBucketBlock], metrics: &[MetricResult]) -> bool {
+    /// Determines whether the chart is ready to be written.
+    /// 
+    /// # Parameters
+    /// - buckets: 
+    /// - metrics: 
+    pub(crate) fn evaluate_readiness(&mut self, buckets: &[FlatBucketBlock], metrics: &[MetricResult]) -> bool {
         if self.ready {
-            return true;
+            true
+        } else {
+            if self.is_chart_ready(buckets, metrics) {
+                self.ready = true;
+                true
+            } else {
+                false
+            }
         }
+    }
+
+    /// Tests whether the chart is ready to be written.
+    /// Namely whether all relevant metrics have enough data in their buckets.
+    /// 
+    /// # Parameters
+    /// - buckets: 
+    /// - metrics: 
+    fn is_chart_ready(&self, buckets: &[FlatBucketBlock], metrics: &[MetricResult]) -> bool {
         for series in &self.series {
             let block = buckets
                 .get(series.from_bucket)
@@ -187,9 +228,5 @@ impl FlatChart {
             info!("Testing Bucket Block: {}... block ready.", block.name);
         }
         true
-    }
-
-    pub(crate) fn set_ready(&mut self) {
-        self.ready = true;
     }
 }

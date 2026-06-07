@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::engine::{
     FlattenableWithIndex, HasName, Templates,
-    utils::HasSource,
+    HasSource,
     values::{ConstantFilter, ValueError, ValueFilter},
 };
 
@@ -28,7 +28,7 @@ pub(crate) enum CriteriaError {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct CriteriaProperties {
-    /// Is applied to all voltages when traces are created
+    /// Filters by periods.
     pub(crate) periods: Option<ValueFilter<u64>>,
     /// Is applied to all voltages when traces are created
     pub(crate) frames: Option<ValueFilter<FrameNumber>>,
@@ -38,9 +38,7 @@ pub(crate) struct CriteriaProperties {
     pub(crate) digitiser_ids: Option<ValueFilter<DigitizerId>>,
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Defines a criteria template that can be used to construct a criteria object.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct CriteriaTemplate {
