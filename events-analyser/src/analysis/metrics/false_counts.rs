@@ -50,66 +50,72 @@ impl MetricChannelResult for FalseCount {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct CompletedFalseCount {
-    positive_mean: f64,
-    positive_sd: f64,
-    negative_mean: f64,
-    negative_sd: f64,
-}
+impl FalseCount {
+    pub(crate) fn sort_estimates_by_true(
+        &self,
+        waveform: &FlatWaveform,
+        algorithm: &FlatAlgorithm,
+        collection_by_topic: &[ChannelData],
+    ) -> (Vec<Vec<usize>>, Vec<usize>) {
+        let true_data = collection_by_topic
+            .get(self.true_topic)
+            .expect("Topic should exist, this should never fail.");
+        let estimate_data = collection_by_topic
+            .get(self.estimate_topic)
+            .expect("Topic should exist, this should never fail.");
 
-impl MetricAggregatedResult for CompletedFalseCount {
-    type Channel = FalseCount;
-
-    fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
-        /*let accum = |(acc_mean, acc_sd): (f64, f64), (mean, sd): (f64, f64)| (acc_mean + mean, acc_sd + sd);
-        let (sum_of_means, sum_of_sds) = source
-            .values()
-            .map(|count| count.positive_sum.mean_and_stddev(count.num as f64))
-            .fold( Default::default(), accum);
-        let positive_mean = sum_of_means / source.len() as f64;
-        let positive_sd = sum_of_sds / source.len() as f64;
-
-        let (sum_of_means, sum_of_sds) = source
-            .values()
-            .map(|count| count.negative_sum.mean_and_stddev(count.num as f64))
-            .fold( Default::default(),accum);
-        let negative_mean = sum_of_means / source.len() as f64;
-        let negative_sd = sum_of_sds / source.len() as f64;
-        */
-        let (positive_mean, positive_sd) =
-            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
-                count.positive_sum.mean_and_stddev(count.num as f64)
-            });
-        let (negative_mean, negative_sd) =
-            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
-                count.negative_sum.mean_and_stddev(count.num as f64)
-            });
-        Self {
-            positive_mean,
-            positive_sd,
-            negative_mean,
-            negative_sd,
-        }
+        let filter = |data_to_group: &ChannelData, index, time, intensity| {
+            //let dist = data_to_group.get_time_intensity().get_temporal_distance_from(index, time);
+            let detected = data_to_group.get_time_intensity_of_index(index);
+            algorithm.is_true_positive(waveform, (time, intensity), detected)
+        };
+        let mut group_data_by = GroupDataBy::new(filter, true_data, estimate_data);
+        group_data_by.run();
+        group_data_by.finish()
     }
 
-    fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String> {
-        match property {
-            MetricProperty::FalsePositivesMean => Ok(MetricOutput::Scalar(self.positive_mean)),
-            MetricProperty::FalsePositivesSD => Ok(MetricOutput::ScalarWithBand(
-                self.positive_mean,
-                self.positive_sd,
-            )),
-            MetricProperty::FalseNegativesMean => Ok(MetricOutput::Scalar(self.negative_mean)),
-            MetricProperty::FalseNegativesSD => Ok(MetricOutput::ScalarWithBand(
-                self.negative_mean,
-                self.negative_sd,
-            )),
-            _ => unreachable!(),
-        }
+    pub(crate) fn sort_true_by_estimates(
+        &self,
+        waveform: &FlatWaveform,
+        algorithm: &FlatAlgorithm,
+        collection_by_topic: &[ChannelData],
+    ) -> (Vec<Vec<usize>>, Vec<usize>) {
+        let true_data = collection_by_topic
+            .get(self.true_topic)
+            .expect("Topic should exist, this should never fail.");
+        let estimate_data = collection_by_topic
+            .get(self.estimate_topic)
+            .expect("Topic should exist, this should never fail.");
+        let width = match waveform {
+            FlatWaveform::Flat { width } => *width,
+            FlatWaveform::Triangular { base_width } => *base_width,
+            FlatWaveform::Gaussian { sd } => *sd,
+        } as u32;
+
+        let filter = |true_data: &ChannelData, index, detected_time, _detected_intensity| {
+            let dist = true_data.get_temporal_distance_from(index, detected_time);
+            //println!("{index} {dist} {detected_time}");
+            dist <= width
+        };
+        let mut group_data_by = GroupDataBy::new(filter, estimate_data, true_data);
+        group_data_by.run();
+        group_data_by.finish()
+    }
+
+    pub(crate) fn get_false_counts(
+        &self,
+        waveform: &FlatWaveform,
+        algorithm: &FlatAlgorithm,
+        collection_by_topic: &[ChannelData],
+    ) -> (usize, usize) {
+        let (true_by_estimates, estimate_reject) =
+            self.sort_true_by_estimates(waveform, algorithm, collection_by_topic);
+        let false_positives = estimate_reject.len();
+        let false_negatives = true_by_estimates.into_iter().filter(Vec::is_empty).count();
+
+        (false_positives, false_negatives)
     }
 }
-
 struct GroupDataBy<'a, F>
 where
     F: Fn(&'a ChannelData, usize, Time, Intensity) -> bool,
@@ -155,7 +161,7 @@ where
             domain_intensity,
         ) {
             self.data_bucket.get_mut(group_index)
-                .expect("data_bucket should have at least `domain_index` elements, this should never fail.")
+                .expect("data_bucket should have at least `group_index` elements, this should never fail.")
                 .push(domain_index);
         } else {
             self.reject_bucket.push(domain_index);
@@ -176,7 +182,7 @@ where
     }
 
     fn run(&mut self) {
-        // Iterator which iterates through `[None, Some(0), Some(1), ..., Some(some.num_data_points - 1)]`.
+        // Iterator which iterates through `[None, Some(0), Some(1), ..., Some(some.num_groups - 1)]`.
         // `None` indicates no left-bound is present, `Some(i)` indicates the left-bound is the ith
         // element of `data_domain`.
         let mut labels_left_bound = once(None)
@@ -186,25 +192,33 @@ where
         for (domain_index, (domain_time, domain_intensity)) in
             self.data_domain.get_time_intensity().iter().enumerate()
         {
-            if let Some(labels_left_bound_index) = labels_left_bound.peek() {
-                match labels_left_bound_index {
-                    None => {
-                        // If the first `data_domain` item is less than the current `group_labels` item.
-                        if self
-                            .is_group_label_at_index_less_than_current_domain_time(0, *domain_time)
-                        {
-                            labels_left_bound.next();
+            loop {
+                if let Some(labels_left_bound_index) = labels_left_bound.peek() {
+                    match labels_left_bound_index {
+                        None => {
+                            // If the first `data_domain` item is less than the current `group_labels` item.
+                            if self
+                                .is_group_label_at_index_less_than_current_domain_time(0, *domain_time)
+                            {
+                                labels_left_bound.next();
+                            } else {
+                                break;
+                            }
+                        }
+                        Some(labels_left_bound_index) => {
+                            // If the next `data_domain` item is less than the current `group_labels` item.
+                            if self.is_group_label_at_index_less_than_current_domain_time(
+                                labels_left_bound_index + 1,
+                                *domain_time,
+                            ) {
+                                labels_left_bound.next();
+                            } else {
+                                break;
+                            }
                         }
                     }
-                    Some(labels_left_bound_index) => {
-                        // If the next `data_domain` item is less than the current `group_labels` item.
-                        if self.is_group_label_at_index_less_than_current_domain_time(
-                            labels_left_bound_index + 1,
-                            *domain_time,
-                        ) {
-                            labels_left_bound.next();
-                        }
-                    }
+                } else {
+                    break;
                 }
             }
             match labels_left_bound.peek() {
@@ -243,40 +257,48 @@ where
     }
 }
 
-impl FalseCount {
-    pub(crate) fn sort_estimates_by_true(
-        &self,
-        waveform: &FlatWaveform,
-        algorithm: &FlatAlgorithm,
-        collection_by_topic: &[ChannelData],
-    ) -> (Vec<Vec<usize>>, Vec<usize>) {
-        let true_data = collection_by_topic
-            .get(self.true_topic)
-            .expect("Topic should exist, this should never fail.");
-        let estimate_data = collection_by_topic
-            .get(self.estimate_topic)
-            .expect("Topic should exist, this should never fail.");
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct CompletedFalseCount {
+    positive_mean: f64,
+    positive_sd: f64,
+    negative_mean: f64,
+    negative_sd: f64,
+}
 
-        let filter = |data_to_group: &ChannelData, index, time, intensity| {
-            let dist = data_to_group.get_temporal_distance_from(index, time);
-            algorithm.is_true_positive(waveform, intensity, dist)
-        };
-        let mut group_data_by = GroupDataBy::new(filter, true_data, estimate_data);
-        group_data_by.run();
-        group_data_by.finish()
+impl MetricAggregatedResult for CompletedFalseCount {
+    type Channel = FalseCount;
+
+    fn aggregate(source: &HashMap<Channel, Self::Channel>) -> Self {
+        let (positive_mean, positive_sd) =
+            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+                count.positive_sum.mean_and_stddev(count.num as f64)
+            });
+        let (negative_mean, negative_sd) =
+            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+                count.negative_sum.mean_and_stddev(count.num as f64)
+            });
+        Self {
+            positive_mean,
+            positive_sd,
+            negative_mean,
+            negative_sd,
+        }
     }
 
-    pub(crate) fn get_false_counts(
-        &self,
-        waveform: &FlatWaveform,
-        algorithm: &FlatAlgorithm,
-        collection_by_topic: &[ChannelData],
-    ) -> (usize, usize) {
-        let (estimate_by_true, estimate_reject) =
-            self.sort_estimates_by_true(waveform, algorithm, collection_by_topic);
-        let false_positives = estimate_reject.len();
-        let false_negatives = estimate_by_true.into_iter().filter(Vec::is_empty).count();
-        (false_positives, false_negatives)
+    fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String> {
+        match property {
+            MetricProperty::FalsePositivesMean => Ok(MetricOutput::Scalar(self.positive_mean)),
+            MetricProperty::FalsePositivesSD => Ok(MetricOutput::ScalarWithBand(
+                self.positive_mean,
+                self.positive_sd,
+            )),
+            MetricProperty::FalseNegativesMean => Ok(MetricOutput::Scalar(self.negative_mean)),
+            MetricProperty::FalseNegativesSD => Ok(MetricOutput::ScalarWithBand(
+                self.negative_mean,
+                self.negative_sd,
+            )),
+            _ => unreachable!(),
+        }
     }
 }
 
