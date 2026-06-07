@@ -86,6 +86,7 @@ jobs:
           - trace-reader
           - trace-to-events
           - trace-writer
+          - events-analyser
 
     uses: ./.github/workflows/component.yml
     with:
