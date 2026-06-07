@@ -37,7 +37,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 use tokio::time;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 #[derive(Clone, Parser)]
 #[clap(author, version = digital_muon_common::version!(), about)]
