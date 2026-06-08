@@ -81,6 +81,7 @@ jobs:
       matrix:
         component:
           - digitiser-aggregator
+          - events-analyser
           - nexus-writer
           - simulator
           - trace-reader
