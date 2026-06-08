@@ -62,3 +62,21 @@ pub(crate) enum FlatWaveform {
     Triangular { base_width: f64 },
     Gaussian { sd: f64 },
 }
+
+impl FlatWaveform {
+    pub(crate) fn effective_radius_at_base(&self) -> f64 {
+        match self {
+            Self::Flat { width } => *width / 2.0,
+            Self::Triangular { base_width } => *base_width / 2.0,
+            Self::Gaussian { sd } => *sd,
+        }
+    }
+    
+    pub(crate) fn effective_radius_at_proportion_of_peak(&self, proportion: f64) -> f64 {
+        match self {
+            Self::Flat { width } => *width / 2.0,
+            Self::Triangular { base_width } => *base_width * proportion / 2.0,
+            Self::Gaussian { sd } => *sd * f64::sqrt(-f64::ln(proportion)),
+        }
+    }
+}

@@ -83,11 +83,7 @@ impl FalseCount {
         let estimate_data = collection_by_topic
             .get(self.estimate_topic)
             .expect("Topic should exist, this should never fail.");
-        let width = match waveform {
-            FlatWaveform::Flat { width } => *width,
-            FlatWaveform::Triangular { base_width } => *base_width,
-            FlatWaveform::Gaussian { sd } => *sd,
-        } as u32;
+        let width = waveform.effective_radius_at_base() as u32;
 
         let filter = |true_data: &ChannelData, index, detected_time, _detected_intensity| {
             let dist = true_data.get_temporal_distance_from(index, detected_time);

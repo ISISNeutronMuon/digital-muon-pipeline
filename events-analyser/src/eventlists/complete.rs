@@ -54,7 +54,7 @@ impl EventlistsCollection {
                     .entry(channel)
                     .or_insert_with(|| default.clone())
                     .get_mut(topic_index)
-                    .expect("") = channel_data
+                    .expect("This should never fail.") = channel_data
             }
         }
         temp
