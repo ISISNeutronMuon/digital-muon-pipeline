@@ -1,0 +1,25 @@
+[package]
+name = "trace-writer"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+chrono.workspace = true
+clap.workspace = true
+git-version.workspace = true
+hdf5.workspace = true
+isis_streaming_data_types.workspace = true
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+miette = { workspace = true, features = ["fancy"] }
+ndarray.workspace = true
+rdkafka.workspace = true
+thiserror.workspace = true
+digital-muon-common.workspace = true
+digital-muon-streaming-types.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[lints.clippy]
+fallible_impl_from = "deny"
