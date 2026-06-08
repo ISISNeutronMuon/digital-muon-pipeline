@@ -1,11 +1,11 @@
-use serde::{Deserialize, Serialize};
 use crate::{
     analysis::metrics::{
-        CompleteMetricResultClass, PartialMetricResultClass, MetricOutput, SumWithSumOfSqrs,
+        CompleteMetricResultClass, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs,
     },
     engine::{FlatAlgorithm, FlatMetricEventCount, FlatWaveform, MetricProperty},
     event::ChannelData,
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct EventCount {
@@ -56,8 +56,8 @@ impl CompleteMetricResultClass for CompletedEventCount {
     fn aggregate(source: &Self::Partial) -> Self {
         let (count_mean, count_sd) = source.count.mean_and_stddev(source.num as f64);
         /*    Self::stats_aggregator(source.values(), source.len() as f64, |count| {
-                count.count.mean_and_stddev(count.num as f64)
-            }); */
+            count.count.mean_and_stddev(count.num as f64)
+        }); */
         Self {
             count_mean,
             count_sd,

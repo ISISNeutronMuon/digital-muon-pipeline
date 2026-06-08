@@ -1,9 +1,9 @@
-use std::ops::Deref;
 use crate::engine::{
     Array, FlattenableWithIndex, HasName,
     values::{Value, ValueError},
 };
 use serde::Deserialize;
+use std::ops::Deref;
 
 ///
 #[derive(Debug, Deserialize, Clone)]
@@ -71,7 +71,7 @@ impl FlatWaveform {
             Self::Gaussian { sd } => *sd,
         }
     }
-    
+
     pub(crate) fn effective_radius_at_proportion_of_peak(&self, proportion: f64) -> f64 {
         match self {
             Self::Flat { width } => *width / 2.0,

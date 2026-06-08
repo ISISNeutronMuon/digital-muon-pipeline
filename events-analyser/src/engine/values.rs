@@ -1,12 +1,8 @@
+use crate::engine::{Array, FlattenableWithIndex, HasName};
+use num::NumCast;
 use serde::Deserialize;
 use std::ops::{Add, Mul, RangeInclusive};
 use thiserror::Error;
-use num::NumCast;
-use crate::engine::{
-    Array, FlattenableWithIndex,
-    HasName
-};
-
 
 /// Represents any type that can be used in calculations and cast into scalars.
 pub(crate) trait Number:
@@ -72,7 +68,9 @@ impl<T: Number> FlattenableWithIndex for ValueFilter<T> {
         index: usize,
     ) -> Result<ConstantFilter<T>, Self::Error> {
         match self {
-            ValueFilter::Dependent(dependency) => Ok(ConstantFilter::Is(dependency.flatten(arrays, index)?)),
+            ValueFilter::Dependent(dependency) => {
+                Ok(ConstantFilter::Is(dependency.flatten(arrays, index)?))
+            }
             ValueFilter::Constant(constant) => Ok(constant.clone()),
         }
     }

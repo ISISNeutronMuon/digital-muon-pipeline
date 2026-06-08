@@ -1,5 +1,5 @@
 use crate::{
-    analysis::metrics::{MetricOutput, CompletedMetricResult},
+    analysis::metrics::{CompletedMetricResult, MetricOutput},
     engine::{FlatChart, FlatSeries},
 };
 use plotly::{

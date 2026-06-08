@@ -15,7 +15,7 @@ use digital_muon_common::{
     spanned::{SpanOnceError, Spanned, SpannedAggregator},
 };
 use digital_muon_streaming_types::FrameMetadata;
-pub(crate) use metrics::{PartialMetricResult};
+pub(crate) use metrics::PartialMetricResult;
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -154,18 +154,15 @@ impl AnalysisEngine {
         if let Some(metrics_json_name) = &self.metrics_json_name {
             self.save_metrics_json(&self.path, metrics_json_name)?;
         }
-        let metrics = self.metrics.iter().map(|part|part.build_aggregate()).collect::<Vec<_>>();
-        for chart in &self.charts {
-            /*
-            // Ensure all series' metrics have been aggregated.
-            for series in &chart.series {
-                self.metrics
-                    .get_mut(series.metric)
-                    .expect("This should never fail")
-                    .build_aggregate();
-            }*/
+        let metrics = self
+            .metrics
+            .iter()
+            .map(|part| part.build_aggregate())
+            .collect::<Vec<_>>();
 
+        for chart in &self.charts {
             let output = ChartOutput::new(chart, &metrics)?;
+
             if chart.output_to_json {
                 output.save_json(&self.path)?;
             }

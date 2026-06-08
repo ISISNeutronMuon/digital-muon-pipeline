@@ -3,8 +3,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::engine::{
-    FlattenableWithIndex, HasName, Templates,
-    HasSource,
+    FlattenableWithIndex, HasName, HasSource, Templates,
     values::{ConstantFilter, ValueError, ValueFilter},
 };
 

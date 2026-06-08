@@ -3,8 +3,7 @@ use serde::Deserialize;
 use std::{fmt::Debug, ops::Deref};
 
 use crate::engine::{
-    Array, FlatWaveform, FlattenableWithIndex,
-    HasName,
+    Array, FlatWaveform, FlattenableWithIndex, HasName,
     values::{Value, ValueError},
 };
 
@@ -116,7 +115,8 @@ impl FlatAlgorithm {
                     &FlatWaveform::Triangular { base_width } => base_width,
                     &FlatWaveform::Gaussian { sd } => sd,
                 };
-                (detected.0 as f64 - pulse_peak.0 as f64).abs() < (duration + cool_down) as f64 + width
+                (detected.0 as f64 - pulse_peak.0 as f64).abs()
+                    < (duration + cool_down) as f64 + width
             }
         }
     }

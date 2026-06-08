@@ -1,11 +1,10 @@
 use crate::engine::{
-    Chart, FlatBucketBlock, FlatChart, FlatMetric, Metric, MetricProperty, elements::{
+    Chart, FlatBucketBlock, FlatChart, FlatMetric, Flattenable, HasName, Metric, MetricProperty,
+    elements::{
         Algorithm, AlgorithmProperties, BucketBlock, BucketBlockProperties, BucketBlockTemplate,
-        BucketError, ChartError, CriteriaTemplate, MetricError, Waveform,
-        WaveformProperties,
-    }, values::ValueError,
-    Flattenable,
-    HasName,
+        BucketError, ChartError, CriteriaTemplate, MetricError, Waveform, WaveformProperties,
+    },
+    values::ValueError,
 };
 use serde::Deserialize;
 use std::ops::Deref;
@@ -77,7 +76,6 @@ pub(crate) struct AnalysisSettings {
     pub(crate) charts: Vec<Chart>,
 }
 
-
 impl AnalysisSettings {
     pub(crate) fn flatten_buckets(&self) -> Result<Vec<FlatBucketBlock>, BucketError> {
         self.buckets
@@ -128,7 +126,6 @@ impl AnalysisSettings {
             .get_property(property_name)
     }
 }
-
 
 /// List of floating point values that can be used in `Function` structures.
 #[derive(Debug, Clone, Deserialize)]

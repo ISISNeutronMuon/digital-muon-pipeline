@@ -1,11 +1,12 @@
-use serde::{Deserialize, Serialize};
 use crate::{
     analysis::metrics::{
-        CompleteMetricResultClass, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs, group_by::GroupDataBy
+        CompleteMetricResultClass, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs,
+        group_by::GroupDataBy,
     },
     engine::{FlatAlgorithm, FlatMetricFalseCount, FlatWaveform, MetricProperty},
     event::ChannelData,
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct FalseCount {
@@ -122,14 +123,14 @@ impl CompleteMetricResultClass for CompletedFalseCount {
 
     fn aggregate(source: &Self::Partial) -> Self {
         let (positive_mean, positive_sd) = source.positive_sum.mean_and_stddev(source.num as f64);
-            /*Self::stats_aggregator(source.values(), source.len() as f64, |count| {
-                count.positive_sum.mean_and_stddev(count.num as f64)
-            });*/
+        /*Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+            count.positive_sum.mean_and_stddev(count.num as f64)
+        });*/
         let (negative_mean, negative_sd) = source.negative_sum.mean_and_stddev(source.num as f64);
         /*let (negative_mean, negative_sd) =
-            Self::stats_aggregator(source.values(), source.len() as f64, |count| {
-                count.negative_sum.mean_and_stddev(count.num as f64)
-            });*/
+        Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+            count.negative_sum.mean_and_stddev(count.num as f64)
+        });*/
         Self {
             positive_mean,
             positive_sd,

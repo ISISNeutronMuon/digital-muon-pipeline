@@ -1,8 +1,8 @@
 mod event_counts;
 mod false_counts;
+mod group_by;
 mod muon_lifetime;
 mod output;
-mod group_by;
 mod result;
 
 use crate::{
@@ -12,7 +12,7 @@ use crate::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub(crate) use output::MetricOutput;
-pub(crate) use result::{PartialMetricResult, CompletedMetricResult};
+pub(crate) use result::{CompletedMetricResult, PartialMetricResult};
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 struct SumWithSumOfSqrs {
@@ -36,7 +36,7 @@ impl SumWithSumOfSqrs {
 
 pub(crate) trait MetricResultClass: Clone + Serialize + DeserializeOwned {}
 
-impl<T> MetricResultClass for T where T : Clone + Serialize + DeserializeOwned {}
+impl<T> MetricResultClass for T where T: Clone + Serialize + DeserializeOwned {}
 
 pub(crate) trait PartialMetricResultClass: MetricResultClass {
     type Source;

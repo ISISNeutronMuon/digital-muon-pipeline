@@ -191,11 +191,15 @@ pub(crate) struct FlatChart {
 
 impl FlatChart {
     /// Determines whether the chart is ready to be written.
-    /// 
+    ///
     /// # Parameters
-    /// - buckets: 
-    /// - metrics: 
-    pub(crate) fn evaluate_readiness(&mut self, buckets: &[FlatBucketBlock], metrics: &[PartialMetricResult]) -> bool {
+    /// - buckets:
+    /// - metrics:
+    pub(crate) fn evaluate_readiness(
+        &mut self,
+        buckets: &[FlatBucketBlock],
+        metrics: &[PartialMetricResult],
+    ) -> bool {
         if self.ready {
             true
         } else {
@@ -210,10 +214,10 @@ impl FlatChart {
 
     /// Tests whether the chart is ready to be written.
     /// Namely whether all relevant metrics have enough data in their buckets.
-    /// 
+    ///
     /// # Parameters
-    /// - buckets: 
-    /// - metrics: 
+    /// - buckets:
+    /// - metrics:
     fn is_chart_ready(&self, buckets: &[FlatBucketBlock], metrics: &[PartialMetricResult]) -> bool {
         for series in &self.series {
             let block = buckets

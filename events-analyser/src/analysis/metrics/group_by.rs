@@ -1,6 +1,6 @@
+use crate::event::ChannelData;
 use digital_muon_common::{Intensity, Time};
 use std::iter::once;
-use crate::event::ChannelData;
 
 pub(super) struct GroupDataBy<'a, F>
 where
@@ -18,7 +18,11 @@ impl<'a, F> GroupDataBy<'a, F>
 where
     F: Fn(&'a ChannelData, usize, Time, Intensity) -> bool,
 {
-    pub(super) fn new(data_filter: F, group_labels: &'a ChannelData, data_domain: &'a ChannelData) -> Self {
+    pub(super) fn new(
+        data_filter: F,
+        group_labels: &'a ChannelData,
+        data_domain: &'a ChannelData,
+    ) -> Self {
         let num_groups = group_labels.get_time_intensity().len();
 
         let data_bucket = vec![Vec::<usize>::new(); num_groups];
@@ -83,9 +87,10 @@ where
                     match labels_left_bound_index {
                         None => {
                             // If the first `data_domain` item is less than the current `group_labels` item.
-                            if self
-                                .is_group_label_at_index_less_than_current_domain_time(0, *domain_time)
-                            {
+                            if self.is_group_label_at_index_less_than_current_domain_time(
+                                0,
+                                *domain_time,
+                            ) {
                                 labels_left_bound.next();
                             } else {
                                 break;
@@ -213,10 +218,9 @@ mod tests {
 
     #[test]
     fn trivial_test() {
-        let group_labels = ChannelData::new((0..100).map(|i|(i*15, 10)).collect());
-        let data_domain = ChannelData::new((0..100).map(|i|(i*15, 10)).collect());
-        
-        
+        let group_labels = ChannelData::new((0..100).map(|i| (i * 15, 10)).collect());
+        let data_domain = ChannelData::new((0..100).map(|i| (i * 15, 10)).collect());
+
         let data_filter = |_, _, _, _| true;
         let mut group_data_by = GroupDataBy::new(data_filter, &group_labels, &data_domain);
         group_data_by.run();
@@ -224,17 +228,17 @@ mod tests {
 
         assert!(reject_data.is_empty());
         assert_eq!(grouped_data.len(), 100);
-        for (i,v) in grouped_data.into_iter().enumerate() {
+        for (i, v) in grouped_data.into_iter().enumerate() {
             assert_eq!(v.len(), 1);
             assert_eq!(i, v[0]);
         }
     }
-/*
+    /*
     #[test]
     fn nontrivial_test() {
         let group_labels = ChannelData::new((0..100).map(|i|(i*15, 10)).collect());
         let data_domain = ChannelData::new((0..100).map(|i|(i*15 + (10.0*f64::sin(8.0*3.141592 * i as f64/100.0)) as u32, 10)).collect());
-        
+
         let data_filter = |_, _, _, _| true;
         let mut group_data_by = GroupDataBy::new(data_filter, &group_labels, &data_domain);
         group_data_by.run();

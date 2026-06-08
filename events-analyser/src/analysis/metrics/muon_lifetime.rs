@@ -1,11 +1,11 @@
-use serde::{Deserialize, Serialize};
 use crate::{
     analysis::metrics::{
-        CompleteMetricResultClass, PartialMetricResultClass, MetricOutput, SumWithSumOfSqrs,
+        CompleteMetricResultClass, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs,
     },
     engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
     event::ChannelData,
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct MuonLifetime {
@@ -49,9 +49,9 @@ impl CompleteMetricResultClass for CompletedMuonLifetime {
 
     fn aggregate(source: &Self::Partial) -> Self {
         let (lifetime_mean, lifetime_sd) = source.lifetime.mean_and_stddev(source.num as f64);
-            /*Self::stats_aggregator(source.values(), source.len() as f64, |count| {
-                count.lifetime.mean_and_stddev(count.num as f64)
-            });*/
+        /*Self::stats_aggregator(source.values(), source.len() as f64, |count| {
+            count.lifetime.mean_and_stddev(count.num as f64)
+        });*/
 
         Self {
             lifetime_mean,

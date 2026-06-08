@@ -1,13 +1,12 @@
 use crate::{
     engine::{
-        Flattenable, FlattenableWithIndex, Templates,
+        Flattenable, FlattenableWithIndex, HasName, HasSource, Templates,
         elements::{
             algorithm::FlatAlgorithm,
             criteria::{Criteria, CriteriaError, FlatCriteria},
             waveform::FlatWaveform,
         },
         values::{Interval, ValueError},
-        HasName, HasSource
     },
     eventlists::EventlistsCollection,
 };
@@ -193,7 +192,7 @@ pub(crate) struct FlatBucketBlock {
     span: SpanOnce,
     /// Buckets in this block.
     pub(crate) buckets: Vec<FlatBucket>,
-    /// Specifies the minimum and maximum number of eventlist collections these buckets allow. 
+    /// Specifies the minimum and maximum number of eventlist collections these buckets allow.
     pub(crate) limits: Interval<usize>,
 }
 
