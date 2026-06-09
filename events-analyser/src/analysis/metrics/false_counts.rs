@@ -1,7 +1,6 @@
 use crate::{
     analysis::metrics::{
-        CompleteMetricResultClass, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs,
-        group_by::GroupDataBy,
+        CompleteMetricResultClass, MeanSD, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs, group_by::GroupDataBy
     },
     engine::{FlatAlgorithm, FlatMetricFalseCount, FlatWaveform, MetricProperty},
     event::ChannelData,
@@ -13,8 +12,14 @@ pub(crate) struct FalseCount {
     num: usize,
     true_topic: usize,
     estimate_topic: usize,
-    positive_sum: SumWithSumOfSqrs,
-    negative_sum: SumWithSumOfSqrs,
+    /// The true events which are associated uniquely with a single detections.
+    true_positive_sum: SumWithSumOfSqrs,
+    /// The true events which are associated non-uniquely with a single detections.
+    ambiguous_true_positive_sum: SumWithSumOfSqrs,
+    /// Detections which are not associated with any true event.
+    false_positive_sum: SumWithSumOfSqrs,
+    /// True events which are not associated with any detection.
+    false_negative_sum: SumWithSumOfSqrs,
 }
 
 impl PartialMetricResultClass for FalseCount {
@@ -26,8 +31,10 @@ impl PartialMetricResultClass for FalseCount {
             num: Default::default(),
             true_topic: source.true_topic,
             estimate_topic: source.estimate_topic,
-            positive_sum: Default::default(),
-            negative_sum: Default::default(),
+            true_positive_sum: Default::default(),
+            ambiguous_true_positive_sum: Default::default(),
+            false_positive_sum: Default::default(),
+            false_negative_sum: Default::default(),
         }
     }
 
@@ -37,10 +44,28 @@ impl PartialMetricResultClass for FalseCount {
         algorithm: &FlatAlgorithm,
         by_topic: &[ChannelData],
     ) {
+        // true_by_estimates is indexed by the detected events, and the corresponding element is the list of true events that have been associated to it
+        // rejected_true is the list of all true events that are not associated with any detected events.
+        let (true_by_estimates, rejected_true) =
+            self.sort_true_by_estimates(waveform, algorithm, by_topic);
+        
+        let ambiguous_true_positives : usize = true_by_estimates.iter()
+            .filter(|vec|vec.len() > 1)
+            .map(|vec|vec.len() - 1)
+            .sum();
+        let true_positives = true_by_estimates.iter()
+            .filter(|vec|vec.len() == 1)
+            .count();
+        let false_positives = true_by_estimates.into_iter()
+            .filter(Vec::is_empty)
+            .count();
+        let false_negatives = rejected_true.len();
+
         self.num += 1;
-        let (positives, negatives) = self.get_false_counts(waveform, algorithm, by_topic);
-        self.positive_sum.add_to(positives as f64);
-        self.negative_sum.add_to(negatives as f64);
+        self.ambiguous_true_positive_sum.add_to(ambiguous_true_positives as f64);
+        self.true_positive_sum.add_to(true_positives as f64);
+        self.false_positive_sum.add_to(false_positives as f64);
+        self.false_negative_sum.add_to(false_negatives as f64);
     }
 
     fn len(&self) -> usize {
@@ -94,62 +119,53 @@ impl FalseCount {
         group_data_by.run();
         group_data_by.finish()
     }
-
-    pub(crate) fn get_false_counts(
-        &self,
-        waveform: &FlatWaveform,
-        algorithm: &FlatAlgorithm,
-        collection_by_topic: &[ChannelData],
-    ) -> (usize, usize) {
-        let (true_by_estimates, estimate_reject) =
-            self.sort_true_by_estimates(waveform, algorithm, collection_by_topic);
-        let false_positives = true_by_estimates.into_iter().filter(Vec::is_empty).count();
-        let false_negatives = estimate_reject.len();
-
-        (false_positives, false_negatives)
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct CompletedFalseCount {
-    positive_mean: f64,
-    positive_sd: f64,
-    negative_mean: f64,
-    negative_sd: f64,
+    /// The true events which are associated uniquely with a single detections.
+    true_positives: MeanSD,
+    /// The true events which are associated non-uniquely with a single detections.
+    ambiguous_true_positives: MeanSD,
+    /// Detections which are not associated with any true event.
+    false_positives: MeanSD,
+    /// True events which are not associated with any detection.
+    false_negatives: MeanSD,
 }
 
 impl CompleteMetricResultClass for CompletedFalseCount {
     type Partial = FalseCount;
 
     fn aggregate(source: &Self::Partial) -> Self {
-        let (positive_mean, positive_sd) = source.positive_sum.mean_and_stddev(source.num as f64);
-        /*Self::stats_aggregator(source.values(), source.len() as f64, |count| {
-            count.positive_sum.mean_and_stddev(count.num as f64)
-        });*/
-        let (negative_mean, negative_sd) = source.negative_sum.mean_and_stddev(source.num as f64);
-        /*let (negative_mean, negative_sd) =
-        Self::stats_aggregator(source.values(), source.len() as f64, |count| {
-            count.negative_sum.mean_and_stddev(count.num as f64)
-        });*/
         Self {
-            positive_mean,
-            positive_sd,
-            negative_mean,
-            negative_sd,
+            true_positives: source.true_positive_sum.mean_and_stddev(source.num as f64),
+            ambiguous_true_positives: source.ambiguous_true_positive_sum.mean_and_stddev(source.num as f64),
+            false_positives: source.false_positive_sum.mean_and_stddev(source.num as f64),
+            false_negatives: source.false_negative_sum.mean_and_stddev(source.num as f64),
         }
     }
 
     fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String> {
         match property {
-            MetricProperty::FalsePositivesMean => Ok(MetricOutput::Scalar(self.positive_mean)),
+            MetricProperty::FalsePositivesMean => Ok(MetricOutput::Scalar(self.false_positives.mean)),
             MetricProperty::FalsePositivesSD => Ok(MetricOutput::ScalarWithBand(
-                self.positive_mean,
-                self.positive_sd,
+                self.false_positives.mean,
+                self.false_positives.sd,
             )),
-            MetricProperty::FalseNegativesMean => Ok(MetricOutput::Scalar(self.negative_mean)),
+            MetricProperty::FalseNegativesMean => Ok(MetricOutput::Scalar(self.false_negatives.mean)),
             MetricProperty::FalseNegativesSD => Ok(MetricOutput::ScalarWithBand(
-                self.negative_mean,
-                self.negative_sd,
+                self.false_negatives.mean,
+                self.false_negatives.sd,
+            )),
+            MetricProperty::TruePositivesMean => Ok(MetricOutput::Scalar(self.true_positives.mean)),
+            MetricProperty::TruePositivesSD => Ok(MetricOutput::ScalarWithBand(
+                self.true_positives.mean,
+                self.true_positives.sd,
+            )),
+            MetricProperty::AmbiguousTruePositivesMean => Ok(MetricOutput::Scalar(self.ambiguous_true_positives.mean)),
+            MetricProperty::AmbiguousTruePositivesSD => Ok(MetricOutput::ScalarWithBand(
+                self.ambiguous_true_positives.mean,
+                self.ambiguous_true_positives.sd,
             )),
             _ => unreachable!(),
         }

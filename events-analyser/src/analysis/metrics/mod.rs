@@ -26,12 +26,18 @@ impl SumWithSumOfSqrs {
         self.sqr_sum += value * value;
     }
 
-    pub(crate) fn mean_and_stddev(&self, n: f64) -> (f64, f64) {
-        (
-            self.sum / n,
-            f64::sqrt((n * self.sqr_sum - self.sum * self.sum) / (n * (n - 1.0))),
-        )
+    pub(crate) fn mean_and_stddev(&self, n: f64) -> MeanSD {
+        MeanSD {
+            mean: self.sum / n,
+            sd: f64::sqrt((n * self.sqr_sum - self.sum * self.sum) / (n * (n - 1.0))),
+        }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct MeanSD {
+    pub(crate) mean: f64,
+    pub(crate) sd: f64,
 }
 
 pub(crate) trait MetricResultClass: Clone + Serialize + DeserializeOwned {}

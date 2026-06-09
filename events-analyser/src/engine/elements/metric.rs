@@ -58,6 +58,10 @@ pub(crate) enum MetricProperty {
     FalsePositivesSD,
     FalseNegativesMean,
     FalseNegativesSD,
+    TruePositivesMean,
+    TruePositivesSD,
+    AmbiguousTruePositivesMean,
+    AmbiguousTruePositivesSD,
 }
 
 impl MetricType {
