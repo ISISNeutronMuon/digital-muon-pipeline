@@ -6,6 +6,7 @@ use crate::{
         values::{Dependency, ValueError},
     },
 };
+use plotly::common::DashType;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
@@ -31,13 +32,39 @@ pub(crate) struct Series {
     /// Name of series that appears in the key.
     name: String,
     /// Colour to apply to the line and marker on the graph.
-    colour: Option<String>,
+    line_colour: Option<String>,
+    /// Colour to apply to the line and marker on the graph.
+    line_style: Option<Dash>,
     /// Metric instance from which the y-values are collected.
     metric: String,
     /// Specific property of the metric from which the y-values are collected.
     property: String,
     /// Bucket block from which the y-values are collected.
     from_bucket: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum Dash {
+    Solid,
+    Dot,
+    Dash,
+    LongDash,
+    DashDot,
+    LongDashDot,
+}
+
+impl From<&Dash> for DashType {
+    fn from(value: &Dash) -> Self {
+        match value {
+            Dash::Solid => DashType::Solid,
+            Dash::Dot => DashType::Dot,
+            Dash::Dash => DashType::Dash,
+            Dash::LongDash => DashType::LongDash,
+            Dash::DashDot => DashType::DashDot,
+            Dash::LongDashDot => DashType::LongDashDot,
+        }
+    }
 }
 
 impl Flattenable<&AnalysisSettings> for Series {
@@ -57,7 +84,8 @@ impl Flattenable<&AnalysisSettings> for Series {
 
         Ok(FlatSeries {
             name: self.name.clone(),
-            colour: self.colour.clone(),
+            line_colour: self.line_colour.clone(),
+            line_style: self.line_style.clone(),
             from_bucket,
             metric,
             property,
@@ -72,7 +100,9 @@ pub(crate) struct FlatSeries {
     /// Name of series that appears in the key.
     pub(crate) name: String,
     /// Colour to apply to the line and marker on the graph.
-    pub(crate) colour: Option<String>,
+    pub(crate) line_colour: Option<String>,
+    /// Dash style to apply to the line and marker on the graph.
+    pub(crate) line_style: Option<Dash>,
     /// Index of metric instance from which the y-values are collected.
     pub(crate) metric: usize,
     /// Specific property of the metric from which the y-values are collected.

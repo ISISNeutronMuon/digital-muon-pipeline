@@ -110,11 +110,7 @@ impl FlatAlgorithm {
                 cool_down,
             } => {
                 let _height = threshold / pulse_peak.1 as f64;
-                let width = match waveform {
-                    &FlatWaveform::Flat { width } => width,
-                    &FlatWaveform::Triangular { base_width } => base_width,
-                    &FlatWaveform::Gaussian { sd } => sd,
-                };
+                let width = waveform.effective_radius_at_base();
                 (detected.0 as f64 - pulse_peak.0 as f64).abs()
                     < (duration + cool_down) as f64 + width
             }

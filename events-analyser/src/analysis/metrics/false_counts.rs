@@ -49,7 +49,7 @@ impl PartialMetricResultClass for FalseCount {
 }
 
 impl FalseCount {
-    pub(crate) fn sort_estimates_by_true(
+    /*pub(crate) fn sort_estimates_by_true(
         &self,
         waveform: &FlatWaveform,
         algorithm: &FlatAlgorithm,
@@ -70,7 +70,7 @@ impl FalseCount {
         let mut group_data_by = GroupDataBy::new(filter, true_data, estimate_data);
         group_data_by.run();
         group_data_by.finish()
-    }
+    }*/
 
     pub(crate) fn sort_true_by_estimates(
         &self,
@@ -84,11 +84,11 @@ impl FalseCount {
         let estimate_data = collection_by_topic
             .get(self.estimate_topic)
             .expect("Topic should exist, this should never fail.");
-        let width = waveform.effective_radius_at_base() as u32;
+        let radius = waveform.effective_radius_at_base() as u32;
 
         let filter = |true_data: &ChannelData, index, detected_time, _detected_intensity| {
             let dist = true_data.get_temporal_distance_from(index, detected_time);
-            dist <= width
+            dist <= radius
         };
         let mut group_data_by = GroupDataBy::new(filter, estimate_data, true_data);
         group_data_by.run();
@@ -103,8 +103,8 @@ impl FalseCount {
     ) -> (usize, usize) {
         let (true_by_estimates, estimate_reject) =
             self.sort_true_by_estimates(waveform, algorithm, collection_by_topic);
-        let false_positives = estimate_reject.len();
-        let false_negatives = true_by_estimates.into_iter().filter(Vec::is_empty).count();
+        let false_positives = true_by_estimates.into_iter().filter(Vec::is_empty).count();
+        let false_negatives = estimate_reject.len();
 
         (false_positives, false_negatives)
     }
