@@ -1,14 +1,17 @@
-mod loader;
-mod processing;
+mod picoscope;
 
-use crate::{loader::load_trace_file, processing::dispatch_trace_file};
-use clap::Parser;
-use digital_muon_common::{CommonKafkaOpts, DigitizerId, FrameNumber};
+use chrono::{DateTime, Utc};
+use digital_muon_streaming_types::{dat2_digitizer_analog_trace_v2_generated::ChannelTrace, frame_metadata_v2_generated::GpsTime};
+use hdf5::{Dataset, File, Group, types::{VarLenArray, VarLenUnicode}};
+use picoscope::{load_trace_file, dispatch_trace_file};
+use clap::{Parser, Subcommand};
+use digital_muon_common::{Channel, CommonKafkaOpts, DigitizerId, FrameNumber, Intensity};
 use rand::seq::IteratorRandom;
-use rdkafka::producer::FutureProducer;
+use rdkafka::{producer::FutureProducer};
 use std::path::PathBuf;
+use ndarray::s;
 
-#[derive(Debug, Parser)]
+#[derive(Parser)]
 #[clap(author, version = digital_muon_common::version!(), about)]
 struct Cli {
     #[clap(flatten)]
@@ -26,6 +29,40 @@ struct Cli {
     #[clap(long)]
     file_name: PathBuf,
 
+    #[command(subcommand)]
+    mode: Mode,
+}
+
+#[derive(Clone, Parser)]
+struct Run {
+    /// The frame number to assign the message
+    #[clap(long)]
+    run_name: String,
+    
+    /// The frame number to assign the message
+    #[clap(long)]
+    instrument_name: String,
+    
+    /// The frame number to assign the message
+    #[clap(long)]
+    run_start_time: Option<DateTime<Utc>>,
+    
+    /// The frame number to assign the message
+    #[clap(long)]
+    run_stop_time: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Subcommand)]
+enum Mode {
+    /// Run in single shot mode, output a single frame then exit
+    Picoscope(Picoscope),
+
+    /// Run in continuous mode, outputting one frame every `frame-time` milliseconds
+    HDF5(Hdf5),
+}
+
+#[derive(Clone, Parser)]
+struct Picoscope {
     /// The frame number to assign the message
     #[clap(long, default_value = "0")]
     frame_number: FrameNumber,
@@ -41,6 +78,21 @@ struct Cli {
     /// If set, then trace events are sampled randomly with replacement, if not set then trace events are read in order
     #[clap(long, default_value = "false")]
     random_sample: bool,
+}
+
+#[derive(Clone, Parser)]
+struct Hdf5 {
+    /// The frame number to begin 
+    #[clap(long)]
+    from_frame: Option<FrameNumber>,
+
+    /// The frame number to assign the message
+    #[clap(long)]
+    to_frame: Option<FrameNumber>,
+
+    /// The frame number to assign the message
+    #[clap(short, long, value_delimiter = ',')]
+    digitizer_id: DigitizerId,
 }
 
 #[tokio::main]
@@ -61,7 +113,14 @@ async fn main() {
         .create()
         .expect("Kafka Producer should be created");
 
-    let trace_file = load_trace_file(args.file_name).expect("Trace File should load");
+    match args.mode {
+        Mode::Picoscope(picoscope) => read_picoscope_file(args.file_name, &producer, &args.trace_topic, picoscope).await,
+        Mode::HDF5(hdf5) => read_hdf5_file(args.file_name, &producer, &args.trace_topic, hdf5).await,
+    }
+}
+
+async fn read_picoscope_file(file_name: PathBuf, producer: &FutureProducer, trace_topic: &str, args: Picoscope) {
+    let trace_file = load_trace_file(file_name).expect("Trace File should load");
     let total_trace_events = trace_file.get_number_of_trace_events();
     let num_trace_events = if args.number_of_trace_events == 0 {
         total_trace_events
@@ -90,9 +149,94 @@ async fn main() {
         args.frame_number,
         args.digitizer_id,
         &producer,
-        &args.trace_topic,
+        trace_topic,
         6000,
     )
     .await
     .expect("Trace File should be dispatched to Kafka");
+}
+
+const DIGITISER: &'static str = "digitiser";
+const CHANNEL: &'static str = "channel";
+
+struct Hdf5Digitiser {
+    id: DigitizerId,
+    periods: Dataset,
+    frame_numbers: Dataset,
+    timestamps: Dataset,
+    channels: Vec<Hdf5Channel>
+}
+
+impl Hdf5Digitiser {
+    fn build_digitiser_message(&self, from_frame_number: FrameNumber, to_frame_number: FrameNumber) -> Result<(), String> {
+        
+        let slice = self.frame_numbers.read_1d::<FrameNumber>().unwrap();
+        let from_index = slice.iter().enumerate()
+            .find_map(|(index, &frame)|(frame == from_frame_number).then_some(index))
+            .ok_or_else(||"Starting frame not present")?;
+        let to_index = slice.iter().enumerate()
+            .find_map(|(index, &frame)|(frame == to_frame_number).then_some(index))
+            .ok_or_else(||"Ending frame not present")?;
+        for index in from_index..to_index {
+            let array = self.frame_numbers.read_1d().unwrap();
+            let frame_number : FrameNumber = *array.get([index]).unwrap();
+            let array = self.periods.read_1d().unwrap();
+            let period : u64 = *array.get([index]).unwrap();
+            let array = self.timestamps.read_1d::<VarLenUnicode>().unwrap();
+            let timestamp = array.get([index]).unwrap().clone();
+            for channel in &self.channels {
+                let array = channel.trace.read_1d::<VarLenArray<Intensity>>().unwrap();
+                let trace = array.get([index]).unwrap().clone();
+            }
+        }
+        Ok(())
+    }
+}
+
+struct Hdf5Channel {
+    channel: Channel,
+    trace: Dataset
+}
+
+async fn read_hdf5_file(file_name: PathBuf, producer: &FutureProducer, trace_topic: &str, args: Hdf5) {
+    let file = File::open(file_name).unwrap();
+    let digitisers = get_group_structure(file);
+}
+
+fn get_group_structure(file: File) -> Vec<Hdf5Digitiser> {
+    let mut digitisers = Vec::<Hdf5Digitiser>::new();
+    for group in file.groups().unwrap() {
+        let name = group.name();
+        let group_name = name.split('_').collect::<Vec<_>>();
+        if group_name.len() < 1 {
+            break;
+        }
+        if group_name.get(0).unwrap() != &DIGITISER {
+            break;
+        }
+        let digitiser_id : DigitizerId = group_name.get(1).unwrap().parse().unwrap();
+
+        let periods = group.dataset("period").unwrap();
+        let frame_numbers = group.dataset("frame_number").unwrap();
+        let timestamps = group.dataset("timestamp").unwrap();
+
+        let mut channels = Vec::<Hdf5Channel>::new();
+
+        for dataset in group.datasets().unwrap() {
+            let name = dataset.name();
+            let dataset_name = name.split('_').collect::<Vec<_>>();
+            if dataset_name.len() < 1 {
+                break;
+            }
+            if dataset_name.get(0).unwrap() != &CHANNEL {
+                break;
+            }
+
+            let channel : Channel = dataset_name.get(1).unwrap().parse().unwrap();
+            channels.push(Hdf5Channel{ channel, trace: dataset });
+
+        }
+        digitisers.push(Hdf5Digitiser { id: digitiser_id, periods, frame_numbers, timestamps, channels });
+    }
+    digitisers
 }
