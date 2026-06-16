@@ -3,7 +3,7 @@ mod false_counts;
 mod group_by;
 mod muon_lifetime;
 mod output;
-mod result;
+mod results;
 
 use crate::{
     engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
@@ -12,7 +12,7 @@ use crate::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub(crate) use output::MetricOutput;
-pub(crate) use result::{CompletedMetricResult, PartialMetricResult};
+pub(crate) use results::{CompletedMetricResult, PartialMetricResult};
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 struct SumWithSumOfSqrs {
