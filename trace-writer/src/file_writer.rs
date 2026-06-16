@@ -18,7 +18,7 @@ use chrono::{DateTime, Utc};
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::DigitizerAnalogTraceMessage;
 use hdf5::{
     Dataset, File, Group, SimpleExtents,
-    types::{VarLenArray, VarLenUnicode},
+    types::{TypeDescriptor, VarLenArray},
 };
 use ndarray::s;
 use std::{collections::HashMap, path::Path};
@@ -64,7 +64,7 @@ impl DigitizerData {
         let group = parent.create_group(&format!("digitiser_{digitizer_id}"))?;
 
         let frame_number = make_resizable_dataset::<u32>(&group, "frame_number", chunk_size)?;
-        let timestamp = make_resizable_dataset::<VarLenUnicode>(&group, "timestamp", chunk_size)?;
+        let timestamp = make_resizable_dataset::<i64>(&group, "timestamp", chunk_size)?;
         let period_number = make_resizable_dataset::<u64>(&group, "period_number", chunk_size)?;
 
         Ok(Self {
@@ -94,11 +94,11 @@ impl DigitizerData {
         let timestamp: DateTime<Utc> = timestamp
             .try_into()
             .map_err(|_| TraceWriterError::TimestampConversionFailed)?;
-        let timestamp = timestamp.to_rfc3339();
+        /*let timestamp = timestamp.to_rfc3339();
         let timestamp: VarLenUnicode = timestamp
             .parse()
-            .map_err(|_| TraceWriterError::UnicodeConversionFailed(timestamp.clone()))?;
-        append_value(&self.timestamp, timestamp)?;
+            .map_err(|_| TraceWriterError::UnicodeConversionFailed(timestamp.clone()))?;*/
+        append_value(&self.timestamp, timestamp.timestamp_nanos_opt().ok_or(TraceWriterError::NanosecondConversionFailed(timestamp.clone()))?)?;
 
         let Some(channels) = msg.channels() else {
             return Ok(());
@@ -147,6 +147,8 @@ impl TraceFileWriter {
     /// Creates a new HDF5 file at `path` and prepares it for writing.
     pub(crate) fn new(path: &Path, chunk_size: usize) -> Result<Self, TraceWriterError> {
         let file = File::create(path)?;
+        file.new_attr_builder().with_data_as(&[false], &TypeDescriptor::Boolean).create("config_timestamp_rfc3339")?;
+        file.new_attr_builder().with_data_as(&[true], &TypeDescriptor::Boolean).create("config_multiple_channel_datasets")?;
         Ok(Self {
             file,
             chunk_size,
