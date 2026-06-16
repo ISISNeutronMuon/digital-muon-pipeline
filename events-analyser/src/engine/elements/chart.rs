@@ -34,7 +34,7 @@ pub(crate) struct Series {
     /// Colour to apply to the line and marker on the graph.
     line_colour: Option<String>,
     /// Colour to apply to the line and marker on the graph.
-    line_style: Option<Dash>,
+    line_style: Option<DashStyle>,
     /// Metric instance from which the y-values are collected.
     metric: String,
     /// Specific property of the metric from which the y-values are collected.
@@ -45,7 +45,7 @@ pub(crate) struct Series {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum Dash {
+pub(crate) enum DashStyle {
     Solid,
     Dot,
     Dash,
@@ -54,15 +54,15 @@ pub(crate) enum Dash {
     LongDashDot,
 }
 
-impl From<&Dash> for DashType {
-    fn from(value: &Dash) -> Self {
+impl From<&DashStyle> for DashType {
+    fn from(value: &DashStyle) -> Self {
         match value {
-            Dash::Solid => DashType::Solid,
-            Dash::Dot => DashType::Dot,
-            Dash::Dash => DashType::Dash,
-            Dash::LongDash => DashType::LongDash,
-            Dash::DashDot => DashType::DashDot,
-            Dash::LongDashDot => DashType::LongDashDot,
+            DashStyle::Solid => DashType::Solid,
+            DashStyle::Dot => DashType::Dot,
+            DashStyle::Dash => DashType::Dash,
+            DashStyle::LongDash => DashType::LongDash,
+            DashStyle::DashDot => DashType::DashDot,
+            DashStyle::LongDashDot => DashType::LongDashDot,
         }
     }
 }
@@ -102,7 +102,7 @@ pub(crate) struct FlatSeries {
     /// Colour to apply to the line and marker on the graph.
     pub(crate) line_colour: Option<String>,
     /// Dash style to apply to the line and marker on the graph.
-    pub(crate) line_style: Option<Dash>,
+    pub(crate) line_style: Option<DashStyle>,
     /// Index of metric instance from which the y-values are collected.
     pub(crate) metric: usize,
     /// Specific property of the metric from which the y-values are collected.
@@ -153,7 +153,7 @@ impl Flattenable<(&AnalysisSettings, &[FlatBucketBlock])> for Chart {
         &self,
         (library, buckets): (&AnalysisSettings, &[FlatBucketBlock]),
     ) -> Result<Self::Flat, Self::Error> {
-        if self.output_to_html == false && self.output_to_json == false {
+        if !self.output_to_html && !self.output_to_json {
             return Err(ChartError::NoOutputModeSet);
         }
 
@@ -232,13 +232,11 @@ impl FlatChart {
     ) -> bool {
         if self.ready {
             true
+        } else if self.is_chart_ready(buckets, metrics) {
+            self.ready = true;
+            true
         } else {
-            if self.is_chart_ready(buckets, metrics) {
-                self.ready = true;
-                true
-            } else {
-                false
-            }
+            false
         }
     }
 

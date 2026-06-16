@@ -39,6 +39,11 @@ mod evaluator_task;
 mod event;
 mod eventlists;
 
+use crate::{
+    analysis::{AnalysisEngine, ChartOutput},
+    engine::AnalysisSettings,
+    evaluator_task::create_evaluator_task,
+};
 use clap::{Parser, Subcommand};
 use digital_muon_common::{
     CommonKafkaOpts, init_tracer,
@@ -72,15 +77,6 @@ use tokio::{
     sync::mpsc::{Sender, error::SendError},
 };
 use tracing::{debug, error, info_span, instrument, warn};
-
-use crate::{
-    analysis::{AnalysisEngine, ChartOutput},
-    engine::AnalysisSettings,
-    evaluator_task::create_evaluator_task,
-};
-
-// /// Triggers error if the producer takes longer than this to dispatch a message.
-//const PRODUCER_TIMEOUT: Timeout = Timeout::After(Duration::from_millis(100));
 
 /// [clap] derived struct to handle command line parameters.
 #[derive(Parser)]
@@ -315,7 +311,7 @@ async fn process_kafka_message(
                         .iter()
                         .enumerate()
                         .find_map(|(index, topic)| (*topic == msg.topic()).then_some(index))
-                        .unwrap(); // FIXME: Handle error
+                        .expect("Topic should be in list, this should never fail.");
                     process_digitiser_event_list_message(
                         channel_send,
                         cache,

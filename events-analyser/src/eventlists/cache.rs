@@ -1,7 +1,10 @@
 //! Defines the cache stores frames as they are assembled from digitiser messages.
-use crate::{event::EventData, eventlists::complete::EventlistsCollection};
-
-use super::{RejectMessageError, partial::PartialEventslistsCollection};
+use crate::{
+    event::EventData,
+    eventlists::{
+        RejectMessageError, complete::EventlistsCollection, partial::PartialEventslistsCollection,
+    },
+};
 use digital_muon_common::{DigitizerId, spanned::SpannedAggregator};
 use digital_muon_streaming_types::FrameMetadata;
 use std::{collections::VecDeque, time::Duration};

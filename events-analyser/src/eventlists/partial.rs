@@ -1,4 +1,8 @@
 //! Defines the struct for a frame which is awaiting data from digitiser messages.
+use crate::{
+    event::EventData,
+    eventlists::{EventlistsCollection, RejectMessageError},
+};
 use digital_muon_common::{
     DigitizerId,
     spanned::{SpanOnce, SpanOnceError, Spanned, SpannedAggregator, SpannedMut},
@@ -7,11 +11,6 @@ use digital_muon_streaming_types::FrameMetadata;
 use std::time::Duration;
 use tokio::time::Instant;
 use tracing::{Span, info_span};
-
-use crate::{
-    event::EventData,
-    eventlists::{EventlistsCollection, RejectMessageError},
-};
 
 /// Holds the data of a frame, whislt it is in cache being built from digitiser messages.
 pub(crate) struct PartialEventslistsCollection {

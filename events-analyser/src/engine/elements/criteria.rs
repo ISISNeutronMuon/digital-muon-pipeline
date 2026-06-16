@@ -1,11 +1,10 @@
-use digital_muon_common::{Channel, DigitizerId, FrameNumber};
-use serde::Deserialize;
-use thiserror::Error;
-
 use crate::engine::{
     FlattenableWithIndex, HasName, HasSource, Templates,
     values::{ConstantFilter, ValueError, ValueFilter},
 };
+use digital_muon_common::{Channel, DigitizerId, FrameNumber};
+use serde::Deserialize;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub(crate) enum CriteriaError {

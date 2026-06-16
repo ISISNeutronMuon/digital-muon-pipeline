@@ -9,19 +9,20 @@ use crate::{
     engine::{AnalysisSettings, FlatBucketBlock, FlatChart},
     eventlists::EventlistsCollection,
 };
-pub(crate) use chart::ChartOutput;
 use digital_muon_common::{
     Channel, DigitizerId,
     spanned::{SpanOnceError, Spanned, SpannedAggregator},
 };
 use digital_muon_streaming_types::FrameMetadata;
-pub(crate) use metrics::PartialMetricResult;
 use std::{
     fs::File,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
 use tracing::{info, info_span, trace};
+
+pub(crate) use chart::ChartOutput;
+pub(crate) use metrics::PartialMetricResult;
 
 #[derive(Debug, Error)]
 pub(crate) enum AnalysisError {

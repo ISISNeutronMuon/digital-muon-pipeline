@@ -1,8 +1,7 @@
 //! Defines the event list type, used for both digitiser messages and frame messages.
-use std::collections::HashMap;
-
 use digital_muon_common::{Channel, Intensity, Time};
 use digital_muon_streaming_types::dev2_digitizer_event_v2_generated::DigitizerEventListMessage;
+use std::collections::HashMap;
 
 /// Event list, either for a digitiser message, or frame message.
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
@@ -19,13 +18,6 @@ impl ChannelData {
 
     pub(crate) fn get_time_intensity(&self) -> &[(Time, Intensity)] {
         &self.time_intensity
-    }
-
-    pub(crate) fn get_time_intensity_of_index(&self, index: usize) -> (Time, Intensity) {
-        self.time_intensity
-            .get(index)
-            .expect("`index` should be valid, this should never fail")
-            .clone()
     }
 
     pub(crate) fn get_temporal_distance_from(&self, index: usize, target: Time) -> u32 {

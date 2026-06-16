@@ -1,6 +1,6 @@
 use crate::{
     analysis::metrics::{
-        CompleteMetricResultClass, MeanSD, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs
+        CompleteMetricResultClass, MeanSD, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs,
     },
     engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
     event::ChannelData,
@@ -26,9 +26,9 @@ impl PartialMetricResultClass for MuonLifetime {
 
     fn push(
         &mut self,
-        waveform: &FlatWaveform,
-        algorithm: &FlatAlgorithm,
-        by_topic: &[ChannelData],
+        _waveform: &FlatWaveform,
+        _algorithm: &FlatAlgorithm,
+        _by_topic: &[ChannelData],
     ) {
         self.num += 1;
     }

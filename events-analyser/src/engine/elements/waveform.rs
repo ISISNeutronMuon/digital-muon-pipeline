@@ -5,7 +5,6 @@ use crate::engine::{
 use serde::Deserialize;
 use std::ops::Deref;
 
-///
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Waveform {
@@ -72,7 +71,7 @@ impl FlatWaveform {
         }
     }
 
-    pub(crate) fn effective_radius_at_proportion_of_peak(&self, proportion: f64) -> f64 {
+    pub(crate) fn _effective_radius_at_proportion_of_peak(&self, proportion: f64) -> f64 {
         match self {
             Self::Flat { width } => *width / 2.0,
             Self::Triangular { base_width } => *base_width * proportion / 2.0,

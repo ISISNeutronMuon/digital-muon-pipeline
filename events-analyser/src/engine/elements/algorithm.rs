@@ -1,11 +1,10 @@
-use digital_muon_common::{Intensity, Time};
-use serde::Deserialize;
-use std::{fmt::Debug, ops::Deref};
-
 use crate::engine::{
     Array, FlatWaveform, FlattenableWithIndex, HasName,
     values::{Value, ValueError},
 };
+use digital_muon_common::{Intensity, Time};
+use serde::Deserialize;
+use std::{fmt::Debug, ops::Deref};
 
 /// Encapsulates all properties which defines a `trace-to-events` algorithm,
 /// used in event detection. The evaluator presumes these settings were used to
@@ -63,13 +62,13 @@ impl FlattenableWithIndex for AlgorithmProperties {
                 duration,
                 cool_down,
             } => {
-                let threshold = threshold.flatten(arrays, index)?;
-                let duration = duration.flatten(arrays, index)?;
-                let cool_down = cool_down.flatten(arrays, index)?;
+                let _threshold = threshold.flatten(arrays, index)?;
+                let _duration = duration.flatten(arrays, index)?;
+                let _cool_down = cool_down.flatten(arrays, index)?;
                 Ok(FlatAlgorithm::FixedThreshold {
-                    threshold,
-                    duration,
-                    cool_down,
+                    _threshold,
+                    _duration,
+                    _cool_down,
                 })
             }
         }
@@ -82,11 +81,11 @@ pub(crate) enum FlatAlgorithm {
     /// Specifies the fixed threshold discriminator algorithm.
     FixedThreshold {
         /// The threshold property used in the event detection.
-        threshold: f64,
+        _threshold: f64,
         /// The duration property used in the event detection.
-        duration: Time,
+        _duration: Time,
         /// The cool_down property used in the event detection.
-        cool_down: Time,
+        _cool_down: Time,
     },
 }
 
@@ -96,23 +95,22 @@ impl FlatAlgorithm {
     /// # Parameters
     /// - waveform: Waveform to model the pulse by.
     /// - detected: Waveform to model the pulse by.
-    pub(crate) fn is_true_positive(
+    pub(crate) fn _is_true_positive(
         &self,
         waveform: &FlatWaveform,
         detected: (Time, Intensity),
-        pulse_peak: (Time, Intensity),
-        //dist: u32,
+        pulse_peak: (Time, Intensity)
     ) -> bool {
         match self {
             &FlatAlgorithm::FixedThreshold {
-                threshold,
-                duration,
-                cool_down,
+                _threshold,
+                _duration,
+                _cool_down,
             } => {
-                let _height = threshold / pulse_peak.1 as f64;
-                let width = waveform.effective_radius_at_base();
+                let height = _threshold / pulse_peak.1 as f64;
+                let width = waveform._effective_radius_at_proportion_of_peak(height);
                 (detected.0 as f64 - pulse_peak.0 as f64).abs()
-                    < (duration + cool_down) as f64 + width
+                    < (_duration + _cool_down) as f64 + width
             }
         }
     }

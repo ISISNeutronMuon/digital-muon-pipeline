@@ -126,7 +126,7 @@ async fn flush_eventlists_collection(
 /// - analysis_engine: the analysis engine object.
 #[tracing::instrument(skip_all)]
 async fn evaluate_eventlists_collection(
-    use_otel: bool,
+    _use_otel: bool,
     analysis_engine: &mut AnalysisEngine,
     eventlists_collection: EventlistsCollection,
 ) {

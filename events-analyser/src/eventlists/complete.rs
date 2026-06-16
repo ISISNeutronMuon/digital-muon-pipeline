@@ -1,12 +1,12 @@
 //! Defines the struct for a frame which is awaiting data from digitiser messages.
+//!
+use crate::event::{ChannelData, EventData};
 use digital_muon_common::{
     Channel, DigitizerId,
     spanned::{SpanOnce, Spanned},
 };
 use digital_muon_streaming_types::FrameMetadata;
 use std::collections::HashMap;
-
-use crate::event::{ChannelData, EventData};
 
 pub(crate) struct EventlistsCollection {
     /// Used by the implementation of [SpannedAggregator].

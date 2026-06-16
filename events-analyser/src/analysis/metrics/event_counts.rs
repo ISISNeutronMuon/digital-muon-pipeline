@@ -1,6 +1,6 @@
 use crate::{
     analysis::metrics::{
-        CompleteMetricResultClass, MeanSD, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs
+        CompleteMetricResultClass, MeanSD, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs,
     },
     engine::{FlatAlgorithm, FlatMetricEventCount, FlatWaveform, MetricProperty},
     event::ChannelData,
@@ -53,9 +53,6 @@ impl CompleteMetricResultClass for CompletedEventCount {
     type Partial = EventCount;
 
     fn aggregate(source: &Self::Partial) -> Self {
-        /*    Self::stats_aggregator(source.values(), source.len() as f64, |count| {
-            count.count.mean_and_stddev(count.num as f64)
-        }); */
         Self {
             count: source.count.mean_and_stddev(source.num as f64),
         }
@@ -76,8 +73,8 @@ mod tests {
 
     #[test]
     fn test1() {
-        let true_data = ChannelData::new(vec![(49, 6), (55, 6), (77, 12)]);
-        let estimate_data = ChannelData::new(vec![
+        let _true_data = ChannelData::new(vec![(49, 6), (55, 6), (77, 12)]);
+        let _estimate_data = ChannelData::new(vec![
             (40, 6),
             (54, 6),
             (60, 12),

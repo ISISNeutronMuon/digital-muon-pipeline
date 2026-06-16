@@ -40,7 +40,7 @@ impl Templates {
     pub(crate) fn get_criteria(&self, name: &str) -> Option<&CriteriaTemplate> {
         self.criteria_templates
             .iter()
-            .find_map(|tmplt| tmplt.has_name(name).then_some(tmplt))
+            .find(|tmplt| tmplt.has_name(name))
     }
 
     pub(crate) fn get_algorithm(&self, name: &str) -> Option<&AlgorithmProperties> {
@@ -138,8 +138,8 @@ pub(crate) struct Array {
 }
 
 impl Array {
-    pub(crate) fn get_element(&self, index: usize) -> f64 {
-        *self.values.get(index).unwrap() // FIXME: Handle Error
+    pub(crate) fn get_element(&self, index: usize) -> Option<f64> {
+        self.values.get(index).copied()
     }
 }
 

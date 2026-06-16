@@ -44,7 +44,7 @@ where
         domain_time: Time,
         domain_intensity: Intensity,
     ) {
-        if (&self.data_filter)(
+        if (self.data_filter)(
             self.group_labels,
             group_index,
             domain_time,
@@ -82,34 +82,30 @@ where
         for (domain_index, (domain_time, domain_intensity)) in
             self.data_domain.get_time_intensity().iter().enumerate()
         {
-            loop {
-                if let Some(labels_left_bound_index) = labels_left_bound.peek() {
-                    match labels_left_bound_index {
-                        None => {
-                            // If the first `data_domain` item is less than the current `group_labels` item.
-                            if self.is_group_label_at_index_less_than_current_domain_time(
-                                0,
-                                *domain_time,
-                            ) {
-                                labels_left_bound.next();
-                            } else {
-                                break;
-                            }
-                        }
-                        Some(labels_left_bound_index) => {
-                            // If the next `data_domain` item is less than the current `group_labels` item.
-                            if self.is_group_label_at_index_less_than_current_domain_time(
-                                labels_left_bound_index + 1,
-                                *domain_time,
-                            ) {
-                                labels_left_bound.next();
-                            } else {
-                                break;
-                            }
+            while let Some(labels_left_bound_index) = labels_left_bound.peek() {
+                match labels_left_bound_index {
+                    None => {
+                        // If the first `data_domain` item is less than the current `group_labels` item.
+                        if self.is_group_label_at_index_less_than_current_domain_time(
+                            0,
+                            *domain_time,
+                        ) {
+                            labels_left_bound.next();
+                        } else {
+                            break;
                         }
                     }
-                } else {
-                    break;
+                    Some(labels_left_bound_index) => {
+                        // If the next `data_domain` item is less than the current `group_labels` item.
+                        if self.is_group_label_at_index_less_than_current_domain_time(
+                            labels_left_bound_index + 1,
+                            *domain_time,
+                        ) {
+                            labels_left_bound.next();
+                        } else {
+                            break;
+                        }
+                    }
                 }
             }
             match labels_left_bound.peek() {
@@ -233,7 +229,7 @@ mod tests {
             assert_eq!(i, v[0]);
         }
     }
-    /*
+    /* FIXME:
     #[test]
     fn nontrivial_test() {
         let group_labels = ChannelData::new((0..100).map(|i|(i*15, 10)).collect());

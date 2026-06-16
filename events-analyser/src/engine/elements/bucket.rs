@@ -151,11 +151,11 @@ impl Flattenable<&Templates> for BucketBlock {
             .ok_or_else(|| BucketError::NoLimits(self.get_source().into()))?;
 
         let algorithm = library
-            .get_algorithm(&algorithm)
+            .get_algorithm(algorithm)
             .ok_or_else(|| BucketError::CannotFindAlgorithm(algorithm.into()))?;
 
         let waveform = library
-            .get_waveform(&waveform)
+            .get_waveform(waveform)
             .ok_or_else(|| BucketError::CannotFindWaveform(waveform.into()))?;
 
         let buckets = (0..*number)
@@ -176,7 +176,6 @@ impl Flattenable<&Templates> for BucketBlock {
             .collect::<Result<Vec<_>, Self::Error>>()?;
         Ok(FlatBucketBlock {
             name: self.get_name().to_string(),
-            span: SpanOnce::Spanned(tracing::Span::current()),
             buckets,
             limits: limits.clone(),
         })
@@ -189,7 +188,6 @@ impl Flattenable<&Templates> for BucketBlock {
 pub(crate) struct FlatBucketBlock {
     /// Name of this bucket block.
     pub(crate) name: String,
-    span: SpanOnce,
     /// Buckets in this block.
     pub(crate) buckets: Vec<FlatBucket>,
     /// Specifies the minimum and maximum number of eventlist collections these buckets allow.
@@ -326,9 +324,9 @@ mod tests {
                 digitiser_ids: ConstantFilter::Any,
             },
             algorithm: FlatAlgorithm::FixedThreshold {
-                threshold: Default::default(),
-                duration: Default::default(),
-                cool_down: Default::default(),
+                _threshold: Default::default(),
+                _duration: Default::default(),
+                _cool_down: Default::default(),
             },
             waveform: FlatWaveform::Flat {
                 width: Default::default(),
@@ -363,9 +361,9 @@ mod tests {
                 digitiser_ids: ConstantFilter::Any,
             },
             algorithm: FlatAlgorithm::FixedThreshold {
-                threshold: Default::default(),
-                duration: Default::default(),
-                cool_down: Default::default(),
+                _threshold: Default::default(),
+                _duration: Default::default(),
+                _cool_down: Default::default(),
             },
             waveform: FlatWaveform::Flat {
                 width: Default::default(),
@@ -381,9 +379,9 @@ mod tests {
                 digitiser_ids: ConstantFilter::Any,
             },
             algorithm: FlatAlgorithm::FixedThreshold {
-                threshold: Default::default(),
-                duration: Default::default(),
-                cool_down: Default::default(),
+                _threshold: Default::default(),
+                _duration: Default::default(),
+                _cool_down: Default::default(),
             },
             waveform: FlatWaveform::Flat {
                 width: Default::default(),

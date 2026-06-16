@@ -117,13 +117,13 @@ impl<T: Number> FlattenableWithIndex for Dependency<T> {
 
     fn flatten(&self, arrays: &Self::Library, index: usize) -> Result<Self::Flat, Self::Error> {
         Ok(match self {
-            Self::Array(array) => T::from(
-                arrays
+            Self::Array(array) => T::from({
+                let array = arrays
                     .iter()
                     .find(|a| a.has_name(array))
-                    .ok_or_else(|| ValueError::CannotFindArray(array.clone()))?
-                    .get_element(index),
-            )
+                    .ok_or_else(|| ValueError::CannotFindArray(array.clone()))?;
+                array.get_element(index).ok_or(ValueError::ArrayElement(index,array.values.len()))?
+            })
             .ok_or(ValueError::ArrayConvert)?,
             Self::Function(function) => {
                 function.apply(T::from(index).ok_or(ValueError::ArrayConvert)?)
@@ -136,6 +136,8 @@ impl<T: Number> FlattenableWithIndex for Dependency<T> {
 pub(crate) enum ValueError {
     #[error("Cannot convert array element to correct type.")]
     ArrayConvert,
+    #[error("Element index {0} not in array of length {1}")]
+    ArrayElement(usize, usize),
     #[error("Cannot find array {0} in array list.")]
     CannotFindArray(String),
 }

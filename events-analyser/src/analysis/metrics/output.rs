@@ -1,10 +1,9 @@
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     iter::once,
     ops::{Add, Sub},
 };
-
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

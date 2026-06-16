@@ -4,7 +4,7 @@ use crate::{
 };
 use plotly::{
     self, Layout, Plot, Scatter,
-    common::{DashType, ErrorData, ErrorType, Line},
+    common::{ErrorData, ErrorType, Line},
     layout::{Axis, ModeBar},
 };
 use serde::{Deserialize, Serialize};
@@ -86,13 +86,12 @@ impl ChartOutput {
 
         plot.set_layout(layout);
         for (series, data) in Iterator::zip(self.chart.series.iter(), self.data.iter()) {
-            
             let line = series.line_colour.iter().fold(
-                series.line_style.iter().fold(
-                    Line::new(),
-                    |line, dash|line.dash(dash.into())
-                ),
-                |line, colour|line.color(colour.to_string())
+                series
+                    .line_style
+                    .iter()
+                    .fold(Line::new(), |line, dash| line.dash(dash.into())),
+                |line, colour| line.color(colour.to_string()),
             );
             match data {
                 MetricOutput::Scalar(data) => {
