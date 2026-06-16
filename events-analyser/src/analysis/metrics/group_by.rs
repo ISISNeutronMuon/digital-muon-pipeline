@@ -225,7 +225,7 @@ mod tests {
         assert_eq!(grouped_data.len(), 100);
         for (i, v) in grouped_data.into_iter().enumerate() {
             assert_eq!(v.len(), 1);
-            assert_eq!(i, v[0]);
+            assert_eq!(i, *v.first().expect("This should never fail."));
         }
     }
     /* FIXME:
