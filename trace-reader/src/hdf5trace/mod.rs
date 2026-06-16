@@ -4,7 +4,7 @@ mod digitiser;
 
 use std::{fmt::Debug, str::FromStr};
 
-pub(crate) use digitiser::Hdf5Digitiser;
+pub(crate) use digitiser::{Hdf5Digitiser, HDF5Config};
 
 fn extract_from_dataset_name<'a, T>(name: String, identifier: &'static str) -> Result<T, String>
 where

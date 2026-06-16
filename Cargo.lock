@@ -5767,6 +5767,7 @@ dependencies = [
  "miette",
  "ndarray",
  "rand 0.10.1",
+ "rayon",
  "rdkafka",
  "tokio",
  "tracing",
