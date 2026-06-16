@@ -122,7 +122,9 @@ impl<T: Number> FlattenableWithIndex for Dependency<T> {
                     .iter()
                     .find(|a| a.has_name(array))
                     .ok_or_else(|| ValueError::CannotFindArray(array.clone()))?;
-                array.get_element(index).ok_or(ValueError::ArrayElement(index,array.values.len()))?
+                array
+                    .get_element(index)
+                    .ok_or(ValueError::ArrayElement(index, array.values.len()))?
             })
             .ok_or(ValueError::ArrayConvert)?,
             Self::Function(function) => {

@@ -99,7 +99,7 @@ impl FlatAlgorithm {
         &self,
         waveform: &FlatWaveform,
         detected: (Time, Intensity),
-        pulse_peak: (Time, Intensity)
+        pulse_peak: (Time, Intensity),
     ) -> bool {
         match self {
             &FlatAlgorithm::FixedThreshold {

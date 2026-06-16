@@ -86,10 +86,9 @@ where
                 match labels_left_bound_index {
                     None => {
                         // If the first `data_domain` item is less than the current `group_labels` item.
-                        if self.is_group_label_at_index_less_than_current_domain_time(
-                            0,
-                            *domain_time,
-                        ) {
+                        if self
+                            .is_group_label_at_index_less_than_current_domain_time(0, *domain_time)
+                        {
                             labels_left_bound.next();
                         } else {
                             break;
