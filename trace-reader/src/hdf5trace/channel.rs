@@ -3,7 +3,8 @@ use digital_muon_streaming_types::{
     dat2_digitizer_analog_trace_v2_generated::{ChannelTrace, ChannelTraceArgs},
     flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset},
 };
-use hdf5::types::VarLenArray;
+use hdf5::{Dataset, types::VarLenArray};
+use ndarray::{Dim, IxDynImpl};
 
 use crate::hdf5trace::cached_dataset::{CachedDataset, FullDataset};
 
@@ -44,11 +45,11 @@ impl Hdf5Channel {
 
 pub(super) struct Hdf5AllChannels {
     channels: FullDataset<Channel>,
-    traces: CachedDataset<VarLenArray<Intensity>>,
+    traces: Dataset,
 }
 
 impl Hdf5AllChannels {
-    pub(super) fn new(channels: FullDataset<Channel>, traces: CachedDataset<VarLenArray<Intensity>>) -> Self {
+    pub(super) fn new(channels: FullDataset<Channel>, traces: Dataset) -> Self {
         Self { channels, traces }
     }
 
@@ -58,7 +59,8 @@ impl Hdf5AllChannels {
         fbb: &mut FlatBufferBuilder<'a>,
         index: usize,
     ) -> WIPOffset<Vector<'a, ForwardsUOffset<ChannelTrace<'a>>>> {
-        let trace = self.traces.get_element(index);
+        let trace = self.traces.read_slice_2d::<u16,_>(ndarray::s![..,..,index]).unwrap();
+        
         /*let traces = self.channels.iter().map(|&channel| {
             tracing::Span::current().record("length", trace.len());
             let voltage = Some(fbb.create_vector::<Intensity>(trace.as_slice()));
@@ -72,23 +74,23 @@ impl Hdf5AllChannels {
         });*/
         //.collect::<Vec<_>>();
         tracing::Span::current().record("length", self.channels.get_num_elements());
-        fbb.start_vector::<WIPOffset<ChannelTrace>>(self.channels.get_num_elements());
-        for &channel in self.channels.iter() {
-            let voltage = Some(fbb.create_vector::<Intensity>(trace.as_slice()));
-            let trace = ChannelTrace::create(
+        let traces = self.channels.iter().enumerate().map(|(index, &channel)| {
+            let slice = trace.slice(ndarray::s![..,index]);
+            let v = slice.into_iter().copied().collect::<Vec<_>>();
+            let voltage = Some(fbb.create_vector::<Intensity>(v.as_slice()));
+            ChannelTrace::create(
                 fbb,
                 &ChannelTraceArgs {
                     channel,
                     voltage,
                 },
-            );
-            fbb.push(trace);
-        }
-        fbb.end_vector(self.channels.get_num_elements())
+            )
+        }).collect::<Vec<_>>();
+        fbb.create_vector::<WIPOffset<ChannelTrace>>(traces.as_slice())
     }
 
     #[tracing::instrument(skip_all)]
     pub(super) fn ensure_elements_cached(&mut self, index: usize) {
-        self.traces.ensure_elements_cached(index);
+        //self.traces.ensure_elements_cached(index);
     }
 }

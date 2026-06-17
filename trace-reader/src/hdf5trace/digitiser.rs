@@ -96,7 +96,7 @@ impl Hdf5Digitiser {
             } else {
                 let channels = group.dataset("channels").unwrap();
                 let traces = group.dataset("traces").unwrap();
-                Channels::SINGLE(Hdf5AllChannels::new(FullDataset::new(channels), CachedDataset::new(traces, "channel", CACHE_SIZE)))
+                Channels::SINGLE(Hdf5AllChannels::new(FullDataset::new(channels), traces))
             };
             digitisers.push(Hdf5Digitiser {
                 digitiser_id,
