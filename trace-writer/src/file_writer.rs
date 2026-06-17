@@ -124,7 +124,7 @@ impl DigitizerData {
                 .new_dataset::<u16>()
                 .shape(SimpleExtents::resizable(vec![trace_size,channels.len(),1]))
                 .chunk(vec![trace_size,channels.len(),chunk_size])
-                .create("all_channels")?);
+                .create("channel")?);
         }
         let all_channels = self.all_channels.as_ref().expect("This should never fail.");
         
