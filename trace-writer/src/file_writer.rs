@@ -17,11 +17,13 @@ use crate::error::TraceWriterError;
 use chrono::{DateTime, Utc};
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::DigitizerAnalogTraceMessage;
 use hdf5::{
-    Dataset, Extents, File, Group, SimpleExtents, types::TypeDescriptor
+    Dataset, Extents, File, Group, SimpleExtents,
+    filters::{Filter, SZip},
+    types::TypeDescriptor,
 };
-use ndarray::s;
-use tracing::warn;
+use ndarray::{Array2, s};
 use std::{collections::HashMap, path::Path};
+use tracing::warn;
 
 /// Appends a single value to a resizable 1-D HDF5 dataset.
 fn append_value<T: hdf5::H5Type>(ds: &Dataset, value: T) -> Result<(), hdf5::Error> {
@@ -56,6 +58,8 @@ struct DigitizerData {
     period_number: Dataset,
     /// 1-D resizable dataset: Channels consisting .
     all_channels: Option<Dataset>,
+    /// 1-D resizable dataset: Channels consisting .
+    all_traces: Option<Dataset>,
     /// Per-channel voltage datasets, keyed by channel number.
     channels: HashMap<u32, Dataset>,
 }
@@ -68,14 +72,14 @@ impl DigitizerData {
         let frame_number = make_resizable_dataset::<u32>(&group, "frame_number", chunk_size)?;
         let timestamp = make_resizable_dataset::<i64>(&group, "timestamp", chunk_size)?;
         let period_number = make_resizable_dataset::<u64>(&group, "period_number", chunk_size)?;
-        let all_channels = None;
 
         Ok(Self {
             group,
             frame_number,
             timestamp,
             period_number,
-            all_channels,
+            all_channels: None,
+            all_traces: None,
             channels: HashMap::new(),
         })
     }
@@ -102,76 +106,120 @@ impl DigitizerData {
         let timestamp: VarLenUnicode = timestamp
             .parse()
             .map_err(|_| TraceWriterError::UnicodeConversionFailed(timestamp.clone()))?;*/
-        append_value(&self.timestamp, timestamp.timestamp_nanos_opt().ok_or(TraceWriterError::NanosecondConversionFailed(timestamp.clone()))?)?;
+        append_value(
+            &self.timestamp,
+            timestamp
+                .timestamp_nanos_opt()
+                .ok_or(TraceWriterError::NanosecondConversionFailed(
+                    timestamp.clone(),
+                ))?,
+        )?;
 
         let Some(channels) = msg.channels() else {
             warn!("Missing channels.");
             return Ok(());
         };
 
-        let trace_size = channels.iter().map(|c|c.voltage().map(|v|v.len()).unwrap_or_default()).max().unwrap_or_default();
-        if channels.iter().any(|c|c.voltage().is_none()) {
+        let trace_size = channels
+            .iter()
+            .map(|c| c.voltage().map(|v| v.len()).unwrap_or_default())
+            .max()
+            .unwrap_or_default();
+        if channels.iter().any(|c| c.voltage().is_none()) {
             warn!("Missing channel voltages.");
             return Ok(());
         }
-        if channels.iter().any(|c|c.voltage().map(|v|v.len() != trace_size).unwrap_or(true)) {
+        if channels
+            .iter()
+            .any(|c| c.voltage().map(|v| v.len() != trace_size).unwrap_or(true))
+        {
             warn!("Trace sizes inconsistant.");
             return Ok(());
         }
-        
+
         if self.all_channels.is_none() {
-            self.all_channels = Some(self.group
+            let all_channels = self
+                .group
                 .new_dataset::<u16>()
-                .shape(SimpleExtents::resizable(vec![trace_size,channels.len(),1]))
-                .chunk(vec![trace_size,channels.len(),chunk_size])
-                .create("channel")?);
+                .shape(SimpleExtents::fixed(vec![channels.len()]))
+                .create("channels")?;
+            all_channels.write(&channels.iter().map(|c| c.channel()).collect::<Vec<_>>())?;
+            self.all_channels = Some(all_channels);
         }
-        let all_channels = self.all_channels.as_ref().expect("This should never fail.");
-        
-        let sizes : [usize; 3] =  all_channels.shape().try_into().expect("This should never fail");
-        if sizes[0] != trace_size {
-            warn!("Trace size inconsistant with previous messages.");
+
+        if self.all_traces.is_none() {
+            self.all_traces = Some(
+                self.group
+                    .new_dataset::<u16>()
+                    .shape(SimpleExtents::resizable(vec![
+                        0,
+                        channels.len(),
+                        trace_size,
+                    ]))
+                    .chunk(vec![chunk_size, channels.len(), trace_size])
+                    .create("traces")?,
+            );
+        }
+        let all_traces = self.all_traces.as_ref().expect("This should never fail.");
+
+        let sizes: [usize; 3] = all_traces
+            .shape()
+            .try_into()
+            .expect("This should never fail");
+        if sizes[2] != trace_size {
+            warn!(
+                "Trace size {trace_size} inconsistant with that of previous message(s) {}.",
+                sizes[2]
+            );
             return Ok(());
         }
         if sizes[1] != channels.len() {
-            warn!("Number of channels inconsistant with previous messages.");
+            warn!(
+                "Number of channels {} inconsistant with that of previous message(s) {}.",
+                channels.len(),
+                sizes[1]
+            );
             return Ok(());
         }
 
-        all_channels.resize(vec![sizes[0], sizes[1], sizes[2] + 1])?;
-        let mut all_traces = Vec::<u16>::with_capacity(channels.len()*trace_size);
-        for (index, channel_trace) in channels.iter().enumerate() {
-            for v in channel_trace.voltage().expect("This should never fail.") {
-                all_traces.push(v);
-            }
-            all_channels.write_slice(all_traces.as_slice(), s![0..sizes[0], index, sizes[2]..(sizes[2] + 1)])?;
-        }
-/*
+        all_traces.resize(vec![sizes[0] + 1, sizes[1], sizes[2]])?;
+
+        let mut traces = Vec::<u16>::with_capacity(sizes[1] * sizes[2]);
         for channel_trace in channels.iter() {
-            let channel_num = channel_trace.channel();
-
-            // Lazily create a dataset for this channel.
-            if !self.channels.contains_key(&channel_num) {
-                let ds = make_resizable_dataset::<VarLenArray<u16>>(
-                    &self.group,
-                    &format!("channel_{channel_num}"),
-                    chunk_size,
-                )?;
-                self.channels.insert(channel_num, ds);
+            for v in channel_trace.voltage().expect("This should never fail.") {
+                traces.push(v);
             }
-            let ds = self
-                .channels
-                .get(&channel_num)
-                .expect("channel was just inserted");
-
-            let voltage: Vec<u16> = channel_trace
-                .voltage()
-                .map(|v| v.iter().collect())
-                .unwrap_or_default();
-            let vla = VarLenArray::from_slice(&voltage);
-            append_value(ds, vla)?;
         }
- */
+        let traces = Array2::from_shape_vec([sizes[1], sizes[2]], traces).unwrap();
+        all_traces
+            .write_slice(&traces, s![sizes[0], 0..sizes[1], 0..sizes[2]])
+            .unwrap();
+        /*
+               for channel_trace in channels.iter() {
+                   let channel_num = channel_trace.channel();
+
+                   // Lazily create a dataset for this channel.
+                   if !self.channels.contains_key(&channel_num) {
+                       let ds = make_resizable_dataset::<VarLenArray<u16>>(
+                           &self.group,
+                           &format!("channel_{channel_num}"),
+                           chunk_size,
+                       )?;
+                       self.channels.insert(channel_num, ds);
+                   }
+                   let ds = self
+                       .channels
+                       .get(&channel_num)
+                       .expect("channel was just inserted");
+
+                   let voltage: Vec<u16> = channel_trace
+                       .voltage()
+                       .map(|v| v.iter().collect())
+                       .unwrap_or_default();
+                   let vla = VarLenArray::from_slice(&voltage);
+                   append_value(ds, vla)?;
+               }
+        */
         Ok(())
     }
 }
@@ -190,8 +238,14 @@ impl TraceFileWriter {
     /// Creates a new HDF5 file at `path` and prepares it for writing.
     pub(crate) fn new(path: &Path, chunk_size: usize) -> Result<Self, TraceWriterError> {
         let file = File::create(path)?;
-        file.new_attr::<bool>().shape(Extents::Scalar).create("config_timestamp_as_rfc3339")?.write_scalar(&false)?;
-        file.new_attr::<bool>().shape(Extents::Scalar).create("config_multiple_channel_datasets")?.write_scalar(&false)?;
+        file.new_attr::<bool>()
+            .shape(Extents::Scalar)
+            .create("config_timestamp_as_rfc3339")?
+            .write_scalar(&false)?;
+        file.new_attr::<bool>()
+            .shape(Extents::Scalar)
+            .create("config_multiple_channel_datasets")?
+            .write_scalar(&false)?;
         Ok(Self {
             file,
             chunk_size,
