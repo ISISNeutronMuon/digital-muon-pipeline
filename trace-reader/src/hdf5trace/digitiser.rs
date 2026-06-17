@@ -11,6 +11,7 @@ use digital_muon_streaming_types::{
     frame_metadata_v2_generated::{FrameMetadataV2, FrameMetadataV2Args, GpsTime},
 };
 use hdf5::{File, types::VarLenUnicode};
+use tracing::{info, warn};
 //use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::hdf5trace::{
@@ -22,7 +23,7 @@ const CACHE_SIZE: Option<usize> = Some(64);
 const CHANNEL: &'static str = "channel";
 const DIGITISER: &'static str = "digitiser";
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct HDF5Config {
     /// True if the timestamp is stored as a RFC3339 string, otherwise ns since epoch.
     pub(crate) timestamp_as_rfc3339: bool,
@@ -56,7 +57,6 @@ impl Hdf5Digitiser {
         //let filename = file.filename();
         for group in file.groups().unwrap() {
             let digitiser_id: DigitizerId = extract_from_dataset_name(group.name(), DIGITISER)?;
-            //info!("Extracting digitiser {digitiser_id} from trace file.");
 
             let frame_numbers = FullDataset::new(group.dataset("frame_number").unwrap());
             let num_frames = frame_numbers.get_num_elements();
@@ -96,6 +96,7 @@ impl Hdf5Digitiser {
             } else {
                 let channels = group.dataset("channels").unwrap();
                 let traces = group.dataset("traces").unwrap();
+                info!("Digitiser {digitiser_id} has traces dataset of size {:?}.", traces.shape());
                 Channels::SINGLE(Hdf5AllChannels::new(FullDataset::new(channels), traces))
             };
             digitisers.push(Hdf5Digitiser {
@@ -188,7 +189,8 @@ impl Hdf5Digitiser {
         sampling_rate: u64,
         shift_timestamp_date_to_today: bool,
     ) -> miette::Result<()> {
-        if index > self.num_frames {
+        if index >= self.num_frames {
+            warn!("Index {index} >= size {}", self.num_frames);
             return Ok(());
         }
         fbb.reset();

@@ -59,25 +59,12 @@ impl Hdf5AllChannels {
         fbb: &mut FlatBufferBuilder<'a>,
         index: usize,
     ) -> WIPOffset<Vector<'a, ForwardsUOffset<ChannelTrace<'a>>>> {
-        let trace = self.traces.read_slice_2d::<u16,_>(ndarray::s![..,..,index]).unwrap();
-        
-        /*let traces = self.channels.iter().map(|&channel| {
-            tracing::Span::current().record("length", trace.len());
-            let voltage = Some(fbb.create_vector::<Intensity>(trace.as_slice()));
-            ChannelTrace::create(
-                fbb,
-                &ChannelTraceArgs {
-                    channel,
-                    voltage,
-                },
-            )
-        });*/
-        //.collect::<Vec<_>>();
         tracing::Span::current().record("length", self.channels.get_num_elements());
+        let trace = self.traces.read_slice_2d::<u16,_>(ndarray::s![index,..,..]).unwrap();
         let traces = self.channels.iter().enumerate().map(|(index, &channel)| {
-            let slice = trace.slice(ndarray::s![..,index]);
-            let v = slice.into_iter().copied().collect::<Vec<_>>();
-            let voltage = Some(fbb.create_vector::<Intensity>(v.as_slice()));
+            let slice = trace.slice(ndarray::s![index,..]);
+            //let v = slice.into_iter().copied().collect::<Vec<_>>();
+            let voltage = Some(fbb.create_vector::<Intensity>(slice.as_slice().unwrap()));
             ChannelTrace::create(
                 fbb,
                 &ChannelTraceArgs {

@@ -13,7 +13,7 @@ use rdkafka::{
     ClientConfig, producer::{BaseRecord, DefaultProducerContext, FutureProducer, ThreadedProducer}
 };
 use std::path::PathBuf;
-use tracing::info_span;
+use tracing::{info, info_span};
 
 use crate::hdf5trace::{Hdf5Digitiser, HDF5Config};
 
@@ -249,6 +249,7 @@ async fn read_hdf5_file(
             .unwrap_or(true),
         
     };
+    info!("File config: {config:?}");
     
     let mut digitisers = Hdf5Digitiser::open_from(file, config).unwrap()
         .into_iter()
@@ -261,7 +262,7 @@ async fn read_hdf5_file(
         }
     } else {
         let num_indices = digitisers.iter().map(|digitiser| digitiser.to_index - digitiser.from_index).min().unwrap();
-        for index in 0..num_indices {
+        for index in 0..=num_indices {
             read_hdf5_frame(&mut digitisers, index, trace_topic, &args).await;
         }
     }
@@ -293,7 +294,7 @@ async fn read_hdf5_frame(
         }
     );
 
-    spanned_digitisers
+    let _ = spanned_digitisers
         .par_iter_mut()
         .map(|spanned_digitiser| {
             let mut fbb = FlatBufferBuilder::new();
