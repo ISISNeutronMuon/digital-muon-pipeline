@@ -17,7 +17,7 @@ use crate::error::TraceWriterError;
 use chrono::{DateTime, Utc};
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::DigitizerAnalogTraceMessage;
 use hdf5::{
-    Dataset, File, Group, SimpleExtents, types::TypeDescriptor
+    Dataset, Extents, File, Group, SimpleExtents, types::TypeDescriptor
 };
 use ndarray::s;
 use tracing::warn;
@@ -190,8 +190,8 @@ impl TraceFileWriter {
     /// Creates a new HDF5 file at `path` and prepares it for writing.
     pub(crate) fn new(path: &Path, chunk_size: usize) -> Result<Self, TraceWriterError> {
         let file = File::create(path)?;
-        file.new_attr_builder().with_data_as(&[false], &TypeDescriptor::Boolean).create("config_timestamp_as_rfc3339")?;
-        file.new_attr_builder().with_data_as(&[false], &TypeDescriptor::Boolean).create("config_multiple_channel_datasets")?;
+        file.new_attr::<bool>().shape(Extents::Scalar).create("config_timestamp_as_rfc3339")?.write_scalar(&false)?;
+        file.new_attr::<bool>().shape(Extents::Scalar).create("config_multiple_channel_datasets")?.write_scalar(&false)?;
         Ok(Self {
             file,
             chunk_size,
