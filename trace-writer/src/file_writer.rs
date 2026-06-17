@@ -15,12 +15,12 @@
 
 use crate::error::TraceWriterError;
 use chrono::{DateTime, Utc};
-use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::DigitizerAnalogTraceMessage;
+use digital_muon_streaming_types::{dat2_digitizer_analog_trace_v2_generated::{ChannelTrace, DigitizerAnalogTraceMessage}, flatbuffers::Vector};
 use hdf5::{
-    Dataset, File, Group, SimpleExtents,
-    types::{TypeDescriptor, VarLenArray},
+    Dataset, Dataspace, File, Group, H5Type, SimpleExtents, types::{TypeDescriptor, VarLenArray}
 };
-use ndarray::s;
+use ndarray::{Array2, s};
+use tracing::warn;
 use std::{collections::HashMap, path::Path};
 
 /// Appends a single value to a resizable 1-D HDF5 dataset.
@@ -54,6 +54,8 @@ struct DigitizerData {
     timestamp: Dataset,
     /// 1-D resizable dataset: period number per message.
     period_number: Dataset,
+    /// 1-D resizable dataset: Channels consisting .
+    all_channels: Option<Dataset>,
     /// Per-channel voltage datasets, keyed by channel number.
     channels: HashMap<u32, Dataset>,
 }
@@ -66,12 +68,15 @@ impl DigitizerData {
         let frame_number = make_resizable_dataset::<u32>(&group, "frame_number", chunk_size)?;
         let timestamp = make_resizable_dataset::<i64>(&group, "timestamp", chunk_size)?;
         let period_number = make_resizable_dataset::<u64>(&group, "period_number", chunk_size)?;
+        //let all_channels = make_resizable_dataset::<FixedArray<FixedArray<u16>>>(&group, "all_channels", chunk_size)?;
+        let all_channels = None;
 
         Ok(Self {
             group,
             frame_number,
             timestamp,
             period_number,
+            all_channels,
             channels: HashMap::new(),
         })
     }
@@ -101,9 +106,48 @@ impl DigitizerData {
         append_value(&self.timestamp, timestamp.timestamp_nanos_opt().ok_or(TraceWriterError::NanosecondConversionFailed(timestamp.clone()))?)?;
 
         let Some(channels) = msg.channels() else {
+            warn!("Missing channels.");
             return Ok(());
         };
 
+        let trace_size = channels.iter().map(|c|c.voltage().map(|v|v.len()).unwrap_or_default()).max().unwrap_or_default();
+        if channels.iter().any(|c|c.voltage().is_none()) {
+            warn!("Missing channel voltages.");
+            return Ok(());
+        }
+        if channels.iter().any(|c|c.voltage().map(|v|v.len() != trace_size).unwrap_or(true)) {
+            warn!("Trace sizes inconsistant.");
+            return Ok(());
+        }
+        
+        if self.all_channels.is_none() {
+            self.all_channels = Some(self.group
+                .new_dataset::<u16>()
+                .shape(SimpleExtents::resizable(vec![trace_size,channels.len(),1]))
+                .chunk(vec![trace_size,channels.len(),chunk_size])
+                .create("all_channels")?);
+        }
+        let all_channels = self.all_channels.as_ref().expect("This should never fail.");
+        
+        let sizes : [usize; 3] =  all_channels.shape().try_into().expect("This should never fail");
+        if sizes[0] != trace_size {
+            warn!("Trace size inconsistant with previous messages.");
+            return Ok(());
+        }
+        if sizes[1] != channels.len() {
+            warn!("Number of channels inconsistant with previous messages.");
+            return Ok(());
+        }
+
+        all_channels.resize(vec![sizes[0], sizes[1], sizes[2] + 1])?;
+        let mut all_traces = Vec::<u16>::with_capacity(channels.len()*trace_size);
+        for (index, channel_trace) in channels.iter().enumerate() {
+            for v in channel_trace.voltage().expect("This should never fail.") {
+                all_traces.push(v);
+            }
+            all_channels.write_slice(all_traces.as_slice(), s![0..sizes[0], index, sizes[2]..(sizes[2] + 1)])?;
+        }
+/*
         for channel_trace in channels.iter() {
             let channel_num = channel_trace.channel();
 
@@ -128,7 +172,7 @@ impl DigitizerData {
             let vla = VarLenArray::from_slice(&voltage);
             append_value(ds, vla)?;
         }
-
+ */
         Ok(())
     }
 }
@@ -147,7 +191,7 @@ impl TraceFileWriter {
     /// Creates a new HDF5 file at `path` and prepares it for writing.
     pub(crate) fn new(path: &Path, chunk_size: usize) -> Result<Self, TraceWriterError> {
         let file = File::create(path)?;
-        file.new_attr_builder().with_data_as(&[false], &TypeDescriptor::Boolean).create("config_timestamp_rfc3339")?;
+        file.new_attr_builder().with_data_as(&[false], &TypeDescriptor::Boolean).create("config_timestamp_as_rfc3339")?;
         file.new_attr_builder().with_data_as(&[true], &TypeDescriptor::Boolean).create("config_multiple_channel_datasets")?;
         Ok(Self {
             file,
