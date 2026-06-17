@@ -15,11 +15,11 @@
 
 use crate::error::TraceWriterError;
 use chrono::{DateTime, Utc};
-use digital_muon_streaming_types::{dat2_digitizer_analog_trace_v2_generated::{ChannelTrace, DigitizerAnalogTraceMessage}, flatbuffers::Vector};
+use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::DigitizerAnalogTraceMessage;
 use hdf5::{
-    Dataset, Dataspace, File, Group, H5Type, SimpleExtents, types::{TypeDescriptor, VarLenArray}
+    Dataset, File, Group, SimpleExtents, types::TypeDescriptor
 };
-use ndarray::{Array2, s};
+use ndarray::s;
 use tracing::warn;
 use std::{collections::HashMap, path::Path};
 
@@ -68,7 +68,6 @@ impl DigitizerData {
         let frame_number = make_resizable_dataset::<u32>(&group, "frame_number", chunk_size)?;
         let timestamp = make_resizable_dataset::<i64>(&group, "timestamp", chunk_size)?;
         let period_number = make_resizable_dataset::<u64>(&group, "period_number", chunk_size)?;
-        //let all_channels = make_resizable_dataset::<FixedArray<FixedArray<u16>>>(&group, "all_channels", chunk_size)?;
         let all_channels = None;
 
         Ok(Self {
@@ -192,7 +191,7 @@ impl TraceFileWriter {
     pub(crate) fn new(path: &Path, chunk_size: usize) -> Result<Self, TraceWriterError> {
         let file = File::create(path)?;
         file.new_attr_builder().with_data_as(&[false], &TypeDescriptor::Boolean).create("config_timestamp_as_rfc3339")?;
-        file.new_attr_builder().with_data_as(&[true], &TypeDescriptor::Boolean).create("config_multiple_channel_datasets")?;
+        file.new_attr_builder().with_data_as(&[false], &TypeDescriptor::Boolean).create("config_multiple_channel_datasets")?;
         Ok(Self {
             file,
             chunk_size,
