@@ -140,6 +140,17 @@ struct Cli {
 async fn main() -> miette::Result<()> {
     let args = Cli::parse();
 
+    let is_pair_weakly_decreasing = |ids_pair: &[DigitizerId]| {
+        let first = ids_pair.first()
+            .expect("Window slice is non-empty, this should never fail.");
+        let second = ids_pair.get(1)
+            .expect("Window slice has len 2, this should never fail.");
+        first >= second
+    };
+    if args.digitiser_ids.windows(2).any(is_pair_weakly_decreasing) {
+        panic!("Digitiser Ids {:?} should be a strictly increasing sequence on the command line.", args.digitiser_ids);
+    }
+
     let tracer = init_tracer!(TracerOptions::new(
         args.otel_endpoint.as_deref(),
         args.otel_namespace
