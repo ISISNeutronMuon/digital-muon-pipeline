@@ -24,6 +24,10 @@ use ndarray::{Array2, s};
 use tracing::warn;
 
 /// Appends a single value to a resizable 1-D HDF5 dataset.
+///
+/// # Parameters
+/// - ds: Dataset to append value, this must be resizable and one dimensional.
+/// - value: value to append.
 fn append_value<T: hdf5::H5Type>(ds: &Dataset, value: T) -> Result<(), hdf5::Error> {
     let cur = ds.size();
     ds.resize(cur + 1)?;
@@ -32,6 +36,11 @@ fn append_value<T: hdf5::H5Type>(ds: &Dataset, value: T) -> Result<(), hdf5::Err
 }
 
 /// Creates a resizable 1-D HDF5 dataset of the given type.
+///
+/// # Parameters
+/// - group: the group in which to create the dataset.
+/// - name: name of the new dataset.
+/// - chunk_size: the chunk size to use.
 fn make_resizable_dataset<T: hdf5::H5Type>(
     group: &Group,
     name: &str,
@@ -45,6 +54,11 @@ fn make_resizable_dataset<T: hdf5::H5Type>(
 }
 
 /// Creates a fixed-size 1-D HDF5 dataset of the given type.
+///
+/// # Parameters
+/// - group: the group in which to create the dataset.
+/// - name: name of the new dataset.
+/// - chunk_size: the chunk size to use.
 fn make_fixed_size_dataset<T: hdf5::H5Type>(
     group: &Group,
     name: &str,
@@ -63,7 +77,7 @@ fn make_fixed_size_dataset<T: hdf5::H5Type>(
 /// - trace_size: the size of the traces of the current message.
 ///
 /// # Return
-/// True if everything is vailid. false otherwise.
+/// True if everything is valid. false otherwise.
 fn validate_current_message_and_trace_sizes<'a>(
     channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone,
     sizes: &[usize; 3],
@@ -121,6 +135,11 @@ pub(crate) struct DigitizerData {
 
 impl DigitizerData {
     /// Creates the HDF5 group and metadata datasets for a new digitiser.
+    ///
+    /// # Parameters
+    /// - parent: the group in which to create the digitiser group.
+    /// - digitizer_id: the id of the digitiser.
+    /// - chunk_size: the chunk size to use.
     pub(crate) fn new(
         parent: &Group,
         digitizer_id: u8,
@@ -233,7 +252,7 @@ impl DigitizerData {
 
         // Extend the traces field in the first axis.
         let new_sizes = {
-            let mut new_sizes = all_traces_sizes.clone();
+            let mut new_sizes = all_traces_sizes;
             new_sizes[0] += 1;
             new_sizes
         };
