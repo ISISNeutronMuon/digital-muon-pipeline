@@ -194,16 +194,6 @@ async fn read_hdf5_at_index(
 
 
 #[cfg(test)]
-mod test {
-const msg: &'static str = r#"dat2
-
-
-   @
-    ʚ|�|��$
-
-           �
-             >H���2����20���2����2���2����2
-                                      2 2"#;
+mod tests {
     
-
 }
