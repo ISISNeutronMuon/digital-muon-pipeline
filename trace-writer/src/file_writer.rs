@@ -15,12 +15,11 @@
 
 use crate::error::TraceWriterError;
 use chrono::{DateTime, Utc};
-use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::DigitizerAnalogTraceMessage;
-use hdf5::{
-    Dataset, Extents, File, Group, SimpleExtents,
-    filters::{Filter, SZip},
-    types::TypeDescriptor,
+use digital_muon_common::Channel;
+use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::{
+    ChannelTrace, DigitizerAnalogTraceMessage,
 };
+use hdf5::{Dataset, Extent, Extents, File, Group, SimpleExtents};
 use ndarray::{Array2, s};
 use std::{collections::HashMap, path::Path};
 use tracing::warn;
@@ -46,6 +45,61 @@ fn make_resizable_dataset<T: hdf5::H5Type>(
         .create(name)
 }
 
+/// Creates a resizable 1-D HDF5 dataset of the given type.
+fn make_fixed_size_dataset<T: hdf5::H5Type>(
+    group: &Group,
+    name: &str,
+    size: usize,
+) -> Result<Dataset, hdf5::Error> {
+    group
+        .new_dataset::<T>()
+        .shape(SimpleExtents::fixed(vec![size]))
+        .create(name)
+}
+
+/// Checks that the existing traces dataset has the appropriate shape for the current message.
+/// # Parameters
+/// - channels: iterator over the current message's channels.
+/// - sizes: the dimensions of the hdf5 traces dataset.
+/// - trace_size: the size of the traces of the current message.
+///
+/// # Return
+/// True if everything is vailid. false otherwise.
+fn validate_current_message_and_trace_sizes<'a>(
+    channels: impl Iterator<Item = ChannelTrace<'a>> + ExactSizeIterator + Clone,
+    sizes: &[usize; 3],
+    trace_size: usize,
+) -> bool {
+    if channels.clone().any(|c| c.voltage().is_none()) {
+        warn!("Missing channel voltages.");
+        return false;
+    }
+    if channels
+        .clone()
+        .any(|c| c.voltage().map(|v| v.len() != trace_size).unwrap_or(true))
+    {
+        warn!("Trace sizes inconsistant.");
+        return false;
+    }
+
+    if sizes[2] != trace_size {
+        warn!(
+            "Trace size {trace_size} inconsistant with that of previous message(s) {}.",
+            sizes[2]
+        );
+        return false;
+    }
+    if sizes[1] != channels.len() {
+        warn!(
+            "Number of channels {} inconsistant with that of previous message(s) {}.",
+            channels.len(),
+            sizes[1]
+        );
+        return false;
+    }
+    return true;
+}
+
 /// Owns the HDF5 group and datasets for one digitiser.
 struct DigitizerData {
     /// HDF5 group for this digitiser.
@@ -56,12 +110,14 @@ struct DigitizerData {
     timestamp: Dataset,
     /// 1-D resizable dataset: period number per message.
     period_number: Dataset,
-    /// 1-D resizable dataset: Channels consisting .
+    /// 1-D resizable dataset containing channel ids.
+    ///
+    /// Lazily created when the first digitiser message arrives.
     all_channels: Option<Dataset>,
-    /// 1-D resizable dataset: Channels consisting .
+    /// 3-D resizable dataset containing trace data, the shape is [Number of Traces, Number of Channels, Size of Trace].
+    ///
+    /// Lazily created when the first digitiser message arrives, only the first axis is resized as subsequent messages arrive.
     all_traces: Option<Dataset>,
-    /// Per-channel voltage datasets, keyed by channel number.
-    channels: HashMap<u32, Dataset>,
 }
 
 impl DigitizerData {
@@ -80,8 +136,44 @@ impl DigitizerData {
             period_number,
             all_channels: None,
             all_traces: None,
-            channels: HashMap::new(),
         })
+    }
+
+    /// Lazily creates the `all_channels` and `all_traces` datasets if they do not exist,
+    /// using the current message as a template.
+    ///
+    /// # Parameters
+    /// - channels: iterator over the current message's channels.
+    /// - chunk_size: the desired chunk size for new datasets.
+    /// - trace_size: the size of the traces of the current message.
+    fn ensure_channel_and_trace_datasets_exist<'a>(
+        &mut self,
+        channels: impl Iterator<Item = ChannelTrace<'a>> + Clone + ExactSizeIterator,
+        chunk_size: usize,
+        trace_size: usize,
+    ) -> Result<(), TraceWriterError> {
+        if self.all_channels.is_none() {
+            let all_channels =
+                make_fixed_size_dataset::<Channel>(&self.group, "channels", channels.len())?;
+            all_channels.write(&channels.clone().map(|c| c.channel()).collect::<Vec<_>>())?;
+            self.all_channels = Some(all_channels);
+        }
+
+        if self.all_traces.is_none() {
+            let shape = SimpleExtents::from_vec(vec![
+                Extent::resizable(0),
+                Extent::fixed(channels.len()),
+                Extent::fixed(trace_size),
+            ]);
+            self.all_traces = Some(
+                self.group
+                    .new_dataset::<u16>()
+                    .shape(shape)
+                    .chunk(vec![chunk_size, channels.len(), trace_size])
+                    .create("traces")?,
+            );
+        }
+        Ok(())
     }
 
     /// Writes one [DigitizerAnalogTraceMessage] into this digitiser's datasets.
@@ -92,31 +184,28 @@ impl DigitizerData {
     ) -> Result<(), TraceWriterError> {
         let metadata = msg.metadata();
 
+        // Writer frame number and period number.
         append_value(&self.frame_number, metadata.frame_number())?;
         append_value(&self.period_number, metadata.period_number())?;
 
-        let timestamp = metadata
+        // Extract timestamp and write.
+        let timestamp: DateTime<Utc> = metadata
             .timestamp()
             .copied()
-            .ok_or(TraceWriterError::MissingField("timestamp"))?;
-        let timestamp: DateTime<Utc> = timestamp
+            .ok_or(TraceWriterError::MissingField("timestamp"))?
             .try_into()
             .map_err(|_| TraceWriterError::TimestampConversionFailed)?;
-        /*let timestamp = timestamp.to_rfc3339();
-        let timestamp: VarLenUnicode = timestamp
-            .parse()
-            .map_err(|_| TraceWriterError::UnicodeConversionFailed(timestamp.clone()))?;*/
-        append_value(
-            &self.timestamp,
+        let timestamp_ns =
             timestamp
                 .timestamp_nanos_opt()
                 .ok_or(TraceWriterError::NanosecondConversionFailed(
                     timestamp.clone(),
-                ))?,
-        )?;
+                ))?;
+        append_value(&self.timestamp, timestamp_ns)?;
 
+        // Extract channels from current message, returning a warning if not present.
         let Some(channels) = msg.channels() else {
-            warn!("Missing channels.");
+            warn!("Channels field missing.");
             return Ok(());
         };
 
@@ -125,101 +214,51 @@ impl DigitizerData {
             .map(|c| c.voltage().map(|v| v.len()).unwrap_or_default())
             .max()
             .unwrap_or_default();
-        if channels.iter().any(|c| c.voltage().is_none()) {
-            warn!("Missing channel voltages.");
-            return Ok(());
-        }
-        if channels
-            .iter()
-            .any(|c| c.voltage().map(|v| v.len() != trace_size).unwrap_or(true))
-        {
-            warn!("Trace sizes inconsistant.");
-            return Ok(());
-        }
 
-        if self.all_channels.is_none() {
-            let all_channels = self
-                .group
-                .new_dataset::<u16>()
-                .shape(SimpleExtents::fixed(vec![channels.len()]))
-                .create("channels")?;
-            all_channels.write(&channels.iter().map(|c| c.channel()).collect::<Vec<_>>())?;
-            self.all_channels = Some(all_channels);
-        }
-
-        if self.all_traces.is_none() {
-            self.all_traces = Some(
-                self.group
-                    .new_dataset::<u16>()
-                    .shape(SimpleExtents::resizable(vec![
-                        0,
-                        channels.len(),
-                        trace_size,
-                    ]))
-                    .chunk(vec![chunk_size, channels.len(), trace_size])
-                    .create("traces")?,
-            );
-        }
+        self.ensure_channel_and_trace_datasets_exist(channels.iter(), chunk_size, trace_size)?;
         let all_traces = self.all_traces.as_ref().expect("This should never fail.");
-
-        let sizes: [usize; 3] = all_traces
+        let all_traces_sizes: [usize; 3] = all_traces
             .shape()
             .try_into()
-            .expect("This should never fail");
-        if sizes[2] != trace_size {
-            warn!(
-                "Trace size {trace_size} inconsistant with that of previous message(s) {}.",
-                sizes[2]
-            );
-            return Ok(());
-        }
-        if sizes[1] != channels.len() {
-            warn!(
-                "Number of channels {} inconsistant with that of previous message(s) {}.",
-                channels.len(),
-                sizes[1]
-            );
+            .expect("Dataset should have three dimensions, this should never fail");
+
+        if !validate_current_message_and_trace_sizes(channels.iter(), &all_traces_sizes, trace_size)
+        {
             return Ok(());
         }
 
-        all_traces.resize(vec![sizes[0] + 1, sizes[1], sizes[2]])?;
+        // Extend the traces field in the first axis.
+        let new_sizes = vec![
+            all_traces_sizes[0] + 1,
+            all_traces_sizes[1],
+            all_traces_sizes[2],
+        ];
+        all_traces.resize(new_sizes)?;
 
-        let mut traces = Vec::<u16>::with_capacity(sizes[1] * sizes[2]);
-        for channel_trace in channels.iter() {
-            for v in channel_trace.voltage().expect("This should never fail.") {
+        // Build the next slice of the traces field.
+        //let mut traces = Vec::<u16>::with_capacity(all_traces_sizes[1] * all_traces_sizes[2]);
+        let traces = channels.iter()
+            .flat_map(|channel_trace|channel_trace
+                .voltage()
+                .expect("Voltage field should exist, this should never fail.").iter()
+            )
+            .collect::<Vec<_>>();
+        /*for channel_trace in channels.iter() {
+            for v in channel_trace
+                .voltage()
+                .expect("Voltage field should exist, this should never fail.")
+            {
                 traces.push(v);
             }
-        }
-        let traces = Array2::from_shape_vec([sizes[1], sizes[2]], traces).unwrap();
-        all_traces
-            .write_slice(&traces, s![sizes[0], 0..sizes[1], 0..sizes[2]])
-            .unwrap();
-        /*
-               for channel_trace in channels.iter() {
-                   let channel_num = channel_trace.channel();
-
-                   // Lazily create a dataset for this channel.
-                   if !self.channels.contains_key(&channel_num) {
-                       let ds = make_resizable_dataset::<VarLenArray<u16>>(
-                           &self.group,
-                           &format!("channel_{channel_num}"),
-                           chunk_size,
-                       )?;
-                       self.channels.insert(channel_num, ds);
-                   }
-                   let ds = self
-                       .channels
-                       .get(&channel_num)
-                       .expect("channel was just inserted");
-
-                   let voltage: Vec<u16> = channel_trace
-                       .voltage()
-                       .map(|v| v.iter().collect())
-                       .unwrap_or_default();
-                   let vla = VarLenArray::from_slice(&voltage);
-                   append_value(ds, vla)?;
-               }
-        */
+        }*/
+        let traces = Array2::from_shape_vec([all_traces_sizes[1], all_traces_sizes[2]], traces)
+            .expect("Traces slice should have the correct size, this should never fail.");
+        let slice = s![
+            all_traces_sizes[0],
+            0..all_traces_sizes[1],
+            0..all_traces_sizes[2]
+        ];
+        all_traces.write_slice(&traces, slice)?;
         Ok(())
     }
 }
@@ -249,6 +288,19 @@ impl TraceFileWriter {
         Ok(Self {
             file,
             chunk_size,
+            digitizers: HashMap::new(),
+        })
+    }
+
+    #[cfg(test)]
+    /// Creates a new HDF5 file at `path` and prepares it for writing.
+    pub(crate) fn new_temp(name: &str) -> Result<Self, TraceWriterError> {
+        let mut builder = File::with_options();
+        builder.fapl().core();
+        let file = builder.create(name)?;
+        Ok(Self {
+            file,
+            chunk_size: 1,
             digitizers: HashMap::new(),
         })
     }
@@ -291,5 +343,80 @@ impl TraceFileWriter {
         self.file.flush()?;
         self.file.close()?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::handle_trace_message;
+    use digital_muon_common::{FrameNumber, Intensity, init_tracer, tracer::{TracerEngine, TracerOptions}};
+    use ndarray::Dim;
+    use std::{fs::File, io::Read};
+    use super::*;
+    use tracing::info;
+
+    #[test]
+    fn test() {
+        unsafe { std::env::set_var("RUST_LOG", "info"); }
+        let _tracer = init_tracer!(TracerOptions::new(None, String::new()));
+
+        let mut file = File::open("test_assets/test.dat2").unwrap();
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).unwrap();
+        let mut hdf5 = TraceFileWriter::new_temp("test").unwrap();
+        handle_trace_message(data.as_slice(), Some(&mut hdf5));
+        
+        test_internal_structure(&hdf5);
+
+        let true_hdf5 = hdf5::File::open("test_assets/test.hdf5").unwrap();
+        test_compare_to_true_file(true_hdf5, hdf5.file);
+    }
+
+    fn test_internal_structure(hdf5: &TraceFileWriter) {
+        assert!(hdf5.digitizers.get(&0).is_some());
+        let digitiser = hdf5.digitizers.get(&0).unwrap();
+        let frame_number = digitiser.frame_number.read_1d::<FrameNumber>();
+        let period_number = digitiser.period_number.read_1d::<u64>();
+        let timestamp = digitiser.timestamp.read_1d::<i64>();
+        assert!(frame_number.is_ok());
+        assert!(period_number.is_ok());
+        assert!(timestamp.is_ok());
+        assert_eq!(frame_number.unwrap().to_vec(), vec![0]);
+        assert_eq!(period_number.unwrap().to_vec(), vec![0]);
+        assert_eq!(timestamp.unwrap().to_vec(), vec![1781869468296159408]);
+
+        assert!(digitiser.all_channels.is_some());
+        let channels = digitiser.all_channels.as_ref().unwrap().read_1d::<Channel>();
+        assert!(channels.is_ok());
+        assert_eq!(channels.unwrap().to_vec(), vec![0, 1, 2, 3, 4, 5, 6, 7]);
+        assert!(digitiser.all_traces.is_some());
+        let traces = digitiser.all_traces.as_ref().unwrap().read::<Intensity, Dim<[usize; 3]>>();
+        assert!(traces.is_ok());
+        assert_eq!(traces.unwrap().shape(), &[1,8,50]);
+    }
+    
+    fn test_compare_to_true_file(true_hdf5: hdf5::File, test_hdf5: hdf5::File) {
+        for true_group in true_hdf5.groups().unwrap() {
+            info!("Testing group {}", true_group.name());
+
+            assert!(test_hdf5.group(&true_group.name()).is_ok());
+            for true_dataset in true_group.datasets().unwrap() {
+                let true_timestamps = true_dataset.read_raw::<u8>().unwrap();
+                info!("Testing dataset {} with value byte size {}.", true_dataset.name(), true_timestamps.len());
+
+                let test_dataset = test_hdf5.dataset(&true_dataset.name());
+                // Ensure test dataset exists.
+                assert!(test_dataset.is_ok());
+
+                let test_dataset = test_dataset.unwrap();
+                let test_timestamps = test_dataset.read_raw::<u8>();
+                // Ensure test dataset value can be read.
+                assert!(test_timestamps.is_ok());
+                let test_timestamps = test_timestamps.unwrap();
+
+                // Ensure dataset values are equal.
+                assert_eq!(true_timestamps, test_timestamps);
+            }
+        }
     }
 }
