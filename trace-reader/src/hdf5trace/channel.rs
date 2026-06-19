@@ -4,9 +4,9 @@ use digital_muon_streaming_types::{
     flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset},
 };
 use hdf5::{Dataset, types::VarLenArray};
-use ndarray::{Dim, IxDynImpl};
+use ndarray::Array1;
 
-use crate::hdf5trace::cached_dataset::{CachedDataset, FullDataset};
+use crate::hdf5trace::cached_dataset::CachedDataset;
 
 pub(super) struct Hdf5Channel {
     channel: Channel,
@@ -44,12 +44,12 @@ impl Hdf5Channel {
 
 
 pub(super) struct Hdf5AllChannels {
-    channels: FullDataset<Channel>,
+    channels: Array1<Channel>,
     traces: Dataset,
 }
 
 impl Hdf5AllChannels {
-    pub(super) fn new(channels: FullDataset<Channel>, traces: Dataset) -> Self {
+    pub(super) fn new(channels: Array1<Channel>, traces: Dataset) -> Self {
         Self { channels, traces }
     }
 
@@ -59,7 +59,7 @@ impl Hdf5AllChannels {
         fbb: &mut FlatBufferBuilder<'a>,
         index: usize,
     ) -> WIPOffset<Vector<'a, ForwardsUOffset<ChannelTrace<'a>>>> {
-        tracing::Span::current().record("length", self.channels.get_num_elements());
+        tracing::Span::current().record("length", self.channels.len());
         let trace = self.traces.read_slice_2d::<u16,_>(ndarray::s![index,..,..]).unwrap();
         let traces = self.channels.iter().enumerate().map(|(index, &channel)| {
             let slice = trace.slice(ndarray::s![index,..]);

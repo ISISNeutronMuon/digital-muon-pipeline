@@ -1,6 +1,4 @@
-use core::time;
-
-use chrono::{DateTime, Datelike, Duration, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use digital_muon_common::{Channel, DigitizerId, FrameNumber};
 use digital_muon_streaming_types::{
     dat2_digitizer_analog_trace_v2_generated::{
@@ -10,15 +8,13 @@ use digital_muon_streaming_types::{
     flatbuffers::{FlatBufferBuilder, WIPOffset},
     frame_metadata_v2_generated::{FrameMetadataV2, FrameMetadataV2Args, GpsTime},
 };
-use hdf5::{File, types::VarLenUnicode};
+use hdf5::{File, Group, types::VarLenUnicode};
+use ndarray::Array1;
 use tracing::{info, warn};
-//use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::hdf5trace::{
-    cached_dataset::{CachedDataset, FullDataset}, channel::{Hdf5AllChannels, Hdf5Channel}, extract_from_dataset_name,
+    Error, cached_dataset::CachedDataset, channel::{Hdf5AllChannels, Hdf5Channel}, extract_from_dataset_name
 };
-
-const CACHE_SIZE: Option<usize> = Some(64);
 
 const CHANNEL: &'static str = "channel";
 const DIGITISER: &'static str = "digitiser";
@@ -29,11 +25,13 @@ pub(crate) struct HDF5Config {
     pub(crate) timestamp_as_rfc3339: bool,
     /// True if channels are stored in separate datasets, false if channels are stored as 2D array.
     pub(crate) multiple_channel_datasets: bool,
+    /// 
+    pub(crate) cache_size: Option<usize>,
 }
 
 enum Timestamps {
     RFC3999(CachedDataset<VarLenUnicode>),
-    EPOCHNS(FullDataset<i64>)
+    EPOCHNS(Array1<i64>)
 }
 
 enum Channels {
@@ -43,76 +41,91 @@ enum Channels {
 
 pub(crate) struct Hdf5Digitiser {
     digitiser_id: DigitizerId,
-    period_numbers: FullDataset<u64>,
-    frame_numbers: FullDataset<FrameNumber>,
+    period_numbers: Array1<u64>,
+    frame_numbers: Array1<FrameNumber>,
     timestamps: Timestamps,
     channels: Channels,
     num_frames: usize,
-
 }
 
 impl Hdf5Digitiser {
-    pub(crate) fn open_from(file: File, config: HDF5Config) -> Result<Vec<Hdf5Digitiser>, String> {
+    pub(crate) fn open_from(file: File, config: HDF5Config) -> Result<Vec<Hdf5Digitiser>, Error> {
         let mut digitisers = Vec::<Hdf5Digitiser>::new();
-        //let filename = file.filename();
-        for group in file.groups().unwrap() {
-            let digitiser_id: DigitizerId = extract_from_dataset_name(group.name(), DIGITISER)?;
-
-            let frame_numbers = FullDataset::new(group.dataset("frame_number").unwrap());
-            let num_frames = frame_numbers.get_num_elements();
-
-            let period_numbers = FullDataset::new(group.dataset("period_number").unwrap());
-            assert_eq!(period_numbers.get_num_elements(), num_frames);
-
-            let timestamps = if config.timestamp_as_rfc3339 {
-                let timestamps = CachedDataset::new(group.dataset("timestamp").unwrap(), "timestamp", CACHE_SIZE);
-                assert_eq!(timestamps.get_num_elements(), num_frames);
-                Timestamps::RFC3999(timestamps)
-            } else {
-                let timestamps = FullDataset::new(group.dataset("timestamp").unwrap());
-                assert_eq!(timestamps.get_num_elements(), num_frames);
-                Timestamps::EPOCHNS(timestamps)
-            };
-
-            let channels = if config.multiple_channel_datasets {
-                let mut channels = Vec::<Hdf5Channel>::new();
-
-                for dataset in group.datasets().unwrap() {
-                    let name = dataset.name();
-                    if ["frame_number", "period_number", "timestamp"]
-                        .contains(&name.split('/').last().unwrap())
-                    {
-                        break;
-                    }
-
-                    let channel: Channel = extract_from_dataset_name(name, CHANNEL)?;
-                    assert_eq!(*dataset.shape().get(0).unwrap(), num_frames);
-                    channels.push(Hdf5Channel::new(
-                        channel,
-                        CachedDataset::new(dataset, "channel", CACHE_SIZE),
-                    ));
-                }
-                Channels::MULTIPLE(channels)
-            } else {
-                let channels = group.dataset("channels").unwrap();
-                let traces = group.dataset("traces").unwrap();
-                info!("Digitiser {digitiser_id} has traces dataset of size {:?}.", traces.shape());
-                Channels::SINGLE(Hdf5AllChannels::new(FullDataset::new(channels), traces))
-            };
-            digitisers.push(Hdf5Digitiser {
-                digitiser_id,
-                period_numbers,
-                frame_numbers,
-                timestamps,
-                channels,
-                num_frames
-            });
+        for group in file.groups().expect("Groups should be accessible, this should never fail.") {
+            digitisers.push(Self::open_digitiser(group, &config)?);
         }
         Ok(digitisers)
     }
 
+    fn open_digitiser(group: Group, config: &HDF5Config) -> Result<Self,Error> {
+        let digitiser_id: DigitizerId = extract_from_dataset_name(group.name(), DIGITISER)?;
+
+        let frame_numbers = group
+            .dataset("frame_number")?
+            .read_1d()?;
+        let num_frames = frame_numbers.len();
+
+        let period_numbers = group
+            .dataset("period_number")?
+            .read_1d()?;
+        assert_eq!(period_numbers.len(), num_frames);
+
+        let timestamps = if config.timestamp_as_rfc3339 {
+            let timestamps = CachedDataset::new(group.dataset("timestamp")?, config.cache_size.as_ref())?;
+            assert_eq!(timestamps.get_num_elements(), num_frames);
+            Timestamps::RFC3999(timestamps)
+        } else {
+            let timestamps : Array1<_> = group
+                .dataset("timestamp")?
+                .read_1d()?;
+            assert_eq!(timestamps.len(), num_frames);
+            Timestamps::EPOCHNS(timestamps)
+        };
+
+        let channels = if config.multiple_channel_datasets {
+            let mut channels = Vec::<Hdf5Channel>::new();
+
+            let channel_datasets = group.datasets()
+                .expect("Datasets should be accessible, this should never fail.")
+                .into_iter()
+                .filter_map(|dataset|
+                    (!["frame_number", "period_number", "timestamp"]
+                        .contains(&dataset.name().split('/').last()?))
+                        .then_some(dataset)
+                );
+
+            let channels = channel_datasets.into_iter().map(|dataset| {
+                let channel: Channel = extract_from_dataset_name(dataset.name(), CHANNEL)?;
+                assert_eq!(*dataset.shape(), vec![num_frames]);
+                let channel = Hdf5Channel::new(channel,CachedDataset::new(dataset, config.cache_size.as_ref())?);
+                Ok(channel)
+            }).collect::<Result<Vec<_>,Error>>()?;
+            Channels::MULTIPLE(channels)
+        } else {
+            let channels = group
+                .dataset("channels")?
+                .read_1d()?;
+            let traces = group.dataset("traces")?;
+            info!("Digitiser {digitiser_id} has traces dataset of size {:?}.", traces.shape());
+            Channels::SINGLE(Hdf5AllChannels::new(channels, traces))
+        };
+        Ok(Hdf5Digitiser {
+            digitiser_id,
+            period_numbers,
+            frame_numbers,
+            timestamps,
+            channels,
+            num_frames
+        })
+    }
+
     pub(crate) fn get_index_from_frame_number(&self, frame_number: FrameNumber) -> Option<usize> {
-        self.frame_numbers.find_index_of(frame_number)
+        self.frame_numbers.iter()
+            .enumerate()
+            .find_map(|(i,v)|
+                (frame_number.eq(v))
+                    .then_some(i)
+            )
     }
 
     #[tracing::instrument(skip_all)]
@@ -132,9 +145,12 @@ impl Hdf5Digitiser {
     }
 
     pub(crate) fn output_summary (&mut self) {
-        println!("Digitiser: {}. Num Frames: {}", self.digitiser_id, self.frame_numbers.get_num_elements());
-        let frame_numbers = (0..self.frame_numbers.get_num_elements())
-            .map(|i| self.frame_numbers.get_element(i));
+        println!("Digitiser: {}. Num Frames: {}", self.digitiser_id, self.frame_numbers.len());
+        let frame_numbers = (0..self.frame_numbers.len())
+            .map(|i| self.frame_numbers
+                    .get(i)
+                    .expect("Index should be in range, this should never fail.")
+                );
         let output = match &mut self.timestamps {
             Timestamps::RFC3999(timestamps) => {
                 let timestamps = (0..timestamps.get_num_elements())
@@ -152,9 +168,9 @@ impl Hdf5Digitiser {
                     .join(", ")
             }
             Timestamps::EPOCHNS(timestamps) => {
-                let timestamps = (0..timestamps.get_num_elements())
+                let timestamps = (0..timestamps.len())
                     .map(|i| {
-                        DateTime::from_timestamp_nanos(*timestamps.get_element(i)).to_rfc3339()
+                        DateTime::from_timestamp_nanos(*timestamps.get(i).unwrap()).to_rfc3339()
                     });
                 frame_numbers.zip(timestamps)
                     .map(|(f,t)|format!("{f}: {t}"))
@@ -188,21 +204,25 @@ impl Hdf5Digitiser {
         index: usize,
         sampling_rate: u64,
         shift_timestamp_date_to_today: bool,
-    ) -> miette::Result<()> {
+    ) -> Result<(), Error> {
         if index >= self.num_frames {
             warn!("Index {index} >= size {}", self.num_frames);
             return Ok(());
         }
         fbb.reset();
 
-        let frame_number = *self.frame_numbers.get_element(index);
-        let period_number = *self.period_numbers.get_element(index);
+        let frame_number = *self.frame_numbers.get(index).expect("This should never fail.");
+        let period_number = *self.period_numbers.get(index).expect("This should never fail.");
         let mut timestamp: DateTime<Utc> = match &self.timestamps {
-            Timestamps::RFC3999(timestamps) => timestamps.get_element(index).parse().unwrap(),
-            Timestamps::EPOCHNS(timestamps) => DateTime::from_timestamp_nanos(*timestamps.get_element(index)),
+            Timestamps::RFC3999(timestamps) => timestamps.get_element(index).parse()?,
+            Timestamps::EPOCHNS(timestamps) => DateTime::from_timestamp_nanos(*timestamps.get(index).expect("This should never fail.")),
         };
         if shift_timestamp_date_to_today {
-            timestamp = timestamp.with_day(Utc::now().day()).unwrap().with_year(Utc::now().year()).unwrap();
+            timestamp = timestamp
+                .with_day(Utc::now().day())
+                .expect("This should never fail.")
+                .with_year(Utc::now().year())
+                .expect("This should never fail.");
         }
 
         let channels = match &self.channels {
