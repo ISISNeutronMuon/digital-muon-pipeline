@@ -13,7 +13,7 @@ use rdkafka::{
 };
 use thiserror::Error;
 use std::{num::ParseIntError, path::PathBuf};
-use tracing::{info, info_span};
+use tracing::{debug, info_span};
 
 
 use std::{fmt::Debug, str::FromStr};
@@ -87,7 +87,7 @@ pub(crate) async fn read_hdf5_file(
         cache_size: args.cache_size,
         
     };
-    info!("File config: {config:?}");
+    debug!("File config: {config:?}");
     
     let mut digitisers = Hdf5Digitiser::open_from(file, config).unwrap()
         .into_iter()
@@ -189,11 +189,54 @@ async fn read_hdf5_at_index(
                 .get()
                 .expect("Digitiser has span");
             span.in_scope(|| spanned_digitiser.read_at_index(trace_topic, args, index))
-    });//.collect::<Vec<_>>();
+    });
 }
 
 
 #[cfg(test)]
 mod tests {
-    
+    use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::root_as_digitizer_analog_trace_message;
+    use std::{fs::File, io::Read};
+    use super::*;
+
+    #[test]
+    fn test() {
+        let file = hdf5::File::open_as(PathBuf::from_str("test_assets/test.hdf5").unwrap(), OpenMode::Read).unwrap();
+        let config = HDF5Config {
+            timestamp_as_rfc3339: file.attr("config_timestamp_as_rfc3339")
+                .and_then(|config|config.read_scalar::<bool>())
+                .unwrap_or(true),
+            multiple_channel_datasets: file.attr("config_multiple_channel_datasets")
+                .and_then(|config|config.read_scalar::<bool>())
+                .unwrap_or(true),
+            cache_size: None,  
+        };
+        
+        let digitisers = Hdf5Digitiser::open_from(file, config).unwrap();
+        assert_eq!(digitisers.len(), 1);
+
+        let mut fbb = FlatBufferBuilder::new();
+        assert!(digitisers[0].create_message(&mut fbb, 0, 1_000_000_000, false).is_ok());
+        let dat_test = root_as_digitizer_analog_trace_message(fbb.unfinished_data()).unwrap();
+
+        let data = {
+            let mut file = File::open("test_assets/test.dat2").unwrap();
+            let mut data = Vec::new();
+            file.read_to_end(&mut data).unwrap();
+            data
+        };
+
+        let dat_true = root_as_digitizer_analog_trace_message(&data).unwrap();
+        assert_eq!(dat_test.digitizer_id(), dat_true.digitizer_id());
+        assert_eq!(dat_test.metadata().frame_number(), dat_true.metadata().frame_number());
+        assert_eq!(dat_test.metadata().period_number(), dat_true.metadata().period_number());
+        assert_eq!(dat_test.metadata().protons_per_pulse(), dat_true.metadata().protons_per_pulse());
+        assert_eq!(dat_test.metadata().running(), dat_true.metadata().running());
+        assert_eq!(dat_test.metadata().timestamp(), dat_true.metadata().timestamp());
+        for (channel_test, channel_true) in dat_test.channels().unwrap().iter().zip(dat_true.channels().unwrap().iter()) {
+            assert_eq!(channel_test.channel(), channel_true.channel());
+            assert!(channel_test.voltage().is_some());
+            assert_eq!(channel_test.voltage().unwrap().iter().collect::<Vec<_>>(), channel_true.voltage().unwrap().iter().collect::<Vec<_>>());
+        }
+    }
 }

@@ -83,8 +83,6 @@ impl Hdf5Digitiser {
         };
 
         let channels = if config.multiple_channel_datasets {
-            let mut channels = Vec::<Hdf5Channel>::new();
-
             let channel_datasets = group.datasets()
                 .expect("Datasets should be accessible, this should never fail.")
                 .into_iter()
@@ -189,11 +187,9 @@ impl Hdf5Digitiser {
     /// Loads a FlatBufferBuilder with a new DigitizerAnalogTraceMessage instance with a custom timestamp.
     /// #Arguments
     /// * `fbb` - A mutable reference to the FlatBufferBuilder to use.
-    /// * `time` - A `frame_metadata_v2_generated::GpsTime` instance containing the timestamp.
-    /// * `frame_number` - The frame number to use.
-    /// * `digitizer_id` - The id of the digitizer to use.
-    /// * `measurements_per_frame` - The number of measurements to simulate in each channel.
-    /// * `num_channels` - The number of channels to simulate.
+    /// * `index` - The index of the trace to use.
+    /// * `sample_rate` - The number of measurements in each channel.
+    /// * `shift_timestamp_date_to_today` - If true, changes timestamp date to current day.
     ///
     /// #Returns
     /// A string result, or an error.
@@ -202,7 +198,7 @@ impl Hdf5Digitiser {
         &self,
         fbb: &mut FlatBufferBuilder<'_>,
         index: usize,
-        sampling_rate: u64,
+        sample_rate: u64,
         shift_timestamp_date_to_today: bool,
     ) -> Result<(), Error> {
         if index >= self.num_frames {
@@ -252,7 +248,7 @@ impl Hdf5Digitiser {
         let message = DigitizerAnalogTraceMessageArgs {
             digitizer_id: self.digitiser_id,
             metadata: Some(metadata),
-            sample_rate: sampling_rate,
+            sample_rate,
             channels: Some(channels),
         };
         let message = DigitizerAnalogTraceMessage::create(fbb, &message);
