@@ -133,7 +133,7 @@ mod tests {
         let mut hdf5 = TraceFileWriter::new_temp("test").unwrap();
         handle_trace_message(data.as_slice(), Some(&mut hdf5));
 
-        assert!(hdf5.digitizers.get(&0).is_some());
+        assert!(hdf5.digitizers.contains_key(&0));
         test_internal_structure(hdf5.digitizers.get(&0).unwrap());
 
         let true_hdf5 = hdf5::File::open("test_assets/test.hdf5").unwrap();
