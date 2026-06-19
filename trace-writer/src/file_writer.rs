@@ -56,7 +56,7 @@ impl TraceFileWriter {
 
     #[cfg(test)]
     /// Creates a new HDF5 file purely in memory.
-    /// 
+    ///
     /// Only used for testing.
     pub(crate) fn new_temp(name: &str) -> Result<Self, TraceWriterError> {
         let mut builder = File::with_options();
@@ -134,24 +134,23 @@ mod tests {
         handle_trace_message(data.as_slice(), Some(&mut hdf5));
 
         assert!(hdf5.digitizers.get(&0).is_some());
-        let digitiser = hdf5.digitizers.get(&0).unwrap();
-        test_internal_structure(&digitiser);
+        test_internal_structure(hdf5.digitizers.get(&0).unwrap());
 
         let true_hdf5 = hdf5::File::open("test_assets/test.hdf5").unwrap();
-        test_compare_to_true_file(true_hdf5, hdf5.file);
+        compare_to_true_file(true_hdf5, hdf5.file);
     }
 
-    fn test_compare_to_true_file(true_hdf5: hdf5::File, test_hdf5: hdf5::File) {
+    fn compare_to_true_file(true_hdf5: hdf5::File, test_hdf5: hdf5::File) {
         for true_group in true_hdf5.groups().unwrap() {
             info!("Testing group {}", true_group.name());
 
             assert!(test_hdf5.group(&true_group.name()).is_ok());
             for true_dataset in true_group.datasets().unwrap() {
-                let true_timestamps = true_dataset.read_raw::<u8>().unwrap();
+                let true_data = true_dataset.read_raw::<u8>().unwrap();
                 info!(
                     "Testing dataset {} with value byte size {}.",
                     true_dataset.name(),
-                    true_timestamps.len()
+                    true_data.len()
                 );
 
                 let test_dataset = test_hdf5.dataset(&true_dataset.name());
@@ -159,13 +158,13 @@ mod tests {
                 assert!(test_dataset.is_ok());
 
                 let test_dataset = test_dataset.unwrap();
-                let test_timestamps = test_dataset.read_raw::<u8>();
+                let test_data = test_dataset.read_raw::<u8>();
                 // Ensure test dataset value can be read.
-                assert!(test_timestamps.is_ok());
-                let test_timestamps = test_timestamps.unwrap();
+                assert!(test_data.is_ok());
+                let test_data = test_data.unwrap();
 
                 // Ensure dataset values are equal.
-                assert_eq!(true_timestamps, test_timestamps);
+                assert_eq!(true_data, test_data);
             }
         }
     }

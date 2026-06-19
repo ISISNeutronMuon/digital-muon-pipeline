@@ -121,7 +121,11 @@ pub(crate) struct DigitizerData {
 
 impl DigitizerData {
     /// Creates the HDF5 group and metadata datasets for a new digitiser.
-    pub(crate) fn new(parent: &Group, digitizer_id: u8, chunk_size: usize) -> Result<Self, hdf5::Error> {
+    pub(crate) fn new(
+        parent: &Group,
+        digitizer_id: u8,
+        chunk_size: usize,
+    ) -> Result<Self, hdf5::Error> {
         let group = parent.create_group(&format!("digitiser_{digitizer_id}"))?;
 
         let frame_number = make_resizable_dataset::<u32>(&group, "frame_number", chunk_size)?;
@@ -198,12 +202,9 @@ impl DigitizerData {
             .ok_or(TraceWriterError::MissingField("timestamp"))?
             .try_into()
             .map_err(|_| TraceWriterError::TimestampConversionFailed)?;
-        let timestamp_ns =
-            timestamp
-                .timestamp_nanos_opt()
-                .ok_or(TraceWriterError::NanosecondConversionFailed(
-                    timestamp,
-                ))?;
+        let timestamp_ns = timestamp
+            .timestamp_nanos_opt()
+            .ok_or(TraceWriterError::NanosecondConversionFailed(timestamp))?;
         append_value(&self.timestamp, timestamp_ns)?;
 
         // Extract channels from current message, returning a warning if not present.
@@ -231,11 +232,11 @@ impl DigitizerData {
         }
 
         // Extend the traces field in the first axis.
-        let new_sizes = vec![
-            all_traces_sizes[0] + 1,
-            all_traces_sizes[1],
-            all_traces_sizes[2],
-        ];
+        let new_sizes = {
+            let mut new_sizes = all_traces_sizes.clone();
+            new_sizes[0] += 1;
+            new_sizes
+        };
         all_traces.resize(new_sizes)?;
 
         // Build the next slice of the traces field.
@@ -260,12 +261,11 @@ impl DigitizerData {
     }
 }
 
-
 #[cfg(test)]
 pub(crate) mod tests {
+    use super::*;
     use digital_muon_common::{FrameNumber, Intensity};
     use ndarray::Dim;
-    use super::*;
 
     pub(crate) fn test_internal_structure(digitiser: &DigitizerData) {
         let frame_number = digitiser.frame_number.read_1d::<FrameNumber>();

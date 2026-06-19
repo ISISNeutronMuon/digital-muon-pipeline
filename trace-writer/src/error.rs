@@ -13,5 +13,5 @@ pub(crate) enum TraceWriterError {
     TimestampConversionFailed,
 
     #[error("Timestamp count not be converted to nanoseconds since epoch: {0}")]
-    NanosecondConversionFailed(DateTime<Utc>)
+    NanosecondConversionFailed(DateTime<Utc>),
 }
