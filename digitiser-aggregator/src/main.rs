@@ -101,9 +101,9 @@ struct Cli {
     #[clap(long)]
     output_topic: String,
 
-    /// A list of expected digitiser IDs.
-    /// Can be passed as `-d0 -d1 ...` or `-d=0,1,...`
+    /// A list of expected digitiser IDs. Can be passed as `-d0 -d1 ...` or `-d=0,1,...`.
     /// A frame is only "complete" when a message has been received from each of these IDs.
+    /// This sequence must be passed in increasing order, with no repetitions, otherwise the program will panic.
     #[clap(short, long, value_delimiter = ',')]
     digitiser_ids: Vec<DigitizerId>,
 
@@ -135,20 +135,42 @@ struct Cli {
     otel_namespace: String,
 }
 
+/// Validate digitiser ids by checking `args.digitiser_ids` is a strictly increasing sequence.
+/// If any consecutive ids are decreasing, or equal, then we issue a panic with a suitable warning to the user.
+/// # Parameters
+/// - digitiser_ids: the ids to validate
+///
+/// # Return
+/// If the list is invalid, the position of the first error, and the erroneous ids are returned,
+/// otherwise None is returned.
+fn validate_digitiser_ids(digitiser_ids: &[DigitizerId]) -> Option<(usize, &[DigitizerId])> {
+    let is_pair_weakly_decreasing = |ids_pair: &[DigitizerId]| {
+        let first = ids_pair
+            .first()
+            .expect("Window slice is non-empty, this should never fail.");
+        let second = ids_pair
+            .get(1)
+            .expect("Window slice has len 2, this should never fail.");
+        first >= second
+    };
+    digitiser_ids
+        .windows(2)
+        .enumerate()
+        .find(|(_, p)| is_pair_weakly_decreasing(p))
+}
+
 /// Entry point.
 #[tokio::main]
 async fn main() -> miette::Result<()> {
     let args = Cli::parse();
 
-    let is_pair_weakly_decreasing = |ids_pair: &[DigitizerId]| {
-        let first = ids_pair.first()
-            .expect("Window slice is non-empty, this should never fail.");
-        let second = ids_pair.get(1)
-            .expect("Window slice has len 2, this should never fail.");
-        first >= second
-    };
-    if args.digitiser_ids.windows(2).any(is_pair_weakly_decreasing) {
-        panic!("Digitiser Ids {:?} should be a strictly increasing sequence on the command line.", args.digitiser_ids);
+    // Validate digitiser ids, and panic if they are out of order.
+    if let Some((index, pair)) = validate_digitiser_ids(&args.digitiser_ids) {
+        miette::bail!(
+            "--digitiser-ids {:?} should be a strictly-increasing sequence, but {:?} at position {index} is weakly-decreasing.",
+            args.digitiser_ids,
+            pair
+        );
     }
 
     let tracer = init_tracer!(TracerOptions::new(
