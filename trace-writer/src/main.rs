@@ -17,6 +17,7 @@
 //! - Trace messages that arrive when no file is open are warned about and
 //!   discarded.
 
+mod digitiser_data;
 mod error;
 mod file_writer;
 
