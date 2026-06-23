@@ -4,12 +4,16 @@ mod digitiser;
 
 use crate::Hdf5;
 use chrono::ParseError;
-use digital_muon_common::spanned::{SpanWrapper, Spanned};
+use digital_muon_common::{
+    DigitizerId,
+    spanned::{SpanWrapper, Spanned},
+};
 use digital_muon_streaming_types::flatbuffers::FlatBufferBuilder;
 use hdf5::{File, OpenMode};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use rdkafka::{
     ClientConfig,
+    error::KafkaError,
     producer::{BaseRecord, DefaultProducerContext, ThreadedProducer},
 };
 use std::{fmt::Debug, num::ParseIntError, path::PathBuf, str::FromStr};
@@ -20,20 +24,24 @@ pub(crate) use digitiser::{HDF5Config, Hdf5Digitiser};
 
 #[derive(Error, Debug)]
 pub(crate) enum Error {
-    #[error("Dataset {0} is a scalar, vector expected.")]
-    DatasetScalar(String),
     #[error("Dataset name is zero-length")]
     DatasetNameZeroLength,
-    #[error("Expecting Underscore in {0}")]
-    NoUnderscore(String),
-    #[error("Wrong Identifier. Expected {0}, got {1}")]
-    WrongIdentifier(String, String),
+    #[error("Dataset {0} is a scalar, vector expected.")]
+    DatasetScalar(String),
     #[error("{0}")]
-    ParseInt(#[from] ParseIntError),
+    DateTime(#[from] ParseError),
     #[error("{0}")]
     HDF5(#[from] hdf5::Error),
     #[error("{0}")]
-    DateTime(#[from] ParseError),
+    Kafka(#[from] KafkaError),
+    #[error("No digitisers from {0:?} selected.")]
+    NoDigitisersSelected(Vec<DigitizerId>),
+    #[error("Expecting Underscore in {0}")]
+    NoUnderscore(String),
+    #[error("{0}")]
+    ParseInt(#[from] ParseIntError),
+    #[error("Wrong Identifier. Expected {0}, got {1}")]
+    WrongIdentifier(String, String),
 }
 
 /// Extracts the `index` from a string of the form `.../identifier_index`,
@@ -51,7 +59,7 @@ pub(crate) enum Error {
 /// - `source` is zero length.
 /// - `source` has no underscore.
 /// - `source` has the wrong identifier.
-fn extract_from_dataset_name<'a, T>(source: String, identifier: &'static str) -> Result<T, Error>
+fn extract_from_dataset_name<T>(source: String, identifier: &'static str) -> Result<T, Error>
 where
     T: FromStr,
     <T as FromStr>::Err: Debug,
@@ -59,14 +67,14 @@ where
 {
     let source_parts = source
         .split('/')
-        .last()
+        .next_back()
         .ok_or(Error::DatasetNameZeroLength)?
         .split('_')
         .collect::<Vec<_>>();
-    if source_parts.len() < 1 {
+    if source_parts.len() < 2 {
         Err(Error::NoUnderscore(source.clone()))?;
     }
-    if source_parts.get(0).unwrap() != &identifier {
+    if source_parts.first().expect("This should never fail.") != &identifier {
         Err(Error::WrongIdentifier(
             identifier.to_string(),
             source_parts
@@ -117,10 +125,19 @@ pub(crate) async fn read_hdf5_file(
     };
     debug!("File config: {config:?}");
 
-    let mut digitisers = Hdf5Digitiser::open_from(file, config)
-        .unwrap()
+    let digitisers = Hdf5Digitiser::open_from(file, config)?
         .into_iter()
         .map(|digitiser| DigitiserReader::new(client_config, &args, digitiser))
+        .collect::<Result<Vec<_>, Error>>()?;
+
+    let digitiser_present = digitisers
+        .iter()
+        .map(|d| d.digitiser.get_id())
+        .collect::<Vec<_>>();
+
+    let mut digitisers = digitisers
+        .into_iter()
+        .filter(|d| d.is_id_contained_in(&args.digitizer_id))
         .collect::<Vec<_>>();
 
     if args.summary_only {
@@ -132,9 +149,9 @@ pub(crate) async fn read_hdf5_file(
             .iter()
             .map(|digitiser| digitiser.to_index - digitiser.from_index)
             .min()
-            .unwrap();
+            .ok_or(Error::NoDigitisersSelected(digitiser_present))?;
         for index in 0..=num_indices {
-            read_hdf5_at_index(&mut digitisers, trace_topic, key, &args, index).await;
+            read_hdf5_at_index(&mut digitisers, trace_topic, key, &args, index).await?;
         }
     }
 
@@ -160,7 +177,11 @@ impl DigitiserReader {
     /// - client_config: the kafka config settings to use for the produer.
     /// - args: the cli args specific to `hdf5` mode.
     /// - digitiser:
-    fn new(client_config: &ClientConfig, args: &Hdf5, digitiser: Hdf5Digitiser) -> Self {
+    fn new(
+        client_config: &ClientConfig,
+        args: &Hdf5,
+        digitiser: Hdf5Digitiser,
+    ) -> Result<Self, Error> {
         let from_index = args.from_index.unwrap_or(
             args.from_frame_number
                 .and_then(|frame_number| digitiser.get_index_from_frame_number(frame_number))
@@ -171,13 +192,13 @@ impl DigitiserReader {
                 .and_then(|frame_number| digitiser.get_index_from_frame_number(frame_number))
                 .unwrap_or(digitiser.get_num_frames() - 1),
         );
-        let producer = client_config.create().unwrap();
-        Self {
+        let producer = client_config.create()?;
+        Ok(Self {
             digitiser,
             from_index,
             to_index,
             producer,
-        }
+        })
     }
 
     /// Read the digitiser message at the given index and produce it to the broker.
@@ -187,12 +208,18 @@ impl DigitiserReader {
     /// - key: the text to use for the produced message's key.
     /// - args: the cli args specific to `hdf5` mode.
     /// - index: the index of the message to read.
-    fn read_at_index(&self, trace_topic: &str, key: &str, args: &Hdf5, index: usize) {
+    fn read_at_index(
+        &self,
+        trace_topic: &str,
+        key: &str,
+        args: &Hdf5,
+        index: usize,
+    ) -> Result<(), Error> {
         let mut fbb = FlatBufferBuilder::new();
         self.digitiser
-            .create_message(&mut fbb, index, args.sample_rate, args.shift_to_today)
-            .unwrap();
+            .create_message(&mut fbb, index, args.sample_rate, args.shift_to_today)?;
         info_span!("Send").in_scope(|| self.send_record(&mut fbb, trace_topic, key));
+        Ok(())
     }
 
     /// Sends the FlatBuffer payload to the desired Kafka topic.
@@ -209,6 +236,14 @@ impl DigitiserReader {
         let mut result = self.producer.send(base_record);
         while let Err((_, base_record)) = result {
             result = self.producer.send(base_record);
+        }
+    }
+
+    fn is_id_contained_in(&self, ids: &[DigitizerId]) -> bool {
+        if ids.is_empty() {
+            true
+        } else {
+            ids.contains(&self.digitiser.get_id())
         }
     }
 }
@@ -228,7 +263,7 @@ async fn read_hdf5_at_index(
     key: &str,
     args: &Hdf5,
     index: usize,
-) {
+) -> Result<(), Error> {
     let mut spanned_digitisers = digitisers
         .iter_mut()
         .map(|digitiser| SpanWrapper::<_>::new(info_span!("Digitiser"), digitiser))
@@ -250,10 +285,12 @@ async fn read_hdf5_at_index(
 
     spanned_digitisers
         .par_iter_mut()
-        .for_each(|spanned_digitiser| {
+        .map(|spanned_digitiser| {
             let span = spanned_digitiser.span().get().expect("Digitiser has span");
             span.in_scope(|| spanned_digitiser.read_at_index(trace_topic, key, args, index))
-        });
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+    Ok(())
 }
 
 #[cfg(test)]

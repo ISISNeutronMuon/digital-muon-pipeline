@@ -19,9 +19,9 @@ use ndarray::Array1;
 use tracing::{info, warn};
 
 /// Identifier to use for hdf5 groups of the form ".../channel_index".
-const CHANNEL: &'static str = "channel";
+const CHANNEL: &str = "channel";
 /// Identifier to use for hdf5 groups of the form ".../digitiser_index".
-const DIGITISER: &'static str = "digitiser";
+const DIGITISER: &str = "digitiser";
 
 #[derive(Default, Debug)]
 pub(crate) struct HDF5Config {
@@ -39,15 +39,15 @@ enum Timestamps {
     /// Timestamps are stored as strings.
     RFC3999(CachedDataset<VarLenUnicode>),
     /// Timestamps are stored as nanoseconds since epoch values.
-    EPOCHNS(Array1<i64>),
+    EpochNS(Array1<i64>),
 }
 
 /// Encapsulates the channel trace data, as either a single dataset, or multiple groups, depending on the file format.
 enum Channels {
     /// The trace data is stored in multiple groups, one per channel.
-    MULTIPLE(Vec<Hdf5Channel>),
+    Multiple(Vec<Hdf5Channel>),
     /// All trace data is stored in a single three-dimensional dataset.
-    SINGLE(Hdf5AllChannels),
+    Single(Hdf5AllChannels),
 }
 
 /// Encapsulates the metadata and the hdf5 structures of a digitiser in a hdf5 file.
@@ -105,7 +105,7 @@ impl Hdf5Digitiser {
         } else {
             let timestamps: Array1<_> = group.dataset("timestamp")?.read_1d()?;
             assert_eq!(timestamps.len(), num_frames);
-            Timestamps::EPOCHNS(timestamps)
+            Timestamps::EpochNS(timestamps)
         };
 
         let channels = if config.multiple_channel_datasets {
@@ -115,7 +115,7 @@ impl Hdf5Digitiser {
                 .into_iter()
                 .filter_map(|dataset| {
                     (!["frame_number", "period_number", "timestamp"]
-                        .contains(&dataset.name().split('/').last()?))
+                        .contains(&dataset.name().split('/').next_back()?))
                     .then_some(dataset)
                 });
 
@@ -131,7 +131,7 @@ impl Hdf5Digitiser {
                     Ok(channel)
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
-            Channels::MULTIPLE(channels)
+            Channels::Multiple(channels)
         } else {
             let channels = group.dataset("channels")?.read_1d()?;
             let traces = group.dataset("traces")?;
@@ -139,7 +139,7 @@ impl Hdf5Digitiser {
                 "Digitiser {digitiser_id} has traces dataset of size {:?}.",
                 traces.shape()
             );
-            Channels::SINGLE(Hdf5AllChannels::new(channels, traces))
+            Channels::Single(Hdf5AllChannels::new(channels, traces))
         };
         Ok(Hdf5Digitiser {
             digitiser_id,
@@ -177,11 +177,10 @@ impl Hdf5Digitiser {
         if let Timestamps::RFC3999(timestamps) = &mut self.timestamps {
             timestamps.ensure_elements_cached(index);
         }
-        match &mut self.channels {
-            Channels::MULTIPLE(hdf5_channels) => hdf5_channels
+        if let Channels::Multiple(hdf5_channels) = &mut self.channels {
+            hdf5_channels
                 .iter_mut()
-                .for_each(|channel: &mut Hdf5Channel| channel.ensure_elements_cached(index)),
-            _ => (),
+                .for_each(|channel: &mut Hdf5Channel| channel.ensure_elements_cached(index))
         }
     }
 
@@ -215,9 +214,12 @@ impl Hdf5Digitiser {
                     .collect::<Vec<_>>()
                     .join(", ")
             }
-            Timestamps::EPOCHNS(timestamps) => {
+            Timestamps::EpochNS(timestamps) => {
                 let timestamps = (0..timestamps.len()).map(|i| {
-                    DateTime::from_timestamp_nanos(*timestamps.get(i).unwrap()).to_rfc3339()
+                    DateTime::from_timestamp_nanos(
+                        *timestamps.get(i).expect("This should never fail."),
+                    )
+                    .to_rfc3339()
                 });
                 frame_numbers
                     .zip(timestamps)
@@ -235,6 +237,11 @@ impl Hdf5Digitiser {
         self.num_frames
     }
 
+    /// Returns the id of the digitiser.
+    pub(crate) fn get_id(&self) -> DigitizerId {
+        self.digitiser_id
+    }
+
     /// Loads a FlatBufferBuilder with a new DigitizerAnalogTraceMessage instance with a custom timestamp.
     ///
     /// # Parameters
@@ -243,7 +250,7 @@ impl Hdf5Digitiser {
     /// - sample_rate: the number of measurements in each channel.
     /// - shift_timestamp_date_to_today: if true, changes timestamp date to current day.
     ///
-    /// #Returns
+    /// # Returns
     /// A string result, or an error.
     #[tracing::instrument(skip_all)]
     pub(crate) fn create_message(
@@ -269,7 +276,7 @@ impl Hdf5Digitiser {
             .expect("This should never fail.");
         let mut timestamp: DateTime<Utc> = match &self.timestamps {
             Timestamps::RFC3999(timestamps) => timestamps.get_element(index).parse()?,
-            Timestamps::EPOCHNS(timestamps) => DateTime::from_timestamp_nanos(
+            Timestamps::EpochNS(timestamps) => DateTime::from_timestamp_nanos(
                 *timestamps.get(index).expect("This should never fail."),
             ),
         };
@@ -282,14 +289,14 @@ impl Hdf5Digitiser {
         }
 
         let channels = match &self.channels {
-            Channels::MULTIPLE(hdf5_channels) => {
+            Channels::Multiple(hdf5_channels) => {
                 let trace = hdf5_channels
                     .iter()
                     .map(|c| c.create_channel(fbb, index))
                     .collect::<Vec<_>>();
                 fbb.create_vector_from_iter(trace.iter())
             }
-            Channels::SINGLE(hdf5_channel) => hdf5_channel.create_channels(fbb, index),
+            Channels::Single(hdf5_channel) => hdf5_channel.create_channels(fbb, index),
         };
 
         let gps_time = GpsTime::from(timestamp);
