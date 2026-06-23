@@ -86,7 +86,7 @@ impl Hdf5AllChannels {
         let trace = self
             .traces
             .read_slice_2d::<u16, _>(ndarray::s![index, .., ..])
-            .expect("This hould never fail.");
+            .expect("2D Slice should be present in trace dataset. This should never fail.");
         let traces = self
             .channels
             .iter()
@@ -94,7 +94,7 @@ impl Hdf5AllChannels {
             .map(|(index, &channel)| {
                 let slice = trace.slice(ndarray::s![index, ..]);
                 let voltage = Some(fbb.create_vector::<Intensity>(
-                    slice.as_slice().expect("This should never fail."),
+                    slice.as_slice().expect("Should be able to coerce to slice type. This should never fail."),
                 ));
                 ChannelTrace::create(fbb, &ChannelTraceArgs { channel, voltage })
             })

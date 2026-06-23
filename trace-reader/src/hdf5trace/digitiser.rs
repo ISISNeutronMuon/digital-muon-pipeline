@@ -217,7 +217,7 @@ impl Hdf5Digitiser {
             Timestamps::EpochNS(timestamps) => {
                 let timestamps = (0..timestamps.len()).map(|i| {
                     DateTime::from_timestamp_nanos(
-                        *timestamps.get(i).expect("This should never fail."),
+                        *timestamps.get(i).expect("Index should be in arange, this should never fail."),
                     )
                     .to_rfc3339()
                 });
@@ -269,23 +269,23 @@ impl Hdf5Digitiser {
         let frame_number = *self
             .frame_numbers
             .get(index)
-            .expect("This should never fail.");
+            .expect("Index should be in range, this should never fail.");
         let period_number = *self
             .period_numbers
             .get(index)
-            .expect("This should never fail.");
+            .expect("Index should be in range, this should never fail.");
         let mut timestamp: DateTime<Utc> = match &self.timestamps {
             Timestamps::RFC3999(timestamps) => timestamps.get_element(index).parse()?,
             Timestamps::EpochNS(timestamps) => DateTime::from_timestamp_nanos(
-                *timestamps.get(index).expect("This should never fail."),
+                *timestamps.get(index).expect("Index should be in range, this should never fail."),
             ),
         };
         if shift_timestamp_date_to_today {
             timestamp = timestamp
                 .with_day(Utc::now().day())
-                .expect("This should never fail.")
+                .expect("Timestamp with current day should be possible, this should never fail.")
                 .with_year(Utc::now().year())
-                .expect("This should never fail.");
+                .expect("Timestamp with current year should be possible, this should never fail.");
         }
 
         let channels = match &self.channels {

@@ -74,18 +74,18 @@ where
     if source_parts.len() < 2 {
         Err(Error::NoUnderscore(source.clone()))?;
     }
-    if source_parts.first().expect("This should never fail.") != &identifier {
+    if source_parts.first().expect("First part should exist, this should never fail.") != &identifier {
         Err(Error::WrongIdentifier(
             identifier.to_string(),
             source_parts
                 .first()
-                .expect("This should never fail.")
+                .expect("First part should exist, this should never fail.")
                 .to_string(),
         ))?
     }
     Ok(source_parts
         .get(1)
-        .expect("This should never fail.")
+        .expect("Second part should exist, this should never fail.")
         .parse()?)
 }
 
