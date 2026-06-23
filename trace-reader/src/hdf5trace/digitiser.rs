@@ -1,4 +1,7 @@
 use chrono::{DateTime, Datelike, Utc};
+use crate::hdf5trace::{
+    Error, cached_dataset::CachedDataset, channel::{Hdf5AllChannels, Hdf5Channel}, extract_from_dataset_name
+};
 use digital_muon_common::{Channel, DigitizerId, FrameNumber};
 use digital_muon_streaming_types::{
     dat2_digitizer_analog_trace_v2_generated::{
@@ -12,11 +15,9 @@ use hdf5::{File, Group, types::VarLenUnicode};
 use ndarray::Array1;
 use tracing::{info, warn};
 
-use crate::hdf5trace::{
-    Error, cached_dataset::CachedDataset, channel::{Hdf5AllChannels, Hdf5Channel}, extract_from_dataset_name
-};
-
+/// Identifier to use for hdf5 groups of the form ".../channel_index".
 const CHANNEL: &'static str = "channel";
+/// Identifier to use for hdf5 groups of the form ".../digitiser_index".
 const DIGITISER: &'static str = "digitiser";
 
 #[derive(Default, Debug)]
@@ -25,30 +26,49 @@ pub(crate) struct HDF5Config {
     pub(crate) timestamp_as_rfc3339: bool,
     /// True if channels are stored in separate datasets, false if channels are stored as 2D array.
     pub(crate) multiple_channel_datasets: bool,
-    /// 
+    /// If set, the amount of a dataset to cache before usage. This only applies to channel trace data,
+    /// and possibly timestamp data (if it is stored as string values).
     pub(crate) cache_size: Option<usize>,
 }
 
+/// Encapsulates timestamps.
 enum Timestamps {
+    /// Timestamps are stored as strings.
     RFC3999(CachedDataset<VarLenUnicode>),
+    /// Timestamps are stored as nanoseconds since epoch values.
     EPOCHNS(Array1<i64>)
 }
 
+/// Encapsulates the channel trace data, as either a single dataset, or multiple groups, depending on the file format.
 enum Channels {
+    /// The trace data is stored in multiple groups, one per channel.
     MULTIPLE(Vec<Hdf5Channel>),
+    /// All trace data is stored in a single three-dimensional dataset.
     SINGLE(Hdf5AllChannels)
 }
 
+/// Encapsulates the metadata and the hdf5 structures of a digitiser in a hdf5 file.
 pub(crate) struct Hdf5Digitiser {
+    /// The id of the digitiser.
     digitiser_id: DigitizerId,
+    /// The list of periods numbers for each digitiser message.
     period_numbers: Array1<u64>,
+    /// The list of frame numbers for each digitiser message.
     frame_numbers: Array1<FrameNumber>,
+    /// The list of timestamps for each digitiser message.
     timestamps: Timestamps,
+    /// The channel trace data.
     channels: Channels,
+    /// The number of frames worth of data this instance constains.
     num_frames: usize,
 }
 
 impl Hdf5Digitiser {
+    /// Creates a vector of instances, one for each `digitiser_index` group found in the given hdf5 file.
+    /// 
+    /// # Parameters
+    /// - file: the file to load from.
+    /// - config: the configuration settings to use when loading.
     pub(crate) fn open_from(file: File, config: HDF5Config) -> Result<Vec<Hdf5Digitiser>, Error> {
         let mut digitisers = Vec::<Hdf5Digitiser>::new();
         for group in file.groups().expect("Groups should be accessible, this should never fail.") {
@@ -57,6 +77,11 @@ impl Hdf5Digitiser {
         Ok(digitisers)
     }
 
+    /// Creates an instances from the given hdf5 group.
+    /// 
+    /// # Parameters
+    /// - group: the group to load from.
+    /// - config: the configuration settings to use when loading.
     fn open_digitiser(group: Group, config: &HDF5Config) -> Result<Self,Error> {
         let digitiser_id: DigitizerId = extract_from_dataset_name(group.name(), DIGITISER)?;
 
@@ -117,6 +142,13 @@ impl Hdf5Digitiser {
         })
     }
 
+    /// Given a frame number, determine the index in the list of traces where the frame is located.
+    /// 
+    /// # Parameters
+    /// - frame_number: the frame number to find.
+    /// 
+    /// # Returns
+    /// Returns `None` if the frame number is not found.
     pub(crate) fn get_index_from_frame_number(&self, frame_number: FrameNumber) -> Option<usize> {
         self.frame_numbers.iter()
             .enumerate()
@@ -126,6 +158,13 @@ impl Hdf5Digitiser {
             )
     }
 
+    /// Given an index, ensure the necessary data is in the cache.
+    /// This should each time before the `create_message` method is used.
+    /// 
+    /// This method is idempotent, so does nothing if the required index is already cached.
+    /// 
+    /// # Parameters
+    /// - index: the index to ensure is cached.
     #[tracing::instrument(skip_all)]
     pub(crate) fn ensure_elements_cached(&mut self, index: usize) {
         if let Timestamps::RFC3999(timestamps) = &mut self.timestamps {
@@ -136,12 +175,11 @@ impl Hdf5Digitiser {
                 .for_each(|channel: &mut Hdf5Channel|
                     channel.ensure_elements_cached(index)
                 ),
-            Channels::SINGLE(hdf5_channel) => {
-                hdf5_channel.ensure_elements_cached(index);
-            }
+            _ => ()
         }
     }
 
+    /// Outputs a textual summary of the file to stdout.
     pub(crate) fn output_summary (&mut self) {
         println!("Digitiser: {}. Num Frames: {}", self.digitiser_id, self.frame_numbers.len());
         let frame_numbers = (0..self.frame_numbers.len())
@@ -180,16 +218,18 @@ impl Hdf5Digitiser {
         println!("{output}");
     }
 
+    /// Returns the number of frames.
     pub(crate) fn get_num_frames(&self) -> usize {
         self.num_frames
     }
 
     /// Loads a FlatBufferBuilder with a new DigitizerAnalogTraceMessage instance with a custom timestamp.
-    /// #Arguments
-    /// * `fbb` - A mutable reference to the FlatBufferBuilder to use.
-    /// * `index` - The index of the trace to use.
-    /// * `sample_rate` - The number of measurements in each channel.
-    /// * `shift_timestamp_date_to_today` - If true, changes timestamp date to current day.
+    /// 
+    /// # Parameters
+    /// - fbb: mutable reference to the FlatBufferBuilder to use.
+    /// - index: the index of the trace to use.
+    /// - sample_rate: the number of measurements in each channel.
+    /// - shift_timestamp_date_to_today: if true, changes timestamp date to current day.
     ///
     /// #Returns
     /// A string result, or an error.

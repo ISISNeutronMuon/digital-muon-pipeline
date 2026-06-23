@@ -2,8 +2,8 @@ mod cached_dataset;
 mod channel;
 mod digitiser;
 
-
 use chrono::ParseError;
+use crate::Hdf5;
 use digital_muon_common::spanned::{Spanned, SpanWrapper};
 use digital_muon_streaming_types::flatbuffers::FlatBufferBuilder;
 use hdf5::{File, OpenMode};
@@ -12,15 +12,10 @@ use rdkafka::{
     ClientConfig, producer::{BaseRecord, DefaultProducerContext, ThreadedProducer}
 };
 use thiserror::Error;
-use std::{num::ParseIntError, path::PathBuf};
+use std::{fmt::Debug, num::ParseIntError, path::PathBuf, str::FromStr};
 use tracing::{debug, info_span};
 
-
-use std::{fmt::Debug, str::FromStr};
-
 pub(crate) use digitiser::{Hdf5Digitiser, HDF5Config};
-
-use crate::Hdf5;
 
 #[derive(Error, Debug)]
 pub(crate) enum Error {
@@ -37,45 +32,70 @@ pub(crate) enum Error {
     #[error("{0}")]
     HDF5(#[from] hdf5::Error),
     #[error("{0}")]
-    DateTime(#[from] ParseError)
+    DateTime(#[from] ParseError),
 }
 
-fn extract_from_dataset_name<'a, T>(name: String, identifier: &'static str) -> Result<T,Error>
+/// Extracts the `index` from a string of the form `.../identifier_index`,
+/// where `identifier` is the expected name, for instance "Digitiiser" or "Channel".
+/// 
+/// # Parameters
+/// - source: the string to extract from.
+/// - identifier: determines the expected format of the string.
+/// 
+/// # Returns
+/// A value of type T, where T can be parsed from a string stlice.
+/// 
+/// # Errors
+/// Returns an error if:
+/// - `source` is zero length.
+/// - `source` has no underscore.
+/// - `source` has the wrong identifier.
+fn extract_from_dataset_name<'a, T>(source: String, identifier: &'static str) -> Result<T,Error>
 where
     T: FromStr,
     <T as FromStr>::Err: Debug,
     Error: From<<T as FromStr>::Err>
 {
-    let group_name = name
+    let source_parts = source
         .split('/')
         .last()
         .ok_or(Error::DatasetNameZeroLength)?
         .split('_')
         .collect::<Vec<_>>();
-    if group_name.len() < 1 {
-        Err(Error::NoUnderscore(name.clone()))?;
+    if source_parts.len() < 1 {
+        Err(Error::NoUnderscore(source.clone()))?;
     }
-    if group_name.get(0).unwrap() != &identifier {
-        Err(Error::WrongIdentifier(identifier.to_string(), group_name.first().expect("This should never fail.").to_string()))?
+    if source_parts.get(0).unwrap() != &identifier {
+        Err(Error::WrongIdentifier(identifier.to_string(), source_parts.first().expect("This should never fail.").to_string()))?
     }
-    Ok(group_name.get(1)
+    Ok(source_parts.get(1)
         .expect("This should never fail.")
         .parse()?
     )
 }
 
+/// Runs the main loop when the program is run in `hdf5` mode.
+/// 
+/// # Parameters
+/// - file_name: the file to read.
+/// - client_config: the kafka config settings to use for the produer.
+/// - trace_topic: the topic to produce trace messages to.
+/// - args: the cli args specific to `hdf5` mode.
 pub(crate) async fn read_hdf5_file(
     file_name: PathBuf,
     client_config: &ClientConfig,
     trace_topic: &str,
+    key: &str,
     args: Hdf5,
-) {
+) -> Result<(), Error> {
+    // FIXME: Figure out which is the best file reader to use, probably `stdio` or `sec2`.
+    // Also should we allow a logging option for debugging?
     let file = {
         let mut file_builder = File::with_options();
-        file_builder.fapl().stdio();//log_options(Some("mylog"), LogFlags::union(LogFlags::LOC_IO, LogFlags::TIME_READ), 0);//
-        file_builder.open_as(file_name, OpenMode::Read).unwrap()
+        file_builder.fapl().stdio();
+        //file_builder.fapl().log_options(Some("mylog"), LogFlags::union(LogFlags::LOC_IO, LogFlags::TIME_READ), 0);
+        file_builder.open_as(file_name, OpenMode::Read)?
     };
-
 
     let config = HDF5Config {
         timestamp_as_rfc3339: file.attr("config_timestamp_as_rfc3339")
@@ -101,21 +121,32 @@ pub(crate) async fn read_hdf5_file(
     } else {
         let num_indices = digitisers.iter().map(|digitiser| digitiser.to_index - digitiser.from_index).min().unwrap();
         for index in 0..=num_indices {
-            read_hdf5_at_index(&mut digitisers, trace_topic, &args, index).await;
+            read_hdf5_at_index(&mut digitisers, trace_topic, key, &args, index).await;
         }
     }
+
+    Ok(())
 }
 
-
-
+/// Encapsulates the tools needed to read the digitiser messages from a hdf5 file and produce them to the kafka broker.
 struct DigitiserReader {
+    /// Encapsulates the metadata and link to the hdf5 file for the digitiser messages.
     digitiser: Hdf5Digitiser,
+    /// The index of the message to read from.
     from_index: usize,
+    /// The index of the message to read to.
     to_index: usize,
+    /// The kafka producer this digitiser uses.
     producer: ThreadedProducer<DefaultProducerContext>
 }
 
 impl DigitiserReader {
+    /// Creates a new instance.
+    /// 
+    /// # Parameters
+    /// - client_config: the kafka config settings to use for the produer.
+    /// - args: the cli args specific to `hdf5` mode.
+    /// - digitiser: 
     fn new(client_config: &ClientConfig, args: &Hdf5, digitiser: Hdf5Digitiser) -> Self {
         let from_index = args.from_index
             .unwrap_or(args.from_frame_number
@@ -136,29 +167,55 @@ impl DigitiserReader {
         }
     }
 
-    fn read_at_index(&self, trace_topic: &str, args: &Hdf5, index: usize) {
+    /// Read the digitiser message at the given index and produce it to the broker.
+    /// 
+    /// # Parameters
+    /// - trace_topic: the Kafka topic to produce to.
+    /// - key: the text to use for the produced message's key.
+    /// - args: the cli args specific to `hdf5` mode.
+    /// - index: the index of the message to read.
+    fn read_at_index(&self, trace_topic: &str, key: &str, args: &Hdf5, index: usize) {
             let mut fbb = FlatBufferBuilder::new();
             self.digitiser
-                .create_message(&mut fbb, index, 1000000000, args.shift_to_today)
+                .create_message(&mut fbb, index, args.sample_rate, args.shift_to_today)
                 .unwrap();
-            info_span!("Send").in_scope(|| {
-                let base_record = BaseRecord::to(trace_topic)
-                    .payload(fbb.finished_data())
-                    .key("");
-                
-                let mut result = self.producer.send(base_record);
-                while let Err((_, base_record)) = result {
-                    result = self.producer.send(base_record);
-                }
-            });
+            info_span!("Send").in_scope(||
+                self.send_record(&mut fbb, trace_topic, key)
+            );
+    }
+
+    /// Sends the FlatBuffer payload to the desired Kafka topic.
+    /// 
+    /// # Parameters
+    /// - fbb: mutable reference to the FlatBufferBuilder to use.
+    /// - trace_topic: the Kafka topic to produce to.
+    /// - key: the text to use for the produced message's key.
+    fn send_record(&self, fbb: &mut FlatBufferBuilder, trace_topic: &str, key: &str) {
+        let base_record = BaseRecord::to(trace_topic)
+            .payload(fbb.finished_data())
+            .key(key);
+        
+        let mut result = self.producer.send(base_record);
+        while let Err((_, base_record)) = result {
+            result = self.producer.send(base_record);
+        }
     }
 }
 
 
+/// Read the messages at the given index, in the given slice of `DigitiserReaders` and produce them to the broker.
+/// 
+/// # Parameters
+/// - digitisers: the slice of digitisers to operate on.
+/// - trace_topic: the Kafka topic to produce to.
+/// - key: the text to use for the produced message's key.
+/// - args: the cli args specific to `hdf5` mode.
+/// - index: the index of the message to read.
 #[tracing::instrument(skip_all)]
 async fn read_hdf5_at_index(
     digitisers: &mut [DigitiserReader],
     trace_topic: &str,
+    key: &str,
     args: &Hdf5,
     index: usize,
 ) {
@@ -188,7 +245,7 @@ async fn read_hdf5_at_index(
                 .span()
                 .get()
                 .expect("Digitiser has span");
-            span.in_scope(|| spanned_digitiser.read_at_index(trace_topic, args, index))
+            span.in_scope(|| spanned_digitiser.read_at_index(trace_topic, key, args, index))
     });
 }
 
