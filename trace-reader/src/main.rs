@@ -1,11 +1,14 @@
 mod hdf5trace;
 mod picoscope;
 
+use crate::{hdf5trace::read_hdf5_file, picoscope::read_picoscope_file};
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
+use digital_muon_common::{
+    CommonKafkaOpts, DigitizerId, FrameNumber, init_tracer,
+    tracer::{TracerEngine, TracerOptions},
+};
 use miette::IntoDiagnostic;
-use crate::{hdf5trace::read_hdf5_file, picoscope::read_picoscope_file};
-use digital_muon_common::{CommonKafkaOpts, DigitizerId, FrameNumber, init_tracer, tracer::{TracerEngine, TracerOptions}};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -149,9 +152,15 @@ async fn main() -> miette::Result<()> {
         Mode::Picoscope(picoscope) => {
             read_picoscope_file(args.file_name, &client_config, &args.trace_topic, picoscope).await
         }
-        Mode::HDF5(hdf5) => {
-            read_hdf5_file(args.file_name, &client_config, &args.trace_topic, &args.key, hdf5).await.into_diagnostic()?
-        }
+        Mode::HDF5(hdf5) => read_hdf5_file(
+            args.file_name,
+            &client_config,
+            &args.trace_topic,
+            &args.key,
+            hdf5,
+        )
+        .await
+        .into_diagnostic()?,
     }
     Ok(())
 }

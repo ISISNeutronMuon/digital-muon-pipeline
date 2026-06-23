@@ -22,14 +22,15 @@ impl<T: H5Type> CachedDataset<T> {
         let cache_size = if let Some(cache_size) = cache_size {
             *cache_size
         } else {
-            dataset.chunk()
+            dataset
+                .chunk()
                 .expect("Chunk sizes should be accessible, this should never fail.")
                 .first()
                 .copied()
-                .ok_or_else(||Error::DatasetScalar(dataset.name()))?
+                .ok_or_else(|| Error::DatasetScalar(dataset.name()))?
         };
         let num_elements = *dataset.shape().first().expect("This should never fail.");
-        
+
         Ok(Self {
             dataset,
             num_elements,
@@ -41,9 +42,9 @@ impl<T: H5Type> CachedDataset<T> {
 
     /// Given an index, ensure the necessary data is in the cache.
     /// This should each time before the `get_element` method is used.
-    /// 
+    ///
     /// This method is idempotent, so does nothing if the required index is already cached.
-    /// 
+    ///
     /// # Parameters
     /// - index: the index to ensure is cached.
     #[tracing::instrument(skip_all)]
@@ -59,7 +60,7 @@ impl<T: H5Type> CachedDataset<T> {
     }
 
     /// Caches elements from the given index.
-    /// 
+    ///
     /// # Parameters
     /// - new_first_cached_index: caches all dataset elements from this index to `new_first_cached_index + self.cache_size`.
     #[tracing::instrument(skip_all, fields(old_index = self.first_cached_index, first_index=new_first_cached_index))]
@@ -77,13 +78,15 @@ impl<T: H5Type> CachedDataset<T> {
             count: 1,
             block: size,
         };
-        let data_slice = self.dataset.read_slice_1d::<T, _>(slice_info)
+        let data_slice = self
+            .dataset
+            .read_slice_1d::<T, _>(slice_info)
             .expect("Slice should be in range, this should never fail.");
         self.current_cached_data = data_slice.into_iter().collect();
     }
 
     /// Gets the element at the given index.
-    /// 
+    ///
     /// If the data has not been properly cached, the wrong value may be returned, or the method may panic.
     /// It is up to the caller to ensure the `ensure_elements_cached` method has been called.
     pub(crate) fn get_element(&self, index: usize) -> &T {

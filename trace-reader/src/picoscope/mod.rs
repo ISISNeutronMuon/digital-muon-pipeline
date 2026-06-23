@@ -10,7 +10,6 @@ use rdkafka::{ClientConfig, producer::FutureProducer};
 
 use crate::Picoscope;
 
-
 pub(crate) async fn read_picoscope_file(
     file_name: PathBuf,
     client_config: &ClientConfig,

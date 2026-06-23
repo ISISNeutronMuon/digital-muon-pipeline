@@ -22,7 +22,7 @@ impl Hdf5Channel {
     }
 
     /// Create the FlatBuffer structure of the channel data for the given index.
-    /// 
+    ///
     /// # Parameters
     /// - fbb: mutable reference to the FlatBufferBuilder to use.
     /// - index: the index of the trace to use.
@@ -44,12 +44,11 @@ impl Hdf5Channel {
         )
     }
 
-
     /// Given an index, ensure the necessary data is in the cache.
     /// This should each time before the `create_channel` method is used.
-    /// 
+    ///
     /// This method is idempotent, so does nothing if the required index is already cached.
-    /// 
+    ///
     /// # Parameters
     /// - index: the index to ensure is cached.
     #[tracing::instrument(skip_all, fields(channel = self.channel))]
@@ -57,7 +56,6 @@ impl Hdf5Channel {
         self.traces.ensure_elements_cached(index);
     }
 }
-
 
 /// Encapsulates the hdf5 data when all channel's trace data are stored in a single dataset.
 pub(super) struct Hdf5AllChannels {
@@ -74,7 +72,7 @@ impl Hdf5AllChannels {
     }
 
     /// Create the FlatBuffer structure of the channel data for the given index.
-    /// 
+    ///
     /// # Parameters
     /// - fbb: mutable reference to the FlatBufferBuilder to use.
     /// - index: the index of the trace to use.
@@ -85,18 +83,20 @@ impl Hdf5AllChannels {
         index: usize,
     ) -> WIPOffset<Vector<'a, ForwardsUOffset<ChannelTrace<'a>>>> {
         tracing::Span::current().record("length", self.channels.len());
-        let trace = self.traces.read_slice_2d::<u16,_>(ndarray::s![index,..,..]).unwrap();
-        let traces = self.channels.iter().enumerate().map(|(index, &channel)| {
-            let slice = trace.slice(ndarray::s![index,..]);
-            let voltage = Some(fbb.create_vector::<Intensity>(slice.as_slice().unwrap()));
-            ChannelTrace::create(
-                fbb,
-                &ChannelTraceArgs {
-                    channel,
-                    voltage,
-                },
-            )
-        }).collect::<Vec<_>>();
+        let trace = self
+            .traces
+            .read_slice_2d::<u16, _>(ndarray::s![index, .., ..])
+            .unwrap();
+        let traces = self
+            .channels
+            .iter()
+            .enumerate()
+            .map(|(index, &channel)| {
+                let slice = trace.slice(ndarray::s![index, ..]);
+                let voltage = Some(fbb.create_vector::<Intensity>(slice.as_slice().unwrap()));
+                ChannelTrace::create(fbb, &ChannelTraceArgs { channel, voltage })
+            })
+            .collect::<Vec<_>>();
         fbb.create_vector::<WIPOffset<ChannelTrace>>(traces.as_slice())
     }
 }
