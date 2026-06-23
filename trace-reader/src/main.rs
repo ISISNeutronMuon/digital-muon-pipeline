@@ -3,6 +3,7 @@ mod picoscope;
 
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
+use miette::IntoDiagnostic;
 use crate::{hdf5trace::read_hdf5_file, picoscope::read_picoscope_file};
 use digital_muon_common::{CommonKafkaOpts, DigitizerId, FrameNumber, init_tracer, tracer::{TracerEngine, TracerOptions}};
 use std::path::PathBuf;
@@ -32,6 +33,10 @@ struct Cli {
     /// Relative path to the .trace file to be read
     #[clap(flatten)]
     run: Run,
+
+    /// The value to use for the kafka messages keys.
+    #[clap(long)]
+    key: String,
 
     #[command(subcommand)]
     mode: Mode,
@@ -117,10 +122,14 @@ struct Hdf5 {
     /// If set, load the datasets in chunks of this size, otherwise use the given chunk size in the file.
     #[clap(long)]
     cache_size: Option<usize>,
+
+    /// If no value is present in the file, the sampling rate to use for the digitiser messages.
+    #[clap(long, default_value = "1000000000")]
+    sample_rate: u64,
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> miette::Result<()> {
     let args = Cli::parse();
 
     let _tracer = init_tracer!(TracerOptions::new(
@@ -141,7 +150,8 @@ async fn main() {
             read_picoscope_file(args.file_name, &client_config, &args.trace_topic, picoscope).await
         }
         Mode::HDF5(hdf5) => {
-            read_hdf5_file(args.file_name, &client_config, &args.trace_topic, hdf5).await
+            read_hdf5_file(args.file_name, &client_config, &args.trace_topic, &args.key, hdf5).await.into_diagnostic()?
         }
     }
+    Ok(())
 }
