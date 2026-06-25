@@ -33,13 +33,24 @@ where
     /// - ttl: time-to-live duration
     /// - expected_digitisers: list of digitisers that form a complete frame.
     ///
-    /// Note that `expected_digitisers` should be increasing and without duplicates, this is not checked.
-    pub(crate) fn new(ttl: Duration, expected_digitisers: Vec<DigitizerId>) -> Self {
-        Self {
-            ttl,
-            expected_digitisers,
-            latest_timestamp_dispatched: None,
-            frames: Default::default(),
+    /// Note that the function returns an error if `expected_digitisers` has any repetitions.
+    pub(crate) fn new(ttl: Duration, mut expected_digitisers: Vec<DigitizerId>) -> Result<Self, FrameCacheError> {
+        expected_digitisers.sort();
+        let validation_fn = |pair| {
+            let [first, second] = pair
+                .try_into()
+                .expect("Window slice is non-empty, this should never fail.");
+            first != second
+        };
+        if expected_digitisers.windows(2).all(validation_fn) {
+            Ok(Self {
+                ttl,
+                expected_digitisers,
+                latest_timestamp_dispatched: None,
+                frames: Default::default(),
+            })
+        } else {
+            Err(FrameCacheError::DuplicateDigitiserIdOnCommandLine)
         }
     }
 
@@ -61,7 +72,7 @@ where
                 "Frame's timestamp earlier than or equal to the latest frame dispatched: {0} <= {1}",
                 metadata.timestamp, latest_timestamp_dispatched
             );
-            return Err(RejectMessageError::TimestampTooEarly);
+            return Err(Error::TimestampTooEarly);
         }
         let frame = {
             match self
@@ -157,7 +168,7 @@ mod test {
 
     #[test]
     fn one_frame_in_one_frame_out() {
-        let mut cache = FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 4, 8]);
+        let mut cache = FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 4, 8]).unwrap();
 
         let frame_1 = FrameMetadata {
             timestamp: Utc::now(),
@@ -235,7 +246,7 @@ mod test {
 
     #[tokio::test]
     async fn one_frame_in_one_frame_out_missing_digitiser_timeout() {
-        let mut cache = FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 4, 8]);
+        let mut cache = FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 4, 8]).unwrap();
 
         let frame_1 = FrameMetadata {
             timestamp: Utc::now(),
@@ -304,7 +315,7 @@ mod test {
 
     #[tokio::test]
     async fn one_frame_in_one_frame_out_missing_digitiser_and_late_message_timeout() {
-        let mut cache = FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 4, 8]);
+        let mut cache = FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 4, 8]).unwrap();
 
         let frame_1 = FrameMetadata {
             timestamp: Utc::now(),
@@ -344,7 +355,7 @@ mod test {
 
     #[test]
     fn test_metadata_equality() {
-        let mut cache = FrameCache::<EventData>::new(Duration::from_millis(100), vec![1, 2]);
+        let mut cache = FrameCache::<EventData>::new(Duration::from_millis(100), vec![1, 2]).unwrap();
 
         let timestamp = Utc::now();
         let frame_1 = FrameMetadata {

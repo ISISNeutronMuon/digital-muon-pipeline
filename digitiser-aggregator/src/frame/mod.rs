@@ -9,6 +9,12 @@ mod partial;
 pub(crate) use aggregated::AggregatedFrame;
 pub(crate) use cache::FrameCache;
 
+/// Represents errors in the [FrameCache] object.
+pub(crate) enum FrameCacheError {
+    /// If the user specifies the same digitiser id more than once on the command line.
+    DuplicateDigitiserIdOnCommandLine
+}
+
 /// Represents the reason why a digitiser event list message is rejected
 pub(crate) enum RejectMessageError {
     /// The frame has already encountered an event list from this digitiser.
