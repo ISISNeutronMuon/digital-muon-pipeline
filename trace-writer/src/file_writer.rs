@@ -113,20 +113,10 @@ impl TraceFileWriter {
 mod tests {
     use super::*;
     use crate::{digitiser_data::tests::test_internal_structure, handle_trace_message};
-    use digital_muon_common::{
-        init_tracer,
-        tracer::{TracerEngine, TracerOptions},
-    };
     use std::{fs::File, io::Read};
-    use tracing::info;
 
     #[test]
     fn test() {
-        unsafe {
-            std::env::set_var("RUST_LOG", "info");
-        }
-        let _tracer = init_tracer!(TracerOptions::new(None, String::new()));
-
         let mut file = File::open("test_assets/test.dat2").unwrap();
         let mut data = Vec::new();
         file.read_to_end(&mut data).unwrap();
@@ -142,16 +132,9 @@ mod tests {
 
     fn compare_to_true_file(true_hdf5: hdf5::File, test_hdf5: hdf5::File) {
         for true_group in true_hdf5.groups().unwrap() {
-            info!("Testing group {}", true_group.name());
-
             assert!(test_hdf5.group(&true_group.name()).is_ok());
             for true_dataset in true_group.datasets().unwrap() {
                 let true_data = true_dataset.read_raw::<u8>().unwrap();
-                info!(
-                    "Testing dataset {} with value byte size {}.",
-                    true_dataset.name(),
-                    true_data.len()
-                );
 
                 let test_dataset = test_hdf5.dataset(&true_dataset.name());
                 // Ensure test dataset exists.
