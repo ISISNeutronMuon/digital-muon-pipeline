@@ -1,6 +1,6 @@
 //! Defines the cache stores frames as they are assembled from digitiser messages.
 use super::{AggregatedFrame, RejectMessageError, partial::PartialFrame};
-use crate::data::{Accumulate, DigitiserData};
+use crate::{data::{Accumulate, DigitiserData}, frame::FrameCacheError};
 use chrono::{DateTime, Utc};
 use digital_muon_common::{
     DigitizerId, record_metadata_fields_to_span, spanned::SpannedAggregator,
@@ -36,7 +36,7 @@ where
     /// Note that the function returns an error if `expected_digitisers` has any repetitions.
     pub(crate) fn new(ttl: Duration, mut expected_digitisers: Vec<DigitizerId>) -> Result<Self, FrameCacheError> {
         expected_digitisers.sort();
-        let validation_fn = |pair| {
+        let validation_fn = |pair : &[DigitizerId]| {
             let [first, second] = pair
                 .try_into()
                 .expect("Window slice is non-empty, this should never fail.");
@@ -50,7 +50,7 @@ where
                 frames: Default::default(),
             })
         } else {
-            Err(FrameCacheError::DuplicateDigitiserIdOnCommandLine)
+            Err(FrameCacheError::DuplicateDigitiserId)
         }
     }
 
@@ -72,7 +72,7 @@ where
                 "Frame's timestamp earlier than or equal to the latest frame dispatched: {0} <= {1}",
                 metadata.timestamp, latest_timestamp_dispatched
             );
-            return Err(Error::TimestampTooEarly);
+            return Err(RejectMessageError::TimestampTooEarly);
         }
         let frame = {
             match self
@@ -165,6 +165,20 @@ mod test {
     use super::*;
     use crate::data::EventData;
     use chrono::Utc;
+
+    #[test]
+    fn test_repeated_digitiser_ids() {
+        assert!(FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 4, 8]).is_ok());
+        assert!(FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 8, 5]).is_ok());
+        assert!(FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 4, 4]).is_err());
+        assert!(FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 8, 1, 8]).is_err());
+    }
+
+    #[test]
+    fn test_digitiser_id_reordering() {
+        let cache = FrameCache::<EventData>::new(Duration::from_millis(100), vec![0, 1, 8, 5]).unwrap();
+        assert_eq!(cache.expected_digitisers, vec![0, 1, 5, 8]);
+    }
 
     #[test]
     fn one_frame_in_one_frame_out() {

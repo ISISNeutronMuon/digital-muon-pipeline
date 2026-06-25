@@ -14,6 +14,7 @@ miette = { workspace = true, features = ["fancy"] }
 rdkafka.workspace = true
 digital-muon-common.workspace = true
 digital-muon-streaming-types.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 

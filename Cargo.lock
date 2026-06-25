@@ -1365,6 +1365,7 @@ dependencies = [
  "metrics-exporter-prometheus",
  "miette",
  "rdkafka",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]
