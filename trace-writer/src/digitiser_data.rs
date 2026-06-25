@@ -113,6 +113,95 @@ fn validate_current_message_and_trace_sizes<'a>(
     true
 }
 
+/// Owns the HDF5 group and datasets for the trace data.
+pub(crate) struct TraceData {
+    /// 3-D resizable dataset containing trace data, the shape is [Number of Traces, Number of Channels, Size of Trace].
+    all_traces: Dataset,
+}
+
+impl TraceData {
+    /// Creates the datasets for the channel ids and trace data.
+    ///
+    /// # Parameters
+    /// - group: the parent group to use.
+    /// - channels: iterator over the current message's channels.
+    /// - chunk_size: the desired chunk size for new datasets.
+    /// - trace_size: the size of the traces of the current message.
+    fn new<'a>(
+        group: &Group,
+        channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone,
+        chunk_size: usize,
+        trace_size: usize,
+    ) -> Result<Self, hdf5::Error> {
+        let all_channels = make_fixed_size_dataset::<Channel>(group, "channels", channels.len())?;
+        all_channels.write(&channels.clone().map(|c| c.channel()).collect::<Vec<_>>())?;
+        let shape = SimpleExtents::from_vec(vec![
+            Extent::resizable(0),
+            Extent::fixed(channels.len()),
+            Extent::fixed(trace_size),
+        ]);
+        let all_traces = group
+            .new_dataset::<u16>()
+            .shape(shape)
+            .chunk(vec![chunk_size, channels.len(), trace_size])
+            .create("traces")?;
+        Ok(TraceData { all_traces })
+    }
+
+    /// Creates the datasets for the channel ids and trace data.
+    ///
+    /// # Parameters
+    /// - channels: iterator over the current message's channels.
+    /// - trace_size: the size of the traces of the current message.
+    fn write_trace<'a>(
+        &self,
+        channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone,
+        trace_size: usize,
+    ) -> Result<(), TraceWriterError> {
+        let all_traces_sizes: [usize; 3] = self
+            .all_traces
+            .shape()
+            .try_into()
+            .expect("Dataset should have three dimensions, this should never fail");
+
+        if !validate_current_message_and_trace_sizes(
+            channels.clone(),
+            &all_traces_sizes,
+            trace_size,
+        ) {
+            return Ok(());
+        }
+
+        // Extend the traces field in the first axis.
+        let new_sizes = {
+            let mut new_sizes = all_traces_sizes;
+            new_sizes[0] += 1;
+            new_sizes
+        };
+        self.all_traces.resize(new_sizes)?;
+
+        // Build the next slice of the traces field.
+        let traces = channels
+            .flat_map(|channel_trace| {
+                channel_trace
+                    .voltage()
+                    .expect("Voltage field should exist, this should never fail.")
+                    .iter()
+            })
+            .collect::<Vec<_>>();
+        let traces = Array2::from_shape_vec([all_traces_sizes[1], all_traces_sizes[2]], traces)
+            .expect("Traces slice should have the correct size, this should never fail.");
+        let slice = s![
+            all_traces_sizes[0],
+            0..all_traces_sizes[1],
+            0..all_traces_sizes[2]
+        ];
+        self.all_traces.write_slice(&traces, slice)?;
+
+        Ok(())
+    }
+}
+
 /// Owns the HDF5 group and datasets for one digitiser.
 pub(crate) struct DigitizerData {
     /// HDF5 group for this digitiser.
@@ -123,14 +212,10 @@ pub(crate) struct DigitizerData {
     timestamp: Dataset,
     /// 1-D resizable dataset: period number per message.
     period_number: Dataset,
-    /// 1-D resizable dataset containing channel ids.
+    /// Dataset containing channel ids and trace data.
     ///
     /// Lazily created when the first digitiser message arrives.
-    all_channels: Option<Dataset>,
-    /// 3-D resizable dataset containing trace data, the shape is [Number of Traces, Number of Channels, Size of Trace].
-    ///
-    /// Lazily created when the first digitiser message arrives, only the first axis is resized as subsequent messages arrive.
-    all_traces: Option<Dataset>,
+    traces: Option<TraceData>,
 }
 
 impl DigitizerData {
@@ -156,46 +241,8 @@ impl DigitizerData {
             frame_number,
             timestamp,
             period_number,
-            all_channels: None,
-            all_traces: None,
+            traces: None,
         })
-    }
-
-    /// Lazily creates the `all_channels` and `all_traces` datasets if they do not exist,
-    /// using the current message as a template.
-    ///
-    /// # Parameters
-    /// - channels: iterator over the current message's channels.
-    /// - chunk_size: the desired chunk size for new datasets.
-    /// - trace_size: the size of the traces of the current message.
-    fn ensure_channel_and_trace_datasets_exist<'a>(
-        &mut self,
-        channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone,
-        chunk_size: usize,
-        trace_size: usize,
-    ) -> Result<(), TraceWriterError> {
-        if self.all_channels.is_none() {
-            let all_channels =
-                make_fixed_size_dataset::<Channel>(&self.group, "channels", channels.len())?;
-            all_channels.write(&channels.clone().map(|c| c.channel()).collect::<Vec<_>>())?;
-            self.all_channels = Some(all_channels);
-        }
-
-        if self.all_traces.is_none() {
-            let shape = SimpleExtents::from_vec(vec![
-                Extent::resizable(0),
-                Extent::fixed(channels.len()),
-                Extent::fixed(trace_size),
-            ]);
-            self.all_traces = Some(
-                self.group
-                    .new_dataset::<u16>()
-                    .shape(shape)
-                    .chunk(vec![chunk_size, channels.len(), trace_size])
-                    .create("traces")?,
-            );
-        }
-        Ok(())
     }
 
     /// Writes one [DigitizerAnalogTraceMessage] into this digitiser's datasets.
@@ -238,45 +285,17 @@ impl DigitizerData {
             .max()
             .unwrap_or_default();
 
-        self.ensure_channel_and_trace_datasets_exist(channels.iter(), chunk_size, trace_size)?;
-        let all_traces = self.all_traces.as_ref().expect("This should never fail.");
-        let all_traces_sizes: [usize; 3] = all_traces
-            .shape()
-            .try_into()
-            .expect("Dataset should have three dimensions, this should never fail");
-
-        if !validate_current_message_and_trace_sizes(channels.iter(), &all_traces_sizes, trace_size)
-        {
-            return Ok(());
+        // Lazily creates the `traces` structure if they do not exist, using the current message as a template.
+        if self.traces.is_none() {
+            self.traces = Some(TraceData::new(
+                &self.group,
+                channels.iter(),
+                chunk_size,
+                trace_size,
+            )?);
         }
-
-        // Extend the traces field in the first axis.
-        let new_sizes = {
-            let mut new_sizes = all_traces_sizes;
-            new_sizes[0] += 1;
-            new_sizes
-        };
-        all_traces.resize(new_sizes)?;
-
-        // Build the next slice of the traces field.
-        let traces = channels
-            .iter()
-            .flat_map(|channel_trace| {
-                channel_trace
-                    .voltage()
-                    .expect("Voltage field should exist, this should never fail.")
-                    .iter()
-            })
-            .collect::<Vec<_>>();
-        let traces = Array2::from_shape_vec([all_traces_sizes[1], all_traces_sizes[2]], traces)
-            .expect("Traces slice should have the correct size, this should never fail.");
-        let slice = s![
-            all_traces_sizes[0],
-            0..all_traces_sizes[1],
-            0..all_traces_sizes[2]
-        ];
-        all_traces.write_slice(&traces, slice)?;
-        Ok(())
+        let all_traces = &self.traces.as_ref().expect("This should never fail.");
+        all_traces.write_trace(channels.iter(), trace_size)
     }
 }
 
@@ -297,19 +316,20 @@ pub(crate) mod tests {
         assert_eq!(period_number.unwrap().to_vec(), vec![0]);
         assert_eq!(timestamp.unwrap().to_vec(), vec![1781869468296159408]);
 
-        assert!(digitiser.all_channels.is_some());
+        assert!(digitiser.traces.is_some());
+        assert!(digitiser.group.dataset("channels").is_ok());
         let channels = digitiser
-            .all_channels
-            .as_ref()
+            .group
+            .dataset("channels")
             .unwrap()
             .read_1d::<Channel>();
         assert!(channels.is_ok());
         assert_eq!(channels.unwrap().to_vec(), vec![0, 1, 2, 3, 4, 5, 6, 7]);
-        assert!(digitiser.all_traces.is_some());
         let traces = digitiser
-            .all_traces
+            .traces
             .as_ref()
             .unwrap()
+            .all_traces
             .read::<Intensity, Dim<[usize; 3]>>();
         assert!(traces.is_ok());
         assert_eq!(traces.unwrap().shape(), &[1, 8, 50]);
