@@ -16,7 +16,7 @@ pub(crate) use cache::FrameCache;
 pub(crate) enum FrameCacheError {
     /// If the user specifies the same digitiser id more than once on the command line.
     #[error("Duplicate Digitiser Id On Command Line")]
-    DuplicateDigitiserId
+    DuplicateDigitiserId,
 }
 
 /// Represents the reason why a digitiser event list message is rejected

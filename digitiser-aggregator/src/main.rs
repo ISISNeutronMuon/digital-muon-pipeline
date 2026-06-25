@@ -166,8 +166,8 @@ async fn main() -> miette::Result<()> {
 
     let ttl = Duration::from_millis(args.frame_ttl_ms);
 
-    let mut cache = FrameCache::<EventData>::new(ttl, args.digitiser_ids.clone())
-        .into_diagnostic()?;
+    let mut cache =
+        FrameCache::<EventData>::new(ttl, args.digitiser_ids.clone()).into_diagnostic()?;
 
     // Install exporter and register metrics
     let builder = PrometheusBuilder::new();
