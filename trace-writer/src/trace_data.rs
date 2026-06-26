@@ -1,4 +1,7 @@
-use crate::{digitiser_data::append_value, error::TraceWriterError};
+use crate::{
+    digitiser_data::{append_value, make_resizable_dataset},
+    error::TraceWriterError,
+};
 use digital_muon_common::Channel;
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
 use hdf5::{Dataset, Extent, Group, SimpleExtents};
@@ -67,11 +70,7 @@ impl TraceData {
             .shape(shape)
             .chunk(vec![channels.len(), chunk_size])
             .create("traces")?;
-        let trace_index = group
-            .new_dataset::<usize>()
-            .shape(SimpleExtents::resizable([0]))
-            .chunk(vec![chunk_size])
-            .create("trace_index")?;
+        let trace_index = make_resizable_dataset::<usize>(group, "trace_index", chunk_size)?;
         Ok(Self {
             all_traces,
             trace_index,

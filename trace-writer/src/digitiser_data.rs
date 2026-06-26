@@ -39,7 +39,7 @@ pub(crate) fn append_value<T: hdf5::H5Type>(ds: &Dataset, value: T) -> Result<()
 /// - group: the group in which to create the dataset.
 /// - name: name of the new dataset.
 /// - chunk_size: the chunk size to use.
-fn make_resizable_dataset<T: hdf5::H5Type>(
+pub(crate) fn make_resizable_dataset<T: hdf5::H5Type>(
     group: &Group,
     name: &str,
     chunk_size: usize,
