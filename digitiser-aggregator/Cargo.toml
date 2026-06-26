@@ -8,6 +8,7 @@ edition.workspace = true
 chrono.workspace = true
 clap.workspace = true
 git-version.workspace = true
+itertools.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 miette = { workspace = true, features = ["fancy"] }

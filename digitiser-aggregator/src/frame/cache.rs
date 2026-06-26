@@ -9,6 +9,7 @@ use digital_muon_common::{
     DigitizerId, record_metadata_fields_to_span, spanned::SpannedAggregator,
 };
 use digital_muon_streaming_types::FrameMetadata;
+use itertools::Itertools;
 use std::{collections::VecDeque, fmt::Debug, time::Duration};
 use tracing::{info_span, warn};
 
@@ -42,13 +43,12 @@ where
         mut expected_digitisers: Vec<DigitizerId>,
     ) -> Result<Self, FrameCacheError> {
         expected_digitisers.sort();
-        let validation_fn = |pair: &[DigitizerId]| {
-            let [first, second] = pair
-                .try_into()
-                .expect("Window slice is non-empty, this should never fail.");
-            first != second
-        };
-        if expected_digitisers.windows(2).all(validation_fn) {
+        let duplicates = expected_digitisers
+            .iter()
+            .duplicates()
+            .copied()
+            .collect::<Vec<_>>();
+        if duplicates.is_empty() {
             Ok(Self {
                 ttl,
                 expected_digitisers,
@@ -56,7 +56,7 @@ where
                 frames: Default::default(),
             })
         } else {
-            Err(FrameCacheError::DuplicateDigitiserId)
+            Err(FrameCacheError::DuplicateDigitiserId(duplicates))
         }
     }
 
