@@ -103,7 +103,7 @@ impl TraceData {
         // In normal operation, there should be only one unique length.
         let lengths = channels
             .clone()
-            .flat_map(|c| c.voltage().map(|c|c.len()))
+            .flat_map(|c| c.voltage().map(|c| c.len()))
             .unique()
             .collect::<Vec<_>>();
         // If the trace lengths are not unique then return `None`.
