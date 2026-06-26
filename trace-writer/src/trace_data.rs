@@ -2,6 +2,7 @@ use crate::{digitiser_data::append_value, error::TraceWriterError};
 use digital_muon_common::Channel;
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
 use hdf5::{Dataset, Extent, Group, SimpleExtents};
+use itertools::Itertools;
 use ndarray::s;
 #[cfg(test)]
 use ndarray::{ArrayBase, Dim, OwnedRepr};
@@ -89,22 +90,31 @@ impl TraceData {
         &self,
         channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone,
     ) -> Option<TraceSizes> {
+        if channels.len() == 0 {
+            warn!("Missing channels.");
+            return None;
+        }
         if channels.clone().any(|c| c.voltage().is_none()) {
             warn!("Missing channel voltages.");
             return None;
         }
-        let mut lengths = channels
+
+        // This reduces the channels down to the vector of unique lengths.
+        // In normal operation, there should be only one unique length.
+        let lengths = channels
             .clone()
-            .flat_map(|c| c.voltage())
-            .map(|c| c.len())
+            .flat_map(|c| c.voltage().map(|c|c.len()))
+            .unique()
             .collect::<Vec<_>>();
-        lengths.dedup();
+        // If the trace lengths are not unique then return `None`.
         if lengths.len() != 1 {
             warn!("Trace sizes inconsistant {lengths:?}.");
             return None;
         }
 
-        let current_trace_size = *lengths.first().expect("This should never fail.");
+        let current_trace_size = *lengths
+            .first()
+            .expect("Lengths should be non-empty, this should never fail.");
         let current_num_channels = channels.len();
         if let Some(previous_trace) = self.previous_trace.as_ref() {
             if current_trace_size != previous_trace.trace_size {
@@ -112,15 +122,13 @@ impl TraceData {
                     "Trace size: {current_trace_size} inconsistant with that of previous message: {}.",
                     previous_trace.trace_size
                 );
-                return None;
             }
 
             if previous_trace.number_of_channels != current_num_channels {
                 warn!(
-                    "Number of channels {current_num_channels} inconsistant with that of previous message(s) {}.",
+                    "Number of Channels: {current_num_channels} inconsistant with that of previous message: {}.",
                     previous_trace.number_of_channels
                 );
-                return None;
             }
         }
         Some(TraceSizes {
