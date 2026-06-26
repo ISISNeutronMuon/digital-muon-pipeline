@@ -2,7 +2,7 @@ use crate::{digitiser_data::append_value, error::TraceWriterError};
 use digital_muon_common::Channel;
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::ChannelTrace;
 use hdf5::{Dataset, Extent, Group, SimpleExtents};
-use ndarray::{Array2, s};
+use ndarray::s;
 #[cfg(test)]
 use ndarray::{ArrayBase, Dim, OwnedRepr};
 use tracing::warn;
@@ -24,6 +24,14 @@ fn make_fixed_size_dataset<T: hdf5::H5Type>(
         .create(name)
 }
 
+/// Encapsulates the sizes of a digitiser trace message.
+struct TraceSizes {
+    /// Number of time bins.
+    trace_size: usize,
+    /// Number of channels in message.
+    number_of_channels: usize,
+}
+
 /// Owns the HDF5 group and datasets for the trace data.
 pub(crate) struct TraceData {
     /// 2-D dataset, resizable in the first dimension, containing trace data, the shape is [Total Size of Traces, Number of Channels].
@@ -32,8 +40,8 @@ pub(crate) struct TraceData {
     trace_index: Dataset,
     /// The position in the second dimension of `all_traces` to write the next message of trace data.
     next_trace_index: usize,
-    /// If set, represents (trace_size, number_of_channels) of the previous trace message.
-    previous_trace: Option<(usize,usize)>,
+    /// If set, encapsulates the sizes of the previous trace message.
+    previous_trace: Option<TraceSizes>,
 }
 
 impl TraceData {
@@ -46,15 +54,13 @@ impl TraceData {
     pub(crate) fn new<'a>(
         group: &Group,
         channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone,
-        chunk_size: usize
+        chunk_size: usize,
     ) -> Result<Self, hdf5::Error> {
         make_fixed_size_dataset::<Channel>(group, "channels", channels.len())?
-            .write(&channels.clone().map(|c|c.channel()).collect::<Vec<_>>())?;
+            .write(&channels.clone().map(|c| c.channel()).collect::<Vec<_>>())?;
 
-        let shape = SimpleExtents::from_vec(vec![
-            Extent::resizable(0),
-            Extent::fixed(channels.len())
-        ]);
+        let shape =
+            SimpleExtents::from_vec(vec![Extent::resizable(0), Extent::fixed(channels.len())]);
         let all_traces = group
             .new_dataset::<u16>()
             .shape(shape)
@@ -64,7 +70,7 @@ impl TraceData {
             .new_dataset::<usize>()
             .shape(SimpleExtents::resizable([0]))
             .chunk(vec![chunk_size])
-            .create("trace_indices")?;
+            .create("trace_index")?;
         Ok(Self {
             all_traces,
             trace_index,
@@ -78,58 +84,70 @@ impl TraceData {
     /// - channels: iterator over the current message's channels.
     ///
     /// # Return
-    /// True if everything is valid. false otherwise.
+    /// The current trace size if everything is valid, `None` otherwise.
     fn validate_current_message_and_get_current_trace_size<'a>(
         &self,
-        channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone
-    ) -> Option<usize> {
+        channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone,
+    ) -> Option<TraceSizes> {
         if channels.clone().any(|c| c.voltage().is_none()) {
             warn!("Missing channel voltages.");
             return None;
         }
         let mut lengths = channels
             .clone()
-            .flat_map(|c|c.voltage())
-            .map(|c|c.len())
+            .flat_map(|c| c.voltage())
+            .map(|c| c.len())
             .collect::<Vec<_>>();
         lengths.dedup();
         if lengths.len() != 1 {
-            warn!("Trace sizes inconsistant.");
+            warn!("Trace sizes inconsistant {lengths:?}.");
             return None;
         }
 
         let current_trace_size = *lengths.first().expect("This should never fail.");
-        if let Some((previous_num_channels, previous_trace_size)) = self.previous_trace.clone() {
-            if current_trace_size != previous_trace_size {
-                warn!("Trace size: {current_trace_size} inconsistant with that of previous message: {previous_trace_size}.");
+        let current_num_channels = channels.len();
+        if let Some(previous_trace) = self.previous_trace.as_ref() {
+            if current_trace_size != previous_trace.trace_size {
+                warn!(
+                    "Trace size: {current_trace_size} inconsistant with that of previous message: {}.",
+                    previous_trace.trace_size
+                );
                 return None;
             }
 
-            let current_num_channels = channels.len();
-            if previous_num_channels != current_num_channels {
-                warn!("Number of channels {current_num_channels} inconsistant with that of previous message(s) {previous_num_channels}.");
+            if previous_trace.number_of_channels != current_num_channels {
+                warn!(
+                    "Number of channels {current_num_channels} inconsistant with that of previous message(s) {}.",
+                    previous_trace.number_of_channels
+                );
                 return None;
             }
         }
-        Some(current_trace_size)
+        Some(TraceSizes {
+            trace_size: current_trace_size,
+            number_of_channels: current_num_channels,
+        })
     }
 
-    /// Creates the datasets for the channel ids and trace data.
+    /// Creates the datasets for the channel ids and trace data,
+    /// and updates the internal state.
     ///
     /// # Parameters
     /// - channels: iterator over the current message's channels.
     pub(crate) fn write_trace<'a>(
         &mut self,
-        channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone
+        channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone,
     ) -> Result<(), TraceWriterError> {
-        let Some(current_trace_size) = self.validate_current_message_and_get_current_trace_size(channels.clone()) else {
+        let Some(current_trace) =
+            self.validate_current_message_and_get_current_trace_size(channels.clone())
+        else {
             return Ok(());
         };
 
-        self.write_trace_inner(channels.clone(), current_trace_size)?;
+        self.write_trace_inner(channels.clone(), current_trace.trace_size)?;
 
-        self.next_trace_index += current_trace_size;
-        self.previous_trace = Some((current_trace_size, channels.len()));
+        self.next_trace_index += current_trace.trace_size;
+        self.previous_trace = Some(current_trace);
         Ok(())
     }
 
@@ -141,9 +159,8 @@ impl TraceData {
     fn write_trace_inner<'a>(
         &self,
         channels: impl ExactSizeIterator<Item = ChannelTrace<'a>> + Clone,
-        current_trace_size: usize
+        current_trace_size: usize,
     ) -> Result<(), TraceWriterError> {
-
         let all_traces_sizes: [usize; 2] = self
             .all_traces
             .shape()
@@ -158,23 +175,19 @@ impl TraceData {
         };
         self.all_traces.resize(new_sizes)?;
 
-        // Build the next slice of the traces field.
-        let traces = channels.clone()
-            .flat_map(|channel_trace| {
-                channel_trace
-                    .voltage()
-                    .expect("Voltage field should exist, this should never fail.")
-                    .iter()
-            })
-            .collect::<Vec<_>>();
-        let traces = Array2::from_shape_vec([current_trace_size, channels.len()], traces)
-            .expect("Traces slice should have the correct size, this should never fail.");
-        let slice = s![
-            self.next_trace_index..(self.next_trace_index + current_trace_size),
-            0..all_traces_sizes[1]
-        ];
-        self.all_traces.write_slice(&traces, slice)?;
-        
+        for (idx, channel) in channels.enumerate() {
+            let slice = s![
+                self.next_trace_index..(self.next_trace_index + current_trace_size),
+                idx
+            ];
+            let trace = channel
+                .voltage()
+                .expect("Voltage field should exist, this should never fail.")
+                .into_iter()
+                .collect::<Vec<_>>();
+            self.all_traces.write_slice(&trace, slice)?;
+        }
+
         append_value(&self.trace_index, self.next_trace_index)?;
         Ok(())
     }
@@ -186,4 +199,4 @@ impl TraceData {
 }
 
 #[cfg(test)]
-type ReadType = ArrayBase<OwnedRepr<u16>, Dim<[usize; 3]>, u16>;
+type ReadType = ArrayBase<OwnedRepr<u16>, Dim<[usize; 2]>, u16>;

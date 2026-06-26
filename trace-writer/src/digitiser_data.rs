@@ -10,6 +10,7 @@
 //!     frame_number  : [u32]              – one entry per received message
 //!     timestamp     : [VarLenUnicode]    – RFC3339 timestamp per message
 //!     period_number : [u64]              – one entry per received message
+//!     trace_index   :
 //!     channel_{n}   : [VarLenArray<u16>] – voltage trace per message (variable length)
 //! ```
 
@@ -129,11 +130,7 @@ impl DigitizerData {
 
         // Lazily creates the `traces` structure if they do not exist, using the current message as a template.
         if self.traces.is_none() {
-            self.traces = Some(TraceData::new(
-                &self.group,
-                channels.iter(),
-                chunk_size
-            )?);
+            self.traces = Some(TraceData::new(&self.group, channels.iter(), chunk_size)?);
         }
         let all_traces = self.traces.as_mut().expect("This should never fail.");
         all_traces.write_trace(channels.iter())
@@ -152,9 +149,12 @@ pub(crate) mod tests {
         assert!(frame_number.is_ok());
         assert!(period_number.is_ok());
         assert!(timestamp.is_ok());
-        assert_eq!(frame_number.unwrap().to_vec(), vec![0]);
-        assert_eq!(period_number.unwrap().to_vec(), vec![0]);
-        assert_eq!(timestamp.unwrap().to_vec(), vec![1781869468296159408]);
+        assert_eq!(frame_number.unwrap().to_vec(), vec![0, 0]);
+        assert_eq!(period_number.unwrap().to_vec(), vec![0, 0]);
+        assert_eq!(
+            timestamp.unwrap().to_vec(),
+            vec![1781869468296159408, 1781869468296159408]
+        );
 
         assert!(digitiser.traces.is_some());
         assert!(digitiser.group.dataset("channels").is_ok());
@@ -168,7 +168,6 @@ pub(crate) mod tests {
         assert!(digitiser.traces.is_some());
         let traces = digitiser.traces.as_ref().unwrap().read();
         assert!(traces.is_ok());
-        let traces = traces.unwrap();
-        assert_eq!(traces.shape(), &[1, 8, 50]);
+        assert_eq!(traces.unwrap().shape(), &[100, 8]);
     }
 }
