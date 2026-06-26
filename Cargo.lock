@@ -1496,6 +1496,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "events-analyser"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "digital-muon-common",
+ "digital-muon-streaming-types",
+ "git-version",
+ "metrics",
+ "metrics-exporter-prometheus",
+ "miette",
+ "num",
+ "plotly",
+ "rand 0.10.1",
+ "rand_distr",
+ "rdkafka",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "fancy-regex"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
