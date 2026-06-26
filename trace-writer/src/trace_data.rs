@@ -34,7 +34,7 @@ struct TraceSizes {
 
 /// Owns the HDF5 group and datasets for the trace data.
 pub(crate) struct TraceData {
-    /// 2-D dataset, resizable in the first dimension, containing trace data, the shape is [Total Size of Traces, Number of Channels].
+    /// 2-D dataset, resizable in the first dimension, containing trace data, the shape is [Number of Channels, Total Size of Traces].
     all_traces: Dataset,
     /// 1-D resizable dataset whose ith value is the position of the ith trace in `all_traces`.
     trace_index: Dataset,
@@ -60,11 +60,11 @@ impl TraceData {
             .write(&channels.clone().map(|c| c.channel()).collect::<Vec<_>>())?;
 
         let shape =
-            SimpleExtents::from_vec(vec![Extent::resizable(0), Extent::fixed(channels.len())]);
+            SimpleExtents::from_vec(vec![Extent::fixed(channels.len()), Extent::resizable(0)]);
         let all_traces = group
             .new_dataset::<u16>()
             .shape(shape)
-            .chunk(vec![chunk_size, channels.len()])
+            .chunk(vec![channels.len(), chunk_size])
             .create("traces")?;
         let trace_index = group
             .new_dataset::<usize>()
@@ -170,15 +170,15 @@ impl TraceData {
         // Extend the traces field in the first axis.
         let new_sizes = {
             let mut new_sizes = all_traces_sizes;
-            new_sizes[0] += current_trace_size;
+            new_sizes[1] += current_trace_size;
             new_sizes
         };
         self.all_traces.resize(new_sizes)?;
 
         for (idx, channel) in channels.enumerate() {
             let slice = s![
-                self.next_trace_index..(self.next_trace_index + current_trace_size),
-                idx
+                idx,
+                self.next_trace_index..(self.next_trace_index + current_trace_size)
             ];
             let trace = channel
                 .voltage()

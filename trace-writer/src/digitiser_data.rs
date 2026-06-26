@@ -8,10 +8,10 @@
 //! /
 //!   digitiser_{id}/
 //!     frame_number  : [u32]              – one entry per received message
-//!     timestamp     : [VarLenUnicode]    – RFC3339 timestamp per message
+//!     timestamp     : [i64]              – timestamp nanoseconds since epoch per message
 //!     period_number : [u64]              – one entry per received message
-//!     trace_index   :
-//!     channel_{n}   : [VarLenArray<u16>] – voltage trace per message (variable length)
+//!     trace_index   : [usize]            - one entry per received message
+//!     all_traces    : [usize, usize]     – voltage traces per message (variable length)
 //! ```
 
 use crate::{error::TraceWriterError, trace_data::TraceData};
@@ -168,6 +168,6 @@ pub(crate) mod tests {
         assert!(digitiser.traces.is_some());
         let traces = digitiser.traces.as_ref().unwrap().read();
         assert!(traces.is_ok());
-        assert_eq!(traces.unwrap().shape(), &[100, 8]);
+        assert_eq!(traces.unwrap().shape(), &[8, 100]);
     }
 }
