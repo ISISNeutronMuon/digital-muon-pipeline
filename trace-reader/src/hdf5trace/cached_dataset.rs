@@ -29,7 +29,10 @@ impl<T: H5Type> CachedDataset<T> {
                 .copied()
                 .ok_or_else(|| Error::DatasetScalar(dataset.name()))?
         };
-        let num_elements = *dataset.shape().first().expect("This should never fail.");
+        let num_elements = *dataset
+            .shape()
+            .first()
+            .expect("Dataset should be vector, this should never fail.");
 
         Ok(Self {
             dataset,
