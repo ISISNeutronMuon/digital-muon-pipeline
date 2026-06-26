@@ -42,6 +42,8 @@ pub(crate) enum Error {
     ParseInt(#[from] ParseIntError),
     #[error("Wrong Identifier. Expected {0}, got {1}")]
     WrongIdentifier(String, String),
+    #[error("Frame Index {0} >= Number of Frames {1}")]
+    FrameIndexTooLarge(usize, usize),
 }
 
 /// Extracts the `index` from a string of the form `.../identifier_index`,

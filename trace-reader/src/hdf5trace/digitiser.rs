@@ -264,8 +264,7 @@ impl Hdf5Digitiser {
         shift_timestamp_date_to_today: bool,
     ) -> Result<(), Error> {
         if index >= self.num_frames {
-            warn!("Index {index} >= size {}", self.num_frames);
-            return Ok(());
+            Err(Error::FrameIndexTooLarge(index, self.num_frames))?;
         }
         fbb.reset();
 
