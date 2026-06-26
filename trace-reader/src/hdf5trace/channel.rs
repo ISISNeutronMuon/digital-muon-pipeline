@@ -61,14 +61,16 @@ impl Hdf5Channel {
 pub(super) struct Hdf5AllChannels {
     /// Array of channel ids.
     channels: Array1<Channel>,
-    /// Three-dimensional dataset containing trace data, the shape is [Number of Traces, Number of Channels, Size of Trace].
+    /// Position of the traces in the second dimension of `traces`.
+    trace_index: Array1<usize>,
+    /// Two-dimensional dataset containing trace data, the shape is [Number of Channels, Total Size of Traces].
     traces: Dataset,
 }
 
 impl Hdf5AllChannels {
     /// Creates a new instance from the given id and traces object.
-    pub(super) fn new(channels: Array1<Channel>, traces: Dataset) -> Self {
-        Self { channels, traces }
+    pub(super) fn new(channels: Array1<Channel>, trace_index: Array1<usize>, traces: Dataset) -> Self {
+        Self { channels, trace_index, traces }
     }
 
     /// Create the FlatBuffer structure of the channel data for the given index.
@@ -83,19 +85,27 @@ impl Hdf5AllChannels {
         index: usize,
     ) -> WIPOffset<Vector<'a, ForwardsUOffset<ChannelTrace<'a>>>> {
         tracing::Span::current().record("length", self.channels.len());
+        let index = *self.trace_index.get(index).expect("");
+        let next_index = match self.trace_index.get(index + 1) {
+            Some(value) => *value,
+            None => self.trace_index.len(),
+        };
         let trace = self
             .traces
-            .read_slice_2d::<u16, _>(ndarray::s![index, .., ..])
+            .read_slice_2d::<u16, _>(ndarray::s![index..next_index, ..])
             .expect("2D Slice should be present in trace dataset. This should never fail.");
         let traces =
             self.channels
                 .iter()
                 .enumerate()
                 .map(|(index, &channel)| {
-                    let slice = trace.slice(ndarray::s![index, ..]);
-                    let voltage = Some(fbb.create_vector::<Intensity>(slice.as_slice().expect(
-                        "Should be able to coerce to slice type. This should never fail.",
-                    )));
+                    let slice = trace.slice(ndarray::s![.., index]);
+                    let slice = slice.into_iter().collect::<Vec<_>>();
+                    println!("{slice:?}");
+                    //let voltage = Some(fbb.create_vector::<Intensity>(slice.as_slice().expect(
+                    //    "Should be able to coerce to slice type. This should never fail.",
+                    //)));
+                    let voltage = Some(fbb.create_vector::<Intensity>(slice.as_slice());
                     ChannelTrace::create(fbb, &ChannelTraceArgs { channel, voltage })
                 })
                 .collect::<Vec<_>>();

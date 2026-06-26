@@ -134,12 +134,13 @@ impl Hdf5Digitiser {
             Channels::Multiple(channels)
         } else {
             let channels = group.dataset("channels")?.read_1d()?;
+            let trace_index = group.dataset("trace_index")?.read_1d()?;
             let traces = group.dataset("traces")?;
             info!(
                 "Digitiser {digitiser_id} has traces dataset of size {:?}.",
                 traces.shape()
             );
-            Channels::Single(Hdf5AllChannels::new(channels, traces))
+            Channels::Single(Hdf5AllChannels::new(channels, trace_index, traces))
         };
         Ok(Hdf5Digitiser {
             digitiser_id,
