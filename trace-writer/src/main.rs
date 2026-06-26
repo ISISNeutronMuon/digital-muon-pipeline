@@ -20,6 +20,7 @@
 mod digitiser_data;
 mod error;
 mod file_writer;
+mod trace_data;
 
 use chrono::{DateTime, Utc};
 use clap::Parser;

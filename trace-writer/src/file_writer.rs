@@ -37,7 +37,10 @@ impl TraceFileWriter {
     /// # Parameters
     /// - path: the path to write to.
     /// - chunk_size: chunk size for new datasets.
-    pub(crate) fn new(path: &Path, chunk_size: usize) -> Result<Self, TraceWriterError> {
+    pub(crate) fn new(
+        path: &Path,
+        chunk_size: usize,
+    ) -> Result<Self, TraceWriterError> {
         let file = File::create(path)?;
         file.new_attr::<bool>()
             .shape(Extents::Scalar)
@@ -81,7 +84,8 @@ impl TraceFileWriter {
         if !self.digitizers.contains_key(&digitizer_id) {
             // `&self.file` coerces to `&Group` via Deref; the returned DigitizerData
             // owns its HDF5 handles independently of `self.file`.
-            let dig_data = DigitizerData::new(&self.file, digitizer_id, self.chunk_size)?;
+            let dig_data =
+                DigitizerData::new(&self.file, digitizer_id, self.chunk_size)?;
             self.digitizers.insert(digitizer_id, dig_data);
         }
 
