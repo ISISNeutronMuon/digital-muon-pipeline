@@ -54,7 +54,7 @@ impl CompleteMetricResultClass for CompletedEventCount {
 
     fn aggregate(source: &Self::Partial) -> Self {
         Self {
-            count: source.count.mean_and_stddev(source.num as f64),
+            count: source.count.mean_and_stddev(),
         }
     }
 

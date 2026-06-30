@@ -117,12 +117,12 @@ impl CompleteMetricResultClass for CompletedFalseCount {
 
     fn aggregate(source: &Self::Partial) -> Self {
         Self {
-            true_positives: source.true_positive_sum.mean_and_stddev(source.num as f64),
+            true_positives: source.true_positive_sum.mean_and_stddev(),
             ambiguous_true_positives: source
                 .ambiguous_true_positive_sum
-                .mean_and_stddev(source.num as f64),
-            false_positives: source.false_positive_sum.mean_and_stddev(source.num as f64),
-            false_negatives: source.false_negative_sum.mean_and_stddev(source.num as f64),
+                .mean_and_stddev(),
+            false_positives: source.false_positive_sum.mean_and_stddev(),
+            false_negatives: source.false_negative_sum.mean_and_stddev(),
         }
     }
 

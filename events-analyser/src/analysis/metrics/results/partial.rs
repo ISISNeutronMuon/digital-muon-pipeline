@@ -1,11 +1,11 @@
 use crate::{
-    analysis::metrics::{
+    analysis::{BucketIndex, metrics::{
         CompleteMetricResultClass, PartialMetricResultClass,
         event_counts::EventCount,
         false_counts::FalseCount,
         muon_lifetime::MuonLifetime,
         results::{MetricResultStore, complete::CompletedMetricResult},
-    },
+    }},
     engine::{FlatAlgorithm, FlatMetricType, FlatWaveform},
     event::ChannelData,
 };
@@ -33,14 +33,14 @@ impl<C: PartialMetricResultClass> MetricResultStore<C> {
         &mut self,
         waveform: &FlatWaveform,
         algorithm: &FlatAlgorithm,
-        bucket_index: (usize, usize),
+        bucket_index: BucketIndex,
         collection: &HashMap<u32, Vec<ChannelData>>,
     ) {
         let partial_metric_result = self
             .by_bucket
-            .get_mut(bucket_index.0)
+            .get_mut(bucket_index.block_index)
             .expect("Index should be valid. This should never fail")
-            .get_mut(bucket_index.1)
+            .get_mut(bucket_index.bucket_index)
             .expect("Index should be valid. This should never fail");
         for by_topic in collection.values() {
             partial_metric_result.push(waveform, algorithm, by_topic);
@@ -58,10 +58,14 @@ impl<C: PartialMetricResultClass> MetricResultStore<C> {
     }
 }
 
+/// Each variant wraps a different concrete instance of [MetricResultStore].
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum PartialMetricResult {
+    /// Descriptive statistics on the count of events.
     EventCount(MetricResultStore<EventCount>),
+    /// Descriptive statistics on the count of true/false positive/negative events.
     FalseCount(MetricResultStore<FalseCount>),
+    /// Descriptive statistics on the muon-lifetime estimated from the data.
     MuonLifetime(MetricResultStore<MuonLifetime>),
 }
 
@@ -74,8 +78,8 @@ impl PartialMetricResult {
             FlatMetricType::FalseCount(flat_metric_false_count) => Self::FalseCount(
                 MetricResultStore::new(flat_metric_false_count, bucket_block_sizes),
             ),
-            FlatMetricType::MuonLifetime => {
-                Self::MuonLifetime(MetricResultStore::new((), bucket_block_sizes))
+            FlatMetricType::MuonLifetime(flat_metric_muon_lifetime) => {
+                Self::MuonLifetime(MetricResultStore::new(flat_metric_muon_lifetime, bucket_block_sizes))
             }
         }
     }
@@ -98,7 +102,7 @@ impl PartialMetricResult {
         &mut self,
         waveform: &FlatWaveform,
         algorithm: &FlatAlgorithm,
-        bucket_index: (usize, usize),
+        bucket_index: BucketIndex,
         collection: &HashMap<u32, Vec<ChannelData>>,
     ) {
         match self {

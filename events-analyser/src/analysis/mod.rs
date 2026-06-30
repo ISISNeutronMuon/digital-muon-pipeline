@@ -14,6 +14,7 @@ use digital_muon_common::{
     spanned::{SpanOnceError, Spanned, SpannedAggregator},
 };
 use digital_muon_streaming_types::FrameMetadata;
+use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -38,6 +39,12 @@ pub(crate) enum AnalysisError {
     Span(#[from] SpanOnceError),
     #[error("No Json Metric Specified")]
     NoJsonMetricSpecified,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct BucketIndex {
+    pub(crate) block_index: usize,
+    pub(crate) bucket_index: usize
 }
 
 pub(crate) struct AnalysisEngine {
@@ -90,10 +97,10 @@ impl AnalysisEngine {
             .buckets
             .iter_mut()
             .enumerate()
-            .find_map(|(index, block)| {
+            .find_map(|(block_index, block)| {
                 block
                     .find_bucket_matching(&collection)
-                    .map(|(index_in_block, bucket)| ((index, index_in_block), bucket))
+                    .map(|(bucket_index, bucket)| ( BucketIndex { block_index, bucket_index }, bucket))
             })
             .ok_or_else(|| {
                 AnalysisError::NoBucketMatchesCriteria(
@@ -114,14 +121,14 @@ impl AnalysisEngine {
             bucket.increment_count();
             info!(
                 "Pushing to bucket {}, {}. Count: {}",
-                index.0, index.1, bucket.count
+                index.block_index, index.bucket_index, bucket.count
             );
             let collection = collection.into_channel_collection();
             self.metrics.iter_mut().for_each(|metric| {
                 metric.push(&bucket.waveform, &bucket.algorithm, index, &collection)
             });
         } else {
-            info!("Bucket {}, {} full", index.0, index.1);
+            info!("Bucket {}, {} full", index.block_index, index.bucket_index);
         }
         Ok(())
     }

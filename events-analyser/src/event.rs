@@ -6,7 +6,7 @@ use std::collections::HashMap;
 /// Event list, either for a digitiser message, or frame message.
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ChannelData {
-    /// Time at which event occurred, relative to frame metadata timestamp (ns).
+    /// Time at which event occurred and its intensity value. Time is relative to frame metadata timestamp (ns).
     time_intensity: Vec<(Time, Intensity)>,
 }
 
@@ -16,10 +16,12 @@ impl ChannelData {
         Self { time_intensity }
     }
 
+    /// Get the underlying data.
     pub(crate) fn get_time_intensity(&self) -> &[(Time, Intensity)] {
         &self.time_intensity
     }
 
+    /// For a given index in the data, get the time distance from a given target time.
     pub(crate) fn get_temporal_distance_from(&self, index: usize, target: Time) -> u32 {
         let (time, _) = self
             .time_intensity
@@ -31,6 +33,7 @@ impl ChannelData {
             .expect("`abs()` should be positive, this should never fail.")
     }
 
+    /// Selects the index of the datapoint nearest to the target between the given index, and its immediate successor.
     pub(crate) fn find_nearest_in_time_after_index(&self, index: usize, target: Time) -> usize {
         if self.get_temporal_distance_from(index, target)
             < self.get_temporal_distance_from(index + 1, target)

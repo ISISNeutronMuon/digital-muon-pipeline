@@ -51,13 +51,13 @@ impl HasName for CriteriaTemplate {
     }
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Encapsulates the critieria found in [BucketBlock].
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Criteria {
+    /// Refers to the [CriteriaTemplate] that can fill out any missing fields of [CriteriaProperties].
     pub(crate) source: String,
+    /// Contains fields used in the crieria object, can be either specified here or in the [CriteriaTemplate] referred to by [Self::source].
     #[serde(flatten)]
     pub(crate) properties: CriteriaProperties,
 }
@@ -68,9 +68,7 @@ impl HasSource for Criteria {
     }
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Encapsulates crieria used in a [FlatBucket] object.
 #[derive(Debug, Clone)]
 pub(crate) struct FlatCriteria {
     /// Is applied to all voltages when traces are created

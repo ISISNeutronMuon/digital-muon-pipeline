@@ -46,7 +46,11 @@ pub(crate) enum MetricType {
         true_topic: String,
         estimate_topic: String,
     },
-    MuonLifetime,
+    MuonLifetime {
+        topic: String,
+        num_bins: usize,
+        max_lifetime: f64,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,12 +84,16 @@ impl MetricType {
                 "false-positives-sd" => Ok(MetricProperty::FalsePositivesSD),
                 "false-negatives-mean" => Ok(MetricProperty::FalseNegativesMean),
                 "false-negatives-sd" => Ok(MetricProperty::FalseNegativesSD),
+                "true-positives-mean" => Ok(MetricProperty::TruePositivesMean),
+                "true-positives-sd" => Ok(MetricProperty::TruePositivesSD),
+                "ambiguous-true-positives-mean" => Ok(MetricProperty::AmbiguousTruePositivesMean),
+                "ambiguous-true-positives-sd" => Ok(MetricProperty::AmbiguousTruePositivesSD),
                 _ => Err(MetricError::NoProperty(
                     property.to_string(),
                     "False Count".into(),
                 )),
             },
-            Self::MuonLifetime => match property {
+            Self::MuonLifetime { .. } => match property {
                 "mean" => Ok(MetricProperty::Mean),
                 "sd" => Ok(MetricProperty::SD),
                 _ => Err(MetricError::NoProperty(
@@ -125,7 +133,19 @@ impl Flattenable<&[String]> for Metric {
                     .find_map(|(index, topic)| (topic == estimate_topic).then_some(index))
                     .expect("This should never fail."),
             }),
-            MetricType::MuonLifetime => FlatMetricType::MuonLifetime,
+            MetricType::MuonLifetime {
+                topic,
+                num_bins,
+                max_lifetime
+            } => FlatMetricType::MuonLifetime(FlatMetricMuonLifetime {
+                topic: library
+                    .iter()
+                    .enumerate()
+                    .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
+                    .expect("This should never fail."),
+                num_bins: *num_bins,
+                max_lifetime: *max_lifetime,
+            }),
         };
         Ok(FlatMetric {
             name: self.get_name().to_string(),
@@ -155,7 +175,7 @@ impl HasName for FlatMetric {
 pub(crate) enum FlatMetricType {
     EventCount(FlatMetricEventCount),
     FalseCount(FlatMetricFalseCount),
-    MuonLifetime,
+    MuonLifetime(FlatMetricMuonLifetime),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -167,4 +187,11 @@ pub(crate) struct FlatMetricFalseCount {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct FlatMetricEventCount {
     pub(crate) topic: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct FlatMetricMuonLifetime {
+    pub(crate) topic: usize,
+    pub(crate) num_bins: usize,
+    pub(crate) max_lifetime: f64,
 }

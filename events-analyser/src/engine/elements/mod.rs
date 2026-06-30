@@ -13,7 +13,7 @@ pub(crate) use {
     chart::{Chart, ChartError, FlatChart, FlatSeries},
     criteria::CriteriaTemplate,
     metric::{
-        FlatMetric, FlatMetricEventCount, FlatMetricFalseCount, FlatMetricType, Metric,
+        FlatMetric, FlatMetricEventCount, FlatMetricFalseCount, FlatMetricMuonLifetime, FlatMetricType, Metric,
         MetricError, MetricProperty,
     },
     waveform::{FlatWaveform, Waveform, WaveformProperties},
