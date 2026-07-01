@@ -5,7 +5,7 @@ mod chart;
 mod metrics;
 
 use crate::{
-    analysis::chart::ChartOutputError,
+    analysis::{chart::ChartOutputError, metrics::MetricResultError},
     engine::{AnalysisSettings, FlatBucketBlock, FlatChart},
     eventlists::EventlistsCollection,
 };
@@ -14,7 +14,6 @@ use digital_muon_common::{
     spanned::{SpanOnceError, Spanned, SpannedAggregator},
 };
 use digital_muon_streaming_types::FrameMetadata;
-use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -37,6 +36,8 @@ pub(crate) enum AnalysisError {
     Chart(#[from] ChartOutputError),
     #[error("Span Error: {0}")]
     Span(#[from] SpanOnceError),
+    #[error("Metric Result Error: {0}")]
+    MetricResult(#[from] MetricResultError),
     #[error("No Json Metric Specified")]
     NoJsonMetricSpecified,
 }
@@ -166,7 +167,7 @@ impl AnalysisEngine {
             .metrics
             .iter()
             .map(|part| part.build_aggregate())
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>,_>>()?;
 
         for chart in &self.charts {
             let output = ChartOutput::new(chart, &metrics)?;

@@ -1,6 +1,8 @@
 use crate::event::ChannelData;
 use digital_muon_common::{Intensity, Time};
-use std::iter::once;
+use serde::{Deserialize, Serialize};
+use tracing::warn;
+use std::{iter::once, ops::AddAssign};
 
 pub(super) struct GroupDataBy<'a, F>
 where
@@ -247,4 +249,43 @@ mod tests {
             assert_eq!(i, v[0]);
         }
     } */
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct Histogram {
+    bins: Vec<f64>,
+    bin_labels: Vec<f64>,
+    max_value: f64,
+}
+
+impl Histogram {
+    pub(crate) fn new(num: usize, max_value: f64) -> Self {
+        let bins = vec![Default::default(); num];
+        let bin_labels = (0..num).map(|i| max_value * i as f64/num as f64).collect();
+        Self {
+            bin_labels,
+            bins,
+            max_value,
+        }
+    }
+
+    pub(crate) fn push(&mut self, value: f64) {
+        let index = ((value as f64/self.max_value)*self.bins.len() as f64) as usize;
+        if index < self.bins.len() {
+            self.bins
+                .get_mut(index)
+                .expect("This should never fail")
+                .add_assign(1.0);
+        } else {
+            warn!("Histogram value out of range {value} > {}", self.max_value);
+        }
+    }
+
+    pub(crate) fn get_bin_labels(&self) -> &[f64] {
+        &self.bin_labels
+    }
+
+    pub(crate) fn get_counts(&self) -> &[f64] {
+        &self.bins
+    }
 }

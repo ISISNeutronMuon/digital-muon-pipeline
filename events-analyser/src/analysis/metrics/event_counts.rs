@@ -51,11 +51,12 @@ pub(crate) struct CompletedEventCount {
 
 impl CompleteMetricResultClass for CompletedEventCount {
     type Partial = EventCount;
+    type Error = ();
 
-    fn aggregate(source: &Self::Partial) -> Self {
-        Self {
+    fn aggregate(source: &Self::Partial) -> Result<Self,()> {
+        Ok(Self {
             count: source.count.mean_and_stddev(),
-        }
+        })
     }
 
     fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String> {

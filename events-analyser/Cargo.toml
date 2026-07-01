@@ -13,6 +13,7 @@ git-version.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 miette = { workspace = true, features = ["fancy"] }
+nalgebra.workspace = true
 num.workspace = true
 plotly = { workspace = true }
 rdkafka.workspace = true
@@ -23,6 +24,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+varpro.workspace = true
 
 [dev-dependencies]
 chrono.workspace = true

@@ -1,18 +1,20 @@
 mod event_counts;
 mod false_counts;
-mod group_by;
+mod utils;
+mod intensity_graph;
 mod muon_lifetime;
 mod output;
 mod results;
 
 use crate::{
-    engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
-    event::ChannelData,
+    engine::{FlatAlgorithm, FlatWaveform, MetricProperty}, event::ChannelData
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub(crate) use output::MetricOutput;
-pub(crate) use results::{CompletedMetricResult, PartialMetricResult};
+pub(crate) use results::{MetricResultError, CompletedMetricResult, PartialMetricResult};
+
+
 
 /// Holds the running sum of a sequence, as well as the sum of squares.
 /// These are used to compute mean and standard deviations once the sums are complete.
@@ -68,7 +70,8 @@ pub(crate) trait PartialMetricResultClass: MetricResultClass {
 
 pub(crate) trait CompleteMetricResultClass: MetricResultClass {
     type Partial: PartialMetricResultClass<Complete = Self>;
+    type Error : Into<MetricResultError>;
 
-    fn aggregate(source: &Self::Partial) -> Self;
+    fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error>;
     fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String>;
 }

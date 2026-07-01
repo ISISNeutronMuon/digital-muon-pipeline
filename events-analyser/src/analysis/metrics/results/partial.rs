@@ -1,10 +1,6 @@
 use crate::{
     analysis::{BucketIndex, metrics::{
-        CompleteMetricResultClass, PartialMetricResultClass,
-        event_counts::EventCount,
-        false_counts::FalseCount,
-        muon_lifetime::MuonLifetime,
-        results::{MetricResultStore, complete::CompletedMetricResult},
+        CompleteMetricResultClass, PartialMetricResultClass, event_counts::EventCount, false_counts::FalseCount, intensity_graph::IntensityGraph, muon_lifetime::MuonLifetime, results::{MetricResultError, MetricResultStore, complete::CompletedMetricResult}
     }},
     engine::{FlatAlgorithm, FlatMetricType, FlatWaveform},
     event::ChannelData,
@@ -12,7 +8,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-impl<C: PartialMetricResultClass> MetricResultStore<C> {
+impl<C: PartialMetricResultClass> MetricResultStore<C> where MetricResultError: From<<<C as PartialMetricResultClass>::Complete as CompleteMetricResultClass>::Error> {
     pub(super) fn new(source: C::Source, bucket_block_sizes: &[usize]) -> Self {
         let by_bucket = bucket_block_sizes
             .iter()
@@ -47,14 +43,14 @@ impl<C: PartialMetricResultClass> MetricResultStore<C> {
         }
     }
 
-    pub(super) fn aggregate(&self) -> MetricResultStore<C::Complete> {
-        MetricResultStore {
+    pub(super) fn aggregate(&self) -> Result<MetricResultStore<C::Complete>, <C::Complete as CompleteMetricResultClass>::Error> {
+        Ok(MetricResultStore {
             by_bucket: self
                 .by_bucket
                 .iter()
-                .map(|by| by.iter().map(C::Complete::aggregate).collect())
-                .collect(),
-        }
+                .map(|by| by.iter().map(C::Complete::aggregate).collect::<Result<_,_>>())
+                .collect::<Result<_,_>>()?,
+        })
     }
 }
 
@@ -67,6 +63,8 @@ pub(crate) enum PartialMetricResult {
     FalseCount(MetricResultStore<FalseCount>),
     /// Descriptive statistics on the muon-lifetime estimated from the data.
     MuonLifetime(MetricResultStore<MuonLifetime>),
+    /// Descriptive statistics on the muon-lifetime estimated from the data.
+    IntensityGraph(MetricResultStore<IntensityGraph>),
 }
 
 impl PartialMetricResult {
@@ -80,6 +78,9 @@ impl PartialMetricResult {
             ),
             FlatMetricType::MuonLifetime(flat_metric_muon_lifetime) => {
                 Self::MuonLifetime(MetricResultStore::new(flat_metric_muon_lifetime, bucket_block_sizes))
+            },
+            FlatMetricType::IntensityGraph(flat_metric_intensity_graph) => {
+                Self::IntensityGraph(MetricResultStore::new(flat_metric_intensity_graph, bucket_block_sizes))
             }
         }
     }
@@ -93,6 +94,9 @@ impl PartialMetricResult {
                 patrial_metric_result_class.are_buckets_full_enough(block, min)
             }
             Self::MuonLifetime(patrial_metric_result_class) => {
+                patrial_metric_result_class.are_buckets_full_enough(block, min)
+            }
+            Self::IntensityGraph(patrial_metric_result_class) => {
                 patrial_metric_result_class.are_buckets_full_enough(block, min)
             }
         }
@@ -115,20 +119,26 @@ impl PartialMetricResult {
             Self::MuonLifetime(patrial_metric_result_store) => {
                 patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
             }
+            Self::IntensityGraph(patrial_metric_result_store) => {
+                patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
+            }
         }
     }
 
-    pub(crate) fn build_aggregate(&self) -> CompletedMetricResult {
-        match self {
+    pub(crate) fn build_aggregate(&self) -> Result<CompletedMetricResult,MetricResultError> {
+        Ok(match self {
             Self::EventCount(patrial_metric_result_store) => {
-                CompletedMetricResult::EventCount(patrial_metric_result_store.aggregate())
+                CompletedMetricResult::EventCount(patrial_metric_result_store.aggregate()?)
             }
             Self::FalseCount(patrial_metric_result_store) => {
-                CompletedMetricResult::FalseCount(patrial_metric_result_store.aggregate())
+                CompletedMetricResult::FalseCount(patrial_metric_result_store.aggregate()?)
             }
             Self::MuonLifetime(patrial_metric_result_store) => {
-                CompletedMetricResult::MuonLifetime(patrial_metric_result_store.aggregate())
+                CompletedMetricResult::MuonLifetime(patrial_metric_result_store.aggregate()?)
             }
-        }
+            Self::IntensityGraph(patrial_metric_result_store) => {
+                CompletedMetricResult::IntensityGraph(patrial_metric_result_store.aggregate()?)
+            }
+        })
     }
 }

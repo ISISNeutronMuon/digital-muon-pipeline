@@ -46,6 +46,7 @@ libm = "0.2.16"
 metrics = "0.24.2"
 metrics-exporter-prometheus = "0.18.1"
 miette = "7.6.0"
+nalgebra = "0.34.2"
 ndarray = "0.17.1"
 num = "0.4.3"
 opentelemetry = "0.31.0"
@@ -71,4 +72,5 @@ tracing-opentelemetry = "0.32.1"
 tracing-subscriber = { version = "0.3.23", features = ["std", "fmt", "env-filter"] }
 url = { version = "2.5.7", features = ["serde"] }
 uuid = { version = "1.23", features = ["v4"] }
+varpro = "0.14.0"
 wasm-bindgen = "=0.2.100"

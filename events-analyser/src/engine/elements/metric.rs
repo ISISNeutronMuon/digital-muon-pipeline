@@ -176,9 +176,11 @@ pub(crate) enum FlatMetricType {
     EventCount(FlatMetricEventCount),
     FalseCount(FlatMetricFalseCount),
     MuonLifetime(FlatMetricMuonLifetime),
+    IntensityGraph(FlatMetricIntensityGraph),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatMetricFalseCount {
     pub(crate) true_topic: usize,
     pub(crate) estimate_topic: usize,
@@ -190,8 +192,17 @@ pub(crate) struct FlatMetricEventCount {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatMetricMuonLifetime {
     pub(crate) topic: usize,
     pub(crate) num_bins: usize,
     pub(crate) max_lifetime: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct FlatMetricIntensityGraph {
+    pub(crate) topic: usize,
+    pub(crate) num_bins: usize,
+    pub(crate) max_amplitude: f64,
 }
