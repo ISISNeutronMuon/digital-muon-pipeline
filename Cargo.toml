@@ -48,9 +48,9 @@ metrics-exporter-prometheus = "0.18.1"
 miette = "7.6.0"
 ndarray = "0.17.1"
 num = "0.4.3"
-opentelemetry = "0.31.0"
-opentelemetry-otlp = { version = "0.31.1", features = ["trace", "grpc-tonic", "tls-roots"] }
-opentelemetry_sdk = { version = "0.31.0", default-features = false, features = ["trace", "rt-tokio"] }
+opentelemetry = "0.32.0"
+opentelemetry-otlp = { version = "0.32.0", features = ["trace", "grpc-tonic", "tls-roots"] }
+opentelemetry_sdk = { version = "0.32.1", default-features = false, features = ["trace", "rt-tokio"] }
 plotly = "0.14.1"
 plotters = { version = "0.3.7", default-features = false, features = ["plotters-svg", "svg_backend", "bitmap_encoder", "all_series", "bitmap_backend"] }
 rand = "0.10.1"
@@ -67,7 +67,7 @@ digital-muon-streaming-types = { path = "./streaming-types" }
 tokio = { version = "1.50", features = ["macros", "rt-multi-thread", "signal", "sync"] }
 thiserror = "2.0.18"
 tracing = "0.1.41"
-tracing-opentelemetry = "0.32.1"
+tracing-opentelemetry = "0.33.0"
 tracing-subscriber = { version = "0.3.23", features = ["std", "fmt", "env-filter"] }
 url = { version = "2.5.7", features = ["serde"] }
 uuid = { version = "1.23", features = ["v4"] }
