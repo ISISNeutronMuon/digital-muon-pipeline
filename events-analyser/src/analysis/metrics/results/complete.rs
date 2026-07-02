@@ -1,6 +1,6 @@
 use crate::{
     analysis::metrics::{
-        CompleteMetricResultClass, MetricOutput, event_counts::CompletedEventCount, false_counts::CompletedFalseCount, intensity_graph::CompletedIntensityGraph, muon_lifetime::CompletedMuonLifetime, results::MetricResultStore
+        CompleteMetricResultClass, MetricOutput, event_counts::CompletedEventCount, false_counts::CompletedFalseCount, muon_lifetime::CompletedMuonLifetime, results::MetricResultStore
     },
     engine::MetricProperty,
 };
@@ -33,8 +33,7 @@ impl<C: CompleteMetricResultClass> MetricResultStore<C> {
 pub(crate) enum CompletedMetricResult {
     EventCount(MetricResultStore<CompletedEventCount>),
     FalseCount(MetricResultStore<CompletedFalseCount>),
-    MuonLifetime(MetricResultStore<CompletedMuonLifetime>),
-    IntensityGraph(MetricResultStore<CompletedIntensityGraph>),
+    MuonLifetime(MetricResultStore<CompletedMuonLifetime>)
 }
 
 impl CompletedMetricResult {
@@ -46,8 +45,7 @@ impl CompletedMetricResult {
         match self {
             Self::EventCount(completed) => completed.get_property(block, property),
             Self::FalseCount(completed) => completed.get_property(block, property),
-            Self::MuonLifetime(completed) => completed.get_property(block, property),
-            Self::IntensityGraph(completed) => completed.get_property(block, property),
+            Self::MuonLifetime(completed) => completed.get_property(block, property)
         }
     }
 }

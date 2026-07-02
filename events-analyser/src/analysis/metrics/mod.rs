@@ -1,7 +1,6 @@
 mod event_counts;
 mod false_counts;
 mod utils;
-mod intensity_graph;
 mod muon_lifetime;
 mod output;
 mod results;
@@ -10,11 +9,27 @@ use crate::{
     engine::{FlatAlgorithm, FlatWaveform, MetricProperty}, event::ChannelData
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use thiserror::Error;
+use varpro::{statistics::Error as StatisticsError, fit::FitResult, model::{SeparableModel, SeparableNonlinearModel, builder::error::ModelBuildError}, problem::{SeparableProblemBuilderError, SingleRhs}};
 
 pub(crate) use output::MetricOutput;
 pub(crate) use results::{MetricResultError, CompletedMetricResult, PartialMetricResult};
 
 
+
+#[derive(Debug, Error)]
+pub(crate) enum FittingError {
+    #[error("{0}")]
+    ModelBuild(#[from] ModelBuildError),
+    #[error("{0}")]
+    SeparableProblemBuilder(#[from] SeparableProblemBuilderError),
+    #[error("{0:?}")]
+    FitResult(FitResult<SeparableModel<f64>, SingleRhs>),
+    #[error("Not enough linear coefficients: {0}")]
+    NotEnoughCoefs(String),
+    #[error("Statistics Error {0}")]
+    Statistics(#[from] StatisticsError<<SeparableModel<f64> as SeparableNonlinearModel>::Error>)
+}
 
 /// Holds the running sum of a sequence, as well as the sum of squares.
 /// These are used to compute mean and standard deviations once the sums are complete.

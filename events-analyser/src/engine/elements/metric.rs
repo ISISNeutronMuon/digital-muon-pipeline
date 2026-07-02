@@ -50,7 +50,7 @@ pub(crate) enum MetricType {
         topic: String,
         num_bins: usize,
         max_lifetime: f64,
-    },
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -145,7 +145,7 @@ impl Flattenable<&[String]> for Metric {
                     .expect("This should never fail."),
                 num_bins: *num_bins,
                 max_lifetime: *max_lifetime,
-            }),
+            })
         };
         Ok(FlatMetric {
             name: self.get_name().to_string(),
@@ -175,8 +175,7 @@ impl HasName for FlatMetric {
 pub(crate) enum FlatMetricType {
     EventCount(FlatMetricEventCount),
     FalseCount(FlatMetricFalseCount),
-    MuonLifetime(FlatMetricMuonLifetime),
-    IntensityGraph(FlatMetricIntensityGraph),
+    MuonLifetime(FlatMetricMuonLifetime)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,7 +1,7 @@
 mod complete;
 mod partial;
 
-use crate::analysis::metrics::{MetricResultClass, muon_lifetime::MuonLifetimeError};
+use crate::analysis::metrics::{FittingError, MetricResultClass};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
@@ -28,7 +28,7 @@ where
 #[derive(Debug, Error)]
 pub(crate) enum MetricResultError {
     #[error("{0}")]
-    MuonLifetime(#[from] MuonLifetimeError),
+    Fitting(#[from] FittingError),
     #[error("No Error")]
     NullError
 }

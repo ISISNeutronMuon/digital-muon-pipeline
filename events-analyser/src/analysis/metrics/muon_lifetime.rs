@@ -1,15 +1,13 @@
 use crate::{
     analysis::metrics::{
-        CompleteMetricResultClass, MeanSD, MetricOutput, PartialMetricResultClass, utils::Histogram,
+        CompleteMetricResultClass, FittingError, MeanSD, MetricOutput, PartialMetricResultClass, utils::Histogram
     },
     engine::{FlatAlgorithm, FlatMetricMuonLifetime, FlatWaveform, MetricProperty},
     event::ChannelData,
 };
 use nalgebra::DVector;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-use tracing::info;
-use varpro::{fit::FitResult, model::{SeparableModel, SeparableNonlinearModel, builder::error::ModelBuildError}, prelude::SeparableModelBuilder, problem::{SeparableProblemBuilder, SeparableProblemBuilderError, SingleRhs}, solvers::levmar::LevMarSolver, statistics::FitStatistics};
+use varpro::{prelude::SeparableModelBuilder, problem::SeparableProblemBuilder, solvers::levmar::LevMarSolver, statistics::FitStatistics};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct MuonLifetime {
@@ -52,56 +50,17 @@ pub(crate) struct CompletedMuonLifetime {
     lifetime: MeanSD,
 }
 
-/*
-*/
-
-fn f(x: &DVector<f64>, s: f64, a: f64, b: f64) -> DVector<f64> {
-    x.map(|x| a*f64::exp(-s*x) + b)
+fn f(x: &DVector<f64>, s: f64) -> DVector<f64> {
+    x.map(|x| f64::exp(-x/s))
 }
 
-fn df_da(x: &DVector<f64>, s: f64, _: f64, _: f64) -> DVector<f64> {
-    x.map(|x| f64::exp(-s*x))
-}
-
-fn df_db(x: &DVector<f64>, _: f64, _: f64, _: f64) -> DVector<f64> {
-    x.map(|_| 1.0)
-}
-
-fn df_ds(x: &DVector<f64>, s: f64, a: f64, _: f64) -> DVector<f64> {
-    x.map(|x| -x*a*f64::exp(-s*x))
-}
-
-/*
-fn f(x: &DVector<f64>, a: f64, s: f64) -> DVector<f64> {
-    x.map(|x| a*f64::exp(-s*x))
-}
-
-fn df_da(x: &DVector<f64>, _: f64, s: f64) -> DVector<f64> {
-    x.map(|x| f64::exp(-s*x))
-}
-
-fn df_ds(x: &DVector<f64>, a: f64, s: f64) -> DVector<f64> {
-    x.map(|x| -x*a*f64::exp(-s*x))
-}
- */
-
-#[derive(Debug, Error)]
-pub(crate) enum MuonLifetimeError {
-    #[error("{0}")]
-    ModelBuild(#[from] ModelBuildError),
-    #[error("{0}")]
-    SeparableProblemBuilder(#[from] SeparableProblemBuilderError),
-    #[error("{0:?}")]
-    FitResult(FitResult<SeparableModel<f64>, SingleRhs>),
-    #[error("Not enough linear coefficients: {0}")]
-    NotEnoughCoefs(String),
-    #[error("Statistics Error {0}")]
-    Statistics(#[from] varpro::statistics::Error<<SeparableModel<f64> as SeparableNonlinearModel>::Error>)
+fn df_ds(x: &DVector<f64>, s: f64) -> DVector<f64> {
+    x.map(|x| x/s.powi(2)*f64::exp(-x/s))
 }
 
 impl CompleteMetricResultClass for CompletedMuonLifetime {
     type Partial = MuonLifetime;
-    type Error = MuonLifetimeError;
+    type Error = FittingError;
 
     fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error> {
         if source.num == 0 {
@@ -109,41 +68,33 @@ impl CompleteMetricResultClass for CompletedMuonLifetime {
         }
         //info!("bin labels: {0:?}", source.histogram.get_bin_labels());
         //info!("bin counts: {0:?}", source.histogram.get_counts());
-        let counts = source.histogram.get_counts();
-        let max_count = *counts.iter()
-            .max_by(|x,y|f64::partial_cmp(x, y)
-                .expect("")
-            )
-            .expect("");
-        let model = SeparableModelBuilder::new(["s", "a", "b"])
+        let initial_guess = vec![2_200.0];
+        let model = SeparableModelBuilder::new(["s"])
             .independent_variable(DVector::from_vec(source.histogram.get_bin_labels().to_vec()))
-            .function(["s", "a", "b"], f)
+            .function(["s"], f)
             .partial_deriv("s", df_ds)
-            .partial_deriv("a", df_da)
-            .partial_deriv("b", df_db)
-            .initial_parameters(vec![1.0/2200.0, max_count, 0.0])
+            .invariant_function(|x|DVector::from_element(x.len(),1.))
+            .initial_parameters(initial_guess)
             .build()?;
         let problem = SeparableProblemBuilder::new(model)
-            .observations(DVector::from_vec(counts.to_vec()))
+            .observations(DVector::from_vec(source.histogram.get_counts().to_vec()))
             .build()?;
 
         // fit the data
         let fit_result = LevMarSolver::default()
             .solve(problem)
-            .map_err(MuonLifetimeError::FitResult)?;
+            .map_err(FittingError::FitResult)?;
         let coefs = fit_result.nonlinear_parameters();
         //info!("{0:?}",coefs.into_iter().collect::<Vec<_>>());
         //info!("{:?}", fit_result.minimization_report);
 
         let lifetime = *coefs.get(0)
-            .ok_or_else(||MuonLifetimeError::NotEnoughCoefs(format!("{0:?}", coefs.into_iter().collect::<Vec<_>>())))?;
-            //.expect("This should never fail.");
-        //let stats = FitStatistics::try_from(&fit_result)?;
-            //.expect("This should never fail.");
+            .ok_or_else(||FittingError::NotEnoughCoefs(format!("{0:?}", coefs.into_iter().collect::<Vec<_>>())))?;
+        let stats = FitStatistics::try_from(&fit_result)?;
         Ok(Self {
             lifetime: MeanSD {
-                mean: 1.0/lifetime,
-                sd: 0.0 //stats.regression_standard_error()
+                mean: lifetime,
+                sd: stats.regression_standard_error()
             },
         })
     }
