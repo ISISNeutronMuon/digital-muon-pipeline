@@ -3,7 +3,7 @@ use crate::{
         CompleteMetricResultClass, MeanSD, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs,
     },
     engine::{FlatAlgorithm, FlatMetricEventCount, FlatWaveform, MetricProperty},
-    event::ChannelData, eventlists::ChannelDataByTopic,
+    eventlists::ChannelDataByTopic,
 };
 use serde::{Deserialize, Serialize};
 
@@ -70,7 +70,7 @@ impl CompleteMetricResultClass for CompletedEventCount {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::event::ChannelData;
 
     #[test]
     fn test1() {

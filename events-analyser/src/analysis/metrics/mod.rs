@@ -7,7 +7,7 @@ mod utils;
 
 use crate::{
     engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
-    event::ChannelData, eventlists::ChannelDataByTopic,
+    eventlists::ChannelDataByTopic,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;
@@ -21,6 +21,9 @@ use varpro::{
 pub(crate) use output::MetricOutput;
 pub(crate) use results::{CompletedMetricResult, MetricResultError, PartialMetricResult};
 
+#[cfg(test)]
+pub(crate) use utils::Histogram;
+
 #[derive(Debug, Error)]
 pub(crate) enum FittingError {
     #[error("{0}")]
@@ -28,7 +31,7 @@ pub(crate) enum FittingError {
     #[error("{0}")]
     SeparableProblemBuilder(#[from] SeparableProblemBuilderError),
     #[error("{0:?}")]
-    FitResult(FitResult<SeparableModel<f64>, SingleRhs>),
+    FitResult(Box<FitResult<SeparableModel<f64>, SingleRhs>>),
     #[error("Not enough linear coefficients: {0}")]
     NotEnoughCoefs(String),
     #[error("Statistics Error {0}")]

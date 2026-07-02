@@ -272,7 +272,7 @@ impl Histogram {
     }
 
     pub(crate) fn push(&mut self, value: f64) {
-        let index = ((value as f64 / self.max_value) * self.bins.len() as f64) as usize;
+        let index = (self.bins.len() as f64 * value / self.max_value) as usize;
         if index < self.bins.len() {
             self.bins
                 .get_mut(index)
@@ -289,5 +289,10 @@ impl Histogram {
 
     pub(crate) fn get_counts(&self) -> &[f64] {
         &self.bins
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set(&mut self, bins: Vec<f64>) {
+        self.bins = bins;
     }
 }

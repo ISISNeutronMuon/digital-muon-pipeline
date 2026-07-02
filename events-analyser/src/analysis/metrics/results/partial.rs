@@ -10,10 +10,9 @@ use crate::{
         },
     },
     engine::{FlatAlgorithm, FlatMetricType, FlatWaveform},
-    event::ChannelData, eventlists::ChannelCollection,
+    eventlists::ChannelCollection,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 impl<C: PartialMetricResultClass> MetricResultStore<C>
 where
@@ -21,7 +20,7 @@ where
         From<<<C as PartialMetricResultClass>::Complete as CompleteMetricResultClass>::Error>,
 {
     /// Create new instance from a `Source` instance and a list of the number of buckets in each block.
-    /// 
+    ///
     /// # Parameters
     /// - source: the source of the data, namely the type wrapped by a variant of a [FlatMetricType] instance.
     /// - bucket_block_sizes: the number of buckets in each bucket block.
@@ -34,7 +33,7 @@ where
     }
 
     /// Tests whether the amount of data in a specific block exceeds a given value.
-    /// 
+    ///
     /// # Parameters
     /// - block: the block index to test.
     /// - min: the minimum amount of data the block should have.

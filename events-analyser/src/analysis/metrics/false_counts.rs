@@ -4,7 +4,8 @@ use crate::{
         SumWithSumOfSqrs, utils::GroupDataBy,
     },
     engine::{FlatAlgorithm, FlatMetricFalseCount, FlatWaveform, MetricProperty},
-    event::ChannelData, eventlists::ChannelDataByTopic,
+    event::ChannelData,
+    eventlists::ChannelDataByTopic,
 };
 use serde::{Deserialize, Serialize};
 
