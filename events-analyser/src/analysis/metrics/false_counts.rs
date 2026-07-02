@@ -4,7 +4,7 @@ use crate::{
         SumWithSumOfSqrs, utils::GroupDataBy,
     },
     engine::{FlatAlgorithm, FlatMetricFalseCount, FlatWaveform, MetricProperty},
-    event::ChannelData,
+    event::ChannelData, eventlists::ChannelDataByTopic,
 };
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +43,7 @@ impl PartialMetricResultClass for FalseCount {
         &mut self,
         waveform: &FlatWaveform,
         algorithm: &FlatAlgorithm,
-        by_topic: &[ChannelData],
+        by_topic: &ChannelDataByTopic,
     ) {
         // true_by_estimates is indexed by the detected events, and the corresponding element is the list of true events that have been associated to it
         // rejected_true is the list of all true events that are not associated with any detected events.

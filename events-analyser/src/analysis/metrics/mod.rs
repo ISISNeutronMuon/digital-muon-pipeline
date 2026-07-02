@@ -7,7 +7,7 @@ mod utils;
 
 use crate::{
     engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
-    event::ChannelData,
+    event::ChannelData, eventlists::ChannelDataByTopic,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;
@@ -84,7 +84,7 @@ pub(crate) trait PartialMetricResultClass: MetricResultClass {
         &mut self,
         waveform: &FlatWaveform,
         algorithm: &FlatAlgorithm,
-        by_topic: &[ChannelData],
+        by_topic: &ChannelDataByTopic,
     );
     fn len(&self) -> usize;
 }

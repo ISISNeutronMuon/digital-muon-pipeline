@@ -3,7 +3,7 @@ use crate::{
         CompleteMetricResultClass, MeanSD, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs,
     },
     engine::{FlatAlgorithm, FlatMetricEventCount, FlatWaveform, MetricProperty},
-    event::ChannelData,
+    event::ChannelData, eventlists::ChannelDataByTopic,
 };
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,7 @@ impl PartialMetricResultClass for EventCount {
         &mut self,
         _waveform: &FlatWaveform,
         _algorithm: &FlatAlgorithm,
-        collection_by_topic: &[ChannelData],
+        collection_by_topic: &ChannelDataByTopic,
     ) {
         self.num += 1;
         let data = collection_by_topic

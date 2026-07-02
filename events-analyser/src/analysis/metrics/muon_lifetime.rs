@@ -4,15 +4,20 @@ use crate::{
         utils::Histogram,
     },
     engine::{FlatAlgorithm, FlatMetricMuonLifetime, FlatWaveform, MetricProperty},
-    event::ChannelData,
+    event::ChannelData, eventlists::ChannelDataByTopic,
 };
 use nalgebra::DVector;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 use varpro::{
     prelude::SeparableModelBuilder, problem::SeparableProblemBuilder,
     solvers::levmar::LevMarSolver, statistics::FitStatistics,
 };
 
+/// Estimates the lifetime of the muon decay process responsible for the event times.
+/// 
+/// The metric places the event times into a histogram which are used to fit
+/// an exponential decay curve by [CompletedMuonLifetime].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct MuonLifetime {
     num: usize,
@@ -36,7 +41,7 @@ impl PartialMetricResultClass for MuonLifetime {
         &mut self,
         _waveform: &FlatWaveform,
         _algorithm: &FlatAlgorithm,
-        by_topic: &[ChannelData],
+        by_topic: &ChannelDataByTopic,
     ) {
         self.num += 1;
         for (time, _) in by_topic
@@ -53,17 +58,39 @@ impl PartialMetricResultClass for MuonLifetime {
     }
 }
 
+/// Estimates the lifetime of the muon decay process responsible for the event times.
+/// 
+/// The aggregate function uses the histogram created by [MuonLifetime] to fit the function
+/// ```latex
+/// x :-> A \exp(-x/tau) + B
+/// ```
+/// where `A` and `B` are linear parameters and `tau` is the lifetime parameter being estimated.
+/// Note we are only interested in the `tau` parameter.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct CompletedMuonLifetime {
     lifetime: MeanSD,
 }
 
-fn f(x: &DVector<f64>, s: f64) -> DVector<f64> {
-    x.map(|x| f64::exp(-x / s))
+/// The exponential decay function used in the fitting model.
+/// 
+/// # Parameters
+/// - x: the vector of inputs.
+/// - tau: the muon lifetime parameter.
+fn exp_decay_function(x: &DVector<f64>, tau: f64) -> DVector<f64> {
+    let neg_tau_inv = -1.0/tau;
+    x.map(|x| f64::exp(x*neg_tau_inv))
 }
 
-fn df_ds(x: &DVector<f64>, s: f64) -> DVector<f64> {
-    x.map(|x| x / s.powi(2) * f64::exp(-x / s))
+/// The partial derivative with respect to tau of the exponential decay function
+/// used in the fitting model.
+/// 
+/// # Parameters
+/// - x: the vector of inputs.
+/// - tau: the muon lifetime parameter.
+fn exp_decay_deriv_wrs_ds(x: &DVector<f64>, tau: f64) -> DVector<f64> {
+    let neg_tau_inv = -1.0/tau;
+    let tau_sq_inv = 1.0/tau.powi(2);
+    x.map(|x| x*tau_sq_inv * f64::exp(x *neg_tau_inv))
 }
 
 impl CompleteMetricResultClass for CompletedMuonLifetime {
@@ -72,34 +99,40 @@ impl CompleteMetricResultClass for CompletedMuonLifetime {
 
     fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error> {
         if source.num == 0 {
+            warn!("Found null bucket");
             return Ok(Self {
                 lifetime: MeanSD { mean: 0.0, sd: 0.0 },
             });
         }
-        //info!("bin labels: {0:?}", source.histogram.get_bin_labels());
-        //info!("bin counts: {0:?}", source.histogram.get_counts());
+
+        // Begin the fitting with the true muon lifetime.
         let initial_guess = vec![2_200.0];
-        let model = SeparableModelBuilder::new(["s"])
-            .independent_variable(DVector::from_vec(
-                source.histogram.get_bin_labels().to_vec(),
-            ))
-            .function(["s"], f)
-            .partial_deriv("s", df_ds)
-            .invariant_function(|x| DVector::from_element(x.len(), 1.))
+        // The x-axis of the histogram.
+        let independent_variables = DVector::from_vec(source.histogram.get_bin_labels().to_vec());
+        // The background linear basis function (provides the basis function for the `B` parameter).
+        let invariant_function = |x: &DVector<f64>| DVector::from_element(x.len(), 1.);
+        
+        let model = SeparableModelBuilder::new(["tau"])
+            .independent_variable(independent_variables)
+            .function(["tau"], exp_decay_function)
+            .partial_deriv("tau", exp_decay_deriv_wrs_ds)
+            .invariant_function(invariant_function)
             .initial_parameters(initial_guess)
             .build()?;
+        
+        // The y-axis of the histogram.
+        let observations = DVector::from_vec(source.histogram.get_counts().to_vec());
         let problem = SeparableProblemBuilder::new(model)
-            .observations(DVector::from_vec(source.histogram.get_counts().to_vec()))
+            .observations(observations)
             .build()?;
 
-        // fit the data
+        // fit the data.
         let fit_result = LevMarSolver::default()
             .solve(problem)
             .map_err(FittingError::FitResult)?;
         let coefs = fit_result.nonlinear_parameters();
-        //info!("{0:?}",coefs.into_iter().collect::<Vec<_>>());
-        //info!("{:?}", fit_result.minimization_report);
 
+        // Extract the lifetime parameter.
         let lifetime = *coefs.get(0).ok_or_else(|| {
             FittingError::NotEnoughCoefs(format!("{0:?}", coefs.into_iter().collect::<Vec<_>>()))
         })?;

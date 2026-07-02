@@ -10,7 +10,7 @@ use crate::{
         },
     },
     engine::{FlatAlgorithm, FlatMetricType, FlatWaveform},
-    event::ChannelData,
+    event::ChannelData, eventlists::ChannelCollection,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -20,6 +20,11 @@ where
     MetricResultError:
         From<<<C as PartialMetricResultClass>::Complete as CompleteMetricResultClass>::Error>,
 {
+    /// Create new instance from a `Source` instance and a list of the number of buckets in each block.
+    /// 
+    /// # Parameters
+    /// - source: the source of the data, namely the type wrapped by a variant of a [FlatMetricType] instance.
+    /// - bucket_block_sizes: the number of buckets in each bucket block.
     pub(super) fn new(source: C::Source, bucket_block_sizes: &[usize]) -> Self {
         let by_bucket = bucket_block_sizes
             .iter()
@@ -28,6 +33,11 @@ where
         Self { by_bucket }
     }
 
+    /// Tests whether the amount of data in a specific block exceeds a given value.
+    /// 
+    /// # Parameters
+    /// - block: the block index to test.
+    /// - min: the minimum amount of data the block should have.
     pub(crate) fn are_buckets_full_enough(&self, block: usize, min: usize) -> bool {
         self.by_bucket
             .get(block)
@@ -36,12 +46,13 @@ where
             .all(|c| c.len() >= min)
     }
 
+    /// Adds data to the metric, pushing it to the given bucket index.
     pub(super) fn push(
         &mut self,
         waveform: &FlatWaveform,
         algorithm: &FlatAlgorithm,
         bucket_index: BucketIndex,
-        collection: &HashMap<u32, Vec<ChannelData>>,
+        collection: &ChannelCollection,
     ) {
         let partial_metric_result = self
             .by_bucket
@@ -117,7 +128,7 @@ impl PartialMetricResult {
         waveform: &FlatWaveform,
         algorithm: &FlatAlgorithm,
         bucket_index: BucketIndex,
-        collection: &HashMap<u32, Vec<ChannelData>>,
+        collection: &ChannelCollection,
     ) {
         match self {
             Self::EventCount(patrial_metric_result_store) => {
