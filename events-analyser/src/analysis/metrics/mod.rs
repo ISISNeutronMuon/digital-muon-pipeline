@@ -1,21 +1,25 @@
 mod event_counts;
 mod false_counts;
-mod utils;
 mod muon_lifetime;
 mod output;
 mod results;
+mod utils;
 
 use crate::{
-    engine::{FlatAlgorithm, FlatWaveform, MetricProperty}, event::ChannelData
+    engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
+    event::ChannelData,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;
-use varpro::{statistics::Error as StatisticsError, fit::FitResult, model::{SeparableModel, SeparableNonlinearModel, builder::error::ModelBuildError}, problem::{SeparableProblemBuilderError, SingleRhs}};
+use varpro::{
+    fit::FitResult,
+    model::{SeparableModel, SeparableNonlinearModel, builder::error::ModelBuildError},
+    problem::{SeparableProblemBuilderError, SingleRhs},
+    statistics::Error as StatisticsError,
+};
 
 pub(crate) use output::MetricOutput;
-pub(crate) use results::{MetricResultError, CompletedMetricResult, PartialMetricResult};
-
-
+pub(crate) use results::{CompletedMetricResult, MetricResultError, PartialMetricResult};
 
 #[derive(Debug, Error)]
 pub(crate) enum FittingError {
@@ -28,7 +32,7 @@ pub(crate) enum FittingError {
     #[error("Not enough linear coefficients: {0}")]
     NotEnoughCoefs(String),
     #[error("Statistics Error {0}")]
-    Statistics(#[from] StatisticsError<<SeparableModel<f64> as SeparableNonlinearModel>::Error>)
+    Statistics(#[from] StatisticsError<<SeparableModel<f64> as SeparableNonlinearModel>::Error>),
 }
 
 /// Holds the running sum of a sequence, as well as the sum of squares.
@@ -44,7 +48,7 @@ struct SumWithSumOfSqrs {
 }
 
 impl SumWithSumOfSqrs {
-    /// Adds a sequence value to the 
+    /// Adds a sequence value to the
     fn add_to(&mut self, value: f64) {
         self.num += 1.0;
         self.sum += value;
@@ -54,7 +58,9 @@ impl SumWithSumOfSqrs {
     pub(crate) fn mean_and_stddev(&self) -> MeanSD {
         MeanSD {
             mean: self.sum / self.num,
-            sd: f64::sqrt((self.num * self.sqr_sum - self.sum * self.sum) / (self.num * (self.num - 1.0))),
+            sd: f64::sqrt(
+                (self.num * self.sqr_sum - self.sum * self.sum) / (self.num * (self.num - 1.0)),
+            ),
         }
     }
 }
@@ -85,7 +91,7 @@ pub(crate) trait PartialMetricResultClass: MetricResultClass {
 
 pub(crate) trait CompleteMetricResultClass: MetricResultClass {
     type Partial: PartialMetricResultClass<Complete = Self>;
-    type Error : Into<MetricResultError>;
+    type Error: Into<MetricResultError>;
 
     fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error>;
     fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String>;

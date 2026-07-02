@@ -14,7 +14,7 @@ type BucketStore<C> = Vec<C>;
 /// Type which stores metric results by bucket block.
 type BucketBlockStore<C> = Vec<BucketStore<C>>;
 
-/// A generic type which stores 
+/// A generic type which stores
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(bound = "C: Serialize + DeserializeOwned")]
 pub(crate) struct MetricResultStore<C>
@@ -30,7 +30,7 @@ pub(crate) enum MetricResultError {
     #[error("{0}")]
     Fitting(#[from] FittingError),
     #[error("No Error")]
-    NullError
+    NullError,
 }
 
 impl From<()> for MetricResultError {

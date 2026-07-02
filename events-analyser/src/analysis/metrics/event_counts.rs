@@ -53,7 +53,7 @@ impl CompleteMetricResultClass for CompletedEventCount {
     type Partial = EventCount;
     type Error = ();
 
-    fn aggregate(source: &Self::Partial) -> Result<Self,()> {
+    fn aggregate(source: &Self::Partial) -> Result<Self, ()> {
         Ok(Self {
             count: source.count.mean_and_stddev(),
         })

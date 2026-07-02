@@ -1,16 +1,25 @@
 use crate::{
-    analysis::{BucketIndex, metrics::{
-        CompleteMetricResultClass, PartialMetricResultClass, event_counts::EventCount,
-        false_counts::FalseCount, muon_lifetime::MuonLifetime,
-        results::{MetricResultError, MetricResultStore, complete::CompletedMetricResult}
-    }},
+    analysis::{
+        BucketIndex,
+        metrics::{
+            CompleteMetricResultClass, PartialMetricResultClass,
+            event_counts::EventCount,
+            false_counts::FalseCount,
+            muon_lifetime::MuonLifetime,
+            results::{MetricResultError, MetricResultStore, complete::CompletedMetricResult},
+        },
+    },
     engine::{FlatAlgorithm, FlatMetricType, FlatWaveform},
     event::ChannelData,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-impl<C: PartialMetricResultClass> MetricResultStore<C> where MetricResultError: From<<<C as PartialMetricResultClass>::Complete as CompleteMetricResultClass>::Error> {
+impl<C: PartialMetricResultClass> MetricResultStore<C>
+where
+    MetricResultError:
+        From<<<C as PartialMetricResultClass>::Complete as CompleteMetricResultClass>::Error>,
+{
     pub(super) fn new(source: C::Source, bucket_block_sizes: &[usize]) -> Self {
         let by_bucket = bucket_block_sizes
             .iter()
@@ -45,13 +54,20 @@ impl<C: PartialMetricResultClass> MetricResultStore<C> where MetricResultError: 
         }
     }
 
-    pub(super) fn aggregate(&self) -> Result<MetricResultStore<C::Complete>, <C::Complete as CompleteMetricResultClass>::Error> {
+    pub(super) fn aggregate(
+        &self,
+    ) -> Result<MetricResultStore<C::Complete>, <C::Complete as CompleteMetricResultClass>::Error>
+    {
         Ok(MetricResultStore {
             by_bucket: self
                 .by_bucket
                 .iter()
-                .map(|by| by.iter().map(C::Complete::aggregate).collect::<Result<_,_>>())
-                .collect::<Result<_,_>>()?,
+                .map(|by| {
+                    by.iter()
+                        .map(C::Complete::aggregate)
+                        .collect::<Result<_, _>>()
+                })
+                .collect::<Result<_, _>>()?,
         })
     }
 }
@@ -64,7 +80,7 @@ pub(crate) enum PartialMetricResult {
     /// Descriptive statistics on the count of true/false positive/negative events.
     FalseCount(MetricResultStore<FalseCount>),
     /// Descriptive statistics on the muon-lifetime estimated from the data.
-    MuonLifetime(MetricResultStore<MuonLifetime>)
+    MuonLifetime(MetricResultStore<MuonLifetime>),
 }
 
 impl PartialMetricResult {
@@ -76,9 +92,9 @@ impl PartialMetricResult {
             FlatMetricType::FalseCount(flat_metric_false_count) => Self::FalseCount(
                 MetricResultStore::new(flat_metric_false_count, bucket_block_sizes),
             ),
-            FlatMetricType::MuonLifetime(flat_metric_muon_lifetime) => {
-                Self::MuonLifetime(MetricResultStore::new(flat_metric_muon_lifetime, bucket_block_sizes))
-            }
+            FlatMetricType::MuonLifetime(flat_metric_muon_lifetime) => Self::MuonLifetime(
+                MetricResultStore::new(flat_metric_muon_lifetime, bucket_block_sizes),
+            ),
         }
     }
 
@@ -116,7 +132,7 @@ impl PartialMetricResult {
         }
     }
 
-    pub(crate) fn build_aggregate(&self) -> Result<CompletedMetricResult,MetricResultError> {
+    pub(crate) fn build_aggregate(&self) -> Result<CompletedMetricResult, MetricResultError> {
         Ok(match self {
             Self::EventCount(patrial_metric_result_store) => {
                 CompletedMetricResult::EventCount(patrial_metric_result_store.aggregate()?)

@@ -1,8 +1,8 @@
 use crate::event::ChannelData;
 use digital_muon_common::{Intensity, Time};
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 use std::{iter::once, ops::AddAssign};
+use tracing::warn;
 
 pub(super) struct GroupDataBy<'a, F>
 where
@@ -261,7 +261,9 @@ pub(crate) struct Histogram {
 impl Histogram {
     pub(crate) fn new(num: usize, max_value: f64) -> Self {
         let bins = vec![Default::default(); num];
-        let bin_labels = (0..num).map(|i| max_value * i as f64/num as f64).collect();
+        let bin_labels = (0..num)
+            .map(|i| max_value * i as f64 / num as f64)
+            .collect();
         Self {
             bin_labels,
             bins,
@@ -270,7 +272,7 @@ impl Histogram {
     }
 
     pub(crate) fn push(&mut self, value: f64) {
-        let index = ((value as f64/self.max_value)*self.bins.len() as f64) as usize;
+        let index = ((value as f64 / self.max_value) * self.bins.len() as f64) as usize;
         if index < self.bins.len() {
             self.bins
                 .get_mut(index)

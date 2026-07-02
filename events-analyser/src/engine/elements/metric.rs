@@ -39,18 +39,19 @@ impl Metric {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "metric-type")]
 pub(crate) enum MetricType {
-    EventCount {
-        topic: String,
-    },
+    #[serde(rename_all = "kebab-case")]
+    EventCount { topic: String },
+    #[serde(rename_all = "kebab-case")]
     FalseCount {
         true_topic: String,
         estimate_topic: String,
     },
+    #[serde(rename_all = "kebab-case")]
     MuonLifetime {
         topic: String,
         num_bins: usize,
         max_lifetime: f64,
-    }
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,7 +137,7 @@ impl Flattenable<&[String]> for Metric {
             MetricType::MuonLifetime {
                 topic,
                 num_bins,
-                max_lifetime
+                max_lifetime,
             } => FlatMetricType::MuonLifetime(FlatMetricMuonLifetime {
                 topic: library
                     .iter()
@@ -145,7 +146,7 @@ impl Flattenable<&[String]> for Metric {
                     .expect("This should never fail."),
                 num_bins: *num_bins,
                 max_lifetime: *max_lifetime,
-            })
+            }),
         };
         Ok(FlatMetric {
             name: self.get_name().to_string(),
@@ -175,7 +176,7 @@ impl HasName for FlatMetric {
 pub(crate) enum FlatMetricType {
     EventCount(FlatMetricEventCount),
     FalseCount(FlatMetricFalseCount),
-    MuonLifetime(FlatMetricMuonLifetime)
+    MuonLifetime(FlatMetricMuonLifetime),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,12 +197,4 @@ pub(crate) struct FlatMetricMuonLifetime {
     pub(crate) topic: usize,
     pub(crate) num_bins: usize,
     pub(crate) max_lifetime: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) struct FlatMetricIntensityGraph {
-    pub(crate) topic: usize,
-    pub(crate) num_bins: usize,
-    pub(crate) max_amplitude: f64,
 }

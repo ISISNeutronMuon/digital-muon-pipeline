@@ -45,7 +45,7 @@ pub(crate) enum AnalysisError {
 #[derive(Clone, Copy)]
 pub(crate) struct BucketIndex {
     pub(crate) block_index: usize,
-    pub(crate) bucket_index: usize
+    pub(crate) bucket_index: usize,
 }
 
 pub(crate) struct AnalysisEngine {
@@ -101,7 +101,15 @@ impl AnalysisEngine {
             .find_map(|(block_index, block)| {
                 block
                     .find_bucket_matching(&collection)
-                    .map(|(bucket_index, bucket)| ( BucketIndex { block_index, bucket_index }, bucket))
+                    .map(|(bucket_index, bucket)| {
+                        (
+                            BucketIndex {
+                                block_index,
+                                bucket_index,
+                            },
+                            bucket,
+                        )
+                    })
             })
             .ok_or_else(|| {
                 AnalysisError::NoBucketMatchesCriteria(
@@ -167,7 +175,7 @@ impl AnalysisEngine {
             .metrics
             .iter()
             .map(|part| part.build_aggregate())
-            .collect::<Result<Vec<_>,_>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
 
         for chart in &self.charts {
             let output = ChartOutput::new(chart, &metrics)?;

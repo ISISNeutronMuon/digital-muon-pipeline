@@ -116,12 +116,10 @@ impl CompleteMetricResultClass for CompletedFalseCount {
     type Partial = FalseCount;
     type Error = ();
 
-    fn aggregate(source: &Self::Partial) -> Result<Self,()> {
+    fn aggregate(source: &Self::Partial) -> Result<Self, ()> {
         Ok(Self {
             true_positives: source.true_positive_sum.mean_and_stddev(),
-            ambiguous_true_positives: source
-                .ambiguous_true_positive_sum
-                .mean_and_stddev(),
+            ambiguous_true_positives: source.ambiguous_true_positive_sum.mean_and_stddev(),
             false_positives: source.false_positive_sum.mean_and_stddev(),
             false_negatives: source.false_negative_sum.mean_and_stddev(),
         })
