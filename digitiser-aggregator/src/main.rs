@@ -101,9 +101,9 @@ struct Cli {
     #[clap(long)]
     output_topic: String,
 
-    /// A list of expected digitiser IDs.
-    /// Can be passed as `-d0 -d1 ...` or `-d=0,1,...`
+    /// A list of expected digitiser IDs. Can be passed as `-d0 -d1 ...` or `-d=0,1,...`.
     /// A frame is only "complete" when a message has been received from each of these IDs.
+    /// This sequence must be passed with no repetitions, otherwise the program will panic.
     #[clap(short, long, value_delimiter = ',')]
     digitiser_ids: Vec<DigitizerId>,
 
@@ -166,7 +166,8 @@ async fn main() -> miette::Result<()> {
 
     let ttl = Duration::from_millis(args.frame_ttl_ms);
 
-    let mut cache = FrameCache::<EventData>::new(ttl, args.digitiser_ids.clone());
+    let mut cache =
+        FrameCache::<EventData>::new(ttl, args.digitiser_ids.clone()).into_diagnostic()?;
 
     // Install exporter and register metrics
     let builder = PrometheusBuilder::new();

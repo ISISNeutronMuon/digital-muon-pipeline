@@ -1361,10 +1361,12 @@ dependencies = [
  "digital-muon-common",
  "digital-muon-streaming-types",
  "git-version",
+ "itertools 0.14.0",
  "metrics",
  "metrics-exporter-prometheus",
  "miette",
  "rdkafka",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]

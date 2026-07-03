@@ -6,8 +6,19 @@ mod aggregated;
 mod cache;
 mod partial;
 
+use digital_muon_common::DigitizerId;
+use thiserror::Error;
+
 pub(crate) use aggregated::AggregatedFrame;
 pub(crate) use cache::FrameCache;
+
+/// Represents errors in the [FrameCache] object.
+#[derive(Debug, Error)]
+pub(crate) enum FrameCacheError {
+    /// If the user specifies the same digitiser id more than once on the command line.
+    #[error("Duplicate Digitiser Id(s) On Command Line: {0:?}")]
+    DuplicateDigitiserId(Vec<DigitizerId>),
+}
 
 /// Represents the reason why a digitiser event list message is rejected
 pub(crate) enum RejectMessageError {
