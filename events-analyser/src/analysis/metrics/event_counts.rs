@@ -3,7 +3,7 @@ use crate::{
         CompleteMetricResultClass, MeanSD, MetricOutput, PartialMetricResultClass, SumWithSumOfSqrs,
     },
     engine::{FlatAlgorithm, FlatMetricEventCount, FlatWaveform, MetricProperty},
-    event::ChannelData,
+    eventlists::ChannelDataByTopic,
 };
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,7 @@ impl PartialMetricResultClass for EventCount {
         &mut self,
         _waveform: &FlatWaveform,
         _algorithm: &FlatAlgorithm,
-        collection_by_topic: &[ChannelData],
+        collection_by_topic: &ChannelDataByTopic,
     ) {
         self.num += 1;
         let data = collection_by_topic
@@ -51,11 +51,12 @@ pub(crate) struct CompletedEventCount {
 
 impl CompleteMetricResultClass for CompletedEventCount {
     type Partial = EventCount;
+    type Error = ();
 
-    fn aggregate(source: &Self::Partial) -> Self {
-        Self {
-            count: source.count.mean_and_stddev(source.num as f64),
-        }
+    fn aggregate(source: &Self::Partial) -> Result<Self, ()> {
+        Ok(Self {
+            count: source.count.mean_and_stddev(),
+        })
     }
 
     fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String> {
@@ -69,7 +70,7 @@ impl CompleteMetricResultClass for CompletedEventCount {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::event::ChannelData;
 
     #[test]
     fn test1() {

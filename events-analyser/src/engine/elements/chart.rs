@@ -78,7 +78,7 @@ impl Flattenable<&AnalysisSettings> for Series {
 
         let metric = library
             .get_metric_index(&self.metric)
-            .ok_or_else(|| SeriesError::MetricNotFound(self.from_bucket.clone()))?;
+            .ok_or_else(|| SeriesError::MetricNotFound(self.metric.clone()))?;
 
         let property = library.get_property_of_metric(metric, &self.property)?;
 

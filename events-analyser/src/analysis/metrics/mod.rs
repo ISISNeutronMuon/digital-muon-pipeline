@@ -1,35 +1,69 @@
 mod event_counts;
 mod false_counts;
-mod group_by;
 mod muon_lifetime;
 mod output;
 mod results;
+mod utils;
 
 use crate::{
     engine::{FlatAlgorithm, FlatWaveform, MetricProperty},
-    event::ChannelData,
+    eventlists::ChannelDataByTopic,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use thiserror::Error;
+use varpro::{
+    fit::FitResult,
+    model::{SeparableModel, SeparableNonlinearModel, builder::error::ModelBuildError},
+    problem::{SeparableProblemBuilderError, SingleRhs},
+    statistics::Error as StatisticsError,
+};
 
 pub(crate) use output::MetricOutput;
-pub(crate) use results::{CompletedMetricResult, PartialMetricResult};
+pub(crate) use results::{CompletedMetricResult, MetricResultError, PartialMetricResult};
 
+#[cfg(test)]
+pub(crate) use utils::Histogram;
+
+#[derive(Debug, Error)]
+pub(crate) enum FittingError {
+    #[error("{0}")]
+    ModelBuild(#[from] ModelBuildError),
+    #[error("{0}")]
+    SeparableProblemBuilder(#[from] SeparableProblemBuilderError),
+    #[error("{0:?}")]
+    FitResult(Box<FitResult<SeparableModel<f64>, SingleRhs>>),
+    #[error("Not enough linear coefficients: {0}")]
+    NotEnoughCoefs(String),
+    #[error("Statistics Error {0}")]
+    Statistics(#[from] StatisticsError<<SeparableModel<f64> as SeparableNonlinearModel>::Error>),
+}
+
+/// Holds the running sum of a sequence, as well as the sum of squares.
+/// These are used to compute mean and standard deviations once the sums are complete.
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 struct SumWithSumOfSqrs {
+    /// The number of values added into the sums.
+    num: f64,
+    /// The sum of the sequence.
     sum: f64,
+    /// The sum of the squares of the sequence.
     sqr_sum: f64,
 }
 
 impl SumWithSumOfSqrs {
+    /// Adds a sequence value to the
     fn add_to(&mut self, value: f64) {
+        self.num += 1.0;
         self.sum += value;
         self.sqr_sum += value * value;
     }
 
-    pub(crate) fn mean_and_stddev(&self, n: f64) -> MeanSD {
+    pub(crate) fn mean_and_stddev(&self) -> MeanSD {
         MeanSD {
-            mean: self.sum / n,
-            sd: f64::sqrt((n * self.sqr_sum - self.sum * self.sum) / (n * (n - 1.0))),
+            mean: self.sum / self.num,
+            sd: f64::sqrt(
+                (self.num * self.sqr_sum - self.sum * self.sum) / (self.num * (self.num - 1.0)),
+            ),
         }
     }
 }
@@ -53,14 +87,15 @@ pub(crate) trait PartialMetricResultClass: MetricResultClass {
         &mut self,
         waveform: &FlatWaveform,
         algorithm: &FlatAlgorithm,
-        by_topic: &[ChannelData],
+        by_topic: &ChannelDataByTopic,
     );
     fn len(&self) -> usize;
 }
 
 pub(crate) trait CompleteMetricResultClass: MetricResultClass {
     type Partial: PartialMetricResultClass<Complete = Self>;
+    type Error: Into<MetricResultError>;
 
-    fn aggregate(source: &Self::Partial) -> Self;
+    fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error>;
     fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String>;
 }

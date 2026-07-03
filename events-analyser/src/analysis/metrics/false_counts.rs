@@ -1,10 +1,11 @@
 use crate::{
     analysis::metrics::{
         CompleteMetricResultClass, MeanSD, MetricOutput, PartialMetricResultClass,
-        SumWithSumOfSqrs, group_by::GroupDataBy,
+        SumWithSumOfSqrs, utils::GroupDataBy,
     },
     engine::{FlatAlgorithm, FlatMetricFalseCount, FlatWaveform, MetricProperty},
     event::ChannelData,
+    eventlists::ChannelDataByTopic,
 };
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +44,7 @@ impl PartialMetricResultClass for FalseCount {
         &mut self,
         waveform: &FlatWaveform,
         algorithm: &FlatAlgorithm,
-        by_topic: &[ChannelData],
+        by_topic: &ChannelDataByTopic,
     ) {
         // true_by_estimates is indexed by the detected events, and the corresponding element is the list of true events that have been associated to it
         // rejected_true is the list of all true events that are not associated with any detected events.
@@ -114,16 +115,15 @@ pub(crate) struct CompletedFalseCount {
 
 impl CompleteMetricResultClass for CompletedFalseCount {
     type Partial = FalseCount;
+    type Error = ();
 
-    fn aggregate(source: &Self::Partial) -> Self {
-        Self {
-            true_positives: source.true_positive_sum.mean_and_stddev(source.num as f64),
-            ambiguous_true_positives: source
-                .ambiguous_true_positive_sum
-                .mean_and_stddev(source.num as f64),
-            false_positives: source.false_positive_sum.mean_and_stddev(source.num as f64),
-            false_negatives: source.false_negative_sum.mean_and_stddev(source.num as f64),
-        }
+    fn aggregate(source: &Self::Partial) -> Result<Self, ()> {
+        Ok(Self {
+            true_positives: source.true_positive_sum.mean_and_stddev(),
+            ambiguous_true_positives: source.ambiguous_true_positive_sum.mean_and_stddev(),
+            false_positives: source.false_positive_sum.mean_and_stddev(),
+            false_negatives: source.false_negative_sum.mean_and_stddev(),
+        })
     }
 
     fn get_property(&self, property: &MetricProperty) -> Result<MetricOutput<f64>, String> {

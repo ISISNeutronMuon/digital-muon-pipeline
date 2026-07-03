@@ -7,7 +7,7 @@ mod complete;
 mod partial;
 
 pub(crate) use cache::MessageCache;
-pub(crate) use complete::EventlistsCollection;
+pub(crate) use complete::{ChannelCollection, ChannelDataByTopic, EventlistsCollection};
 
 /// Represents the reason why a digitiser event list message is rejected.
 pub(crate) enum RejectMessageError {

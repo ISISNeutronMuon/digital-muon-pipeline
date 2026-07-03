@@ -5,7 +5,8 @@ mod values;
 pub(crate) use crate::engine::{
     elements::{
         Chart, FlatAlgorithm, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricEventCount,
-        FlatMetricFalseCount, FlatMetricType, FlatSeries, FlatWaveform, Metric, MetricProperty,
+        FlatMetricFalseCount, FlatMetricMuonLifetime, FlatMetricType, FlatSeries, FlatWaveform,
+        Metric, MetricProperty,
     },
     settings::{AnalysisSettings, Array, Templates},
 };

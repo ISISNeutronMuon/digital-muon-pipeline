@@ -8,6 +8,9 @@ use digital_muon_common::{
 use digital_muon_streaming_types::FrameMetadata;
 use std::collections::HashMap;
 
+pub(crate) type ChannelDataByTopic = Vec<ChannelData>;
+pub(crate) type ChannelCollection = HashMap<Channel, ChannelDataByTopic>;
+
 pub(crate) struct EventlistsCollection {
     /// Used by the implementation of [SpannedAggregator].
     ///
@@ -45,8 +48,8 @@ impl EventlistsCollection {
         }
     }
 
-    pub(crate) fn into_channel_collection(self) -> HashMap<Channel, Vec<ChannelData>> {
-        let mut temp = HashMap::<Channel, Vec<ChannelData>>::new();
+    pub(crate) fn into_channel_collection(self) -> ChannelCollection {
+        let mut temp = ChannelCollection::new();
         let default = vec![Default::default(); self.eventlists.len()];
         for (topic_index, event_data) in self.eventlists.into_iter().enumerate() {
             for (channel, channel_data) in event_data.events.into_iter() {
