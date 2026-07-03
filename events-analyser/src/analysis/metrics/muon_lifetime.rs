@@ -142,18 +142,23 @@ impl CompleteMetricResultClass for CompletedMuonLifetime {
             .solve(problem)
             .map_err(|result| FittingError::FitResult(Box::new(result)))?;
         let coefs = fit_result.nonlinear_parameters();
-        println!("{:?}", fit_result.minimization_report);
+
+        let coef_error = || {
+            FittingError::NotEnoughCoefs(format!("{0:?}", coefs.into_iter().collect::<Vec<_>>()))
+        };
 
         // Extract the lifetime parameter.
-        let lifetime = *coefs.get(0).ok_or_else(|| {
-            FittingError::NotEnoughCoefs(format!("{0:?}", coefs.into_iter().collect::<Vec<_>>()))
-        })?;
-        let stats = FitStatistics::try_from(&fit_result)?;
+        let lifetime = *coefs.get(0).ok_or_else(coef_error)?;
+
+        // Extract the standard deviation for the lifetime parameters.
+        let sd = FitStatistics::try_from(&fit_result)?
+            .nonlinear_parameters_variance()
+            .get(0)
+            .ok_or_else(coef_error)?
+            .sqrt();
+
         Ok(Self {
-            lifetime: MeanSD {
-                mean: lifetime,
-                sd: stats.regression_standard_error(),
-            },
+            lifetime: MeanSD { mean: lifetime, sd },
         })
     }
 
@@ -191,7 +196,7 @@ mod tests {
         assert!(result.is_ok());
         let result = result.unwrap();
         assert_eq!(result.lifetime.mean, 2269.633905394806);
-        assert_eq!(result.lifetime.sd, 22.83536314640468);
+        assert_eq!(result.lifetime.sd, 8.573260580312361);
     }
 
     #[test]
@@ -211,6 +216,6 @@ mod tests {
         assert!(result.is_ok());
         let result = result.unwrap();
         assert_eq!(result.lifetime.mean, 2273.4931383121334);
-        assert_eq!(result.lifetime.sd, 18.33054952444887);
+        assert_eq!(result.lifetime.sd, 16.381103858413592);
     }
 }
