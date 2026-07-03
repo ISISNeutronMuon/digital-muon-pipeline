@@ -50,7 +50,7 @@ ndarray = "0.17.1"
 num = "0.4.3"
 opentelemetry = "0.31.0"
 opentelemetry-otlp = { version = "0.31.1", features = ["trace", "grpc-tonic", "tls-roots"] }
-opentelemetry_sdk = { version = "0.31.0", default-features = false, features = ["trace", "rt-tokio"] }
+opentelemetry_sdk = { version = "0.32.1", default-features = false, features = ["trace", "rt-tokio"] }
 plotly = "0.14.1"
 plotters = { version = "0.3.7", default-features = false, features = ["plotters-svg", "svg_backend", "bitmap_encoder", "all_series", "bitmap_backend"] }
 rand = "0.10.1"
