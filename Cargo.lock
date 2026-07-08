@@ -5838,6 +5838,7 @@ dependencies = [
  "git-version",
  "hdf5-metno",
  "isis_streaming_data_types",
+ "itertools 0.14.0",
  "metrics",
  "metrics-exporter-prometheus",
  "miette",

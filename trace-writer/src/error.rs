@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -11,6 +12,6 @@ pub(crate) enum TraceWriterError {
     #[error("GPS timestamp conversion failed")]
     TimestampConversionFailed,
 
-    #[error("String could not be written as HDF5 unicode: {0}")]
-    UnicodeConversionFailed(String),
+    #[error("Timestamp count not be converted to nanoseconds since epoch: {0}")]
+    NanosecondConversionFailed(DateTime<Utc>),
 }

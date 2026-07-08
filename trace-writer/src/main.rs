@@ -17,8 +17,10 @@
 //! - Trace messages that arrive when no file is open are warned about and
 //!   discarded.
 
+mod digitiser_data;
 mod error;
 mod file_writer;
+mod trace_data;
 
 use chrono::{DateTime, Utc};
 use clap::Parser;
@@ -193,7 +195,7 @@ async fn main() -> miette::Result<()> {
 
                         if let Some(payload) = msg.payload() {
                             if msg.topic() == args.trace_topic {
-                                handle_trace_message(payload, &mut writer);
+                                handle_trace_message(payload, writer.as_mut());
                             } else if args.control_topic.as_deref() == Some(msg.topic()) {
                                 handle_control_message(
                                     payload,
@@ -234,7 +236,7 @@ async fn main() -> miette::Result<()> {
 /// Decodes it as a [`DigitizerAnalogTraceMessage`], updates metrics, and
 /// appends the trace data to the current HDF5 file (if one is open).
 #[tracing::instrument(skip_all, fields(payload_size = payload.len()))]
-fn handle_trace_message(payload: &[u8], writer: &mut Option<TraceFileWriter>) {
+fn handle_trace_message(payload: &[u8], writer: Option<&mut TraceFileWriter>) {
     if !digitizer_analog_trace_message_buffer_has_identifier(payload) {
         warn!("Message on trace topic has unexpected identifier");
         counter!(
@@ -293,7 +295,7 @@ fn handle_trace_message(payload: &[u8], writer: &mut Option<TraceFileWriter>) {
     .set(trace.metadata().frame_number() as f64);
 
     // Write to the open HDF5 file.
-    let Some(w) = writer.as_mut() else {
+    let Some(w) = writer else {
         warn!(
             "Trace message (digitiser {}, frame {}) received but no HDF5 file is open \
              — is a RunStart message missing?",

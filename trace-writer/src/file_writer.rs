@@ -13,143 +13,58 @@
 //!     channel_{n}   : [VarLenArray<u16>] – voltage trace per message (variable length)
 //! ```
 
-use crate::error::TraceWriterError;
-use chrono::{DateTime, Utc};
+use crate::{digitiser_data::DigitizerData, error::TraceWriterError};
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::DigitizerAnalogTraceMessage;
-use hdf5::{
-    Dataset, File, Group, SimpleExtents,
-    types::{VarLenArray, VarLenUnicode},
-};
-use ndarray::s;
+use hdf5::{Extents, File};
 use std::{collections::HashMap, path::Path};
-
-/// Appends a single value to a resizable 1-D HDF5 dataset.
-fn append_value<T: hdf5::H5Type>(ds: &Dataset, value: T) -> Result<(), hdf5::Error> {
-    let cur = ds.size();
-    ds.resize(cur + 1)?;
-    ds.write_slice(&[value], s![cur..cur + 1])?;
-    Ok(())
-}
-
-/// Creates a resizable 1-D HDF5 dataset of the given type.
-fn make_resizable_dataset<T: hdf5::H5Type>(
-    group: &Group,
-    name: &str,
-    chunk_size: usize,
-) -> Result<Dataset, hdf5::Error> {
-    group
-        .new_dataset::<T>()
-        .shape(SimpleExtents::resizable(vec![0]))
-        .chunk(vec![chunk_size])
-        .create(name)
-}
-
-/// Owns the HDF5 group and datasets for one digitiser.
-struct DigitizerData {
-    /// HDF5 group for this digitiser.
-    group: Group,
-    /// 1-D resizable dataset: frame number per message.
-    frame_number: Dataset,
-    /// 1-D resizable dataset: RFC3339 timestamp string per message.
-    timestamp: Dataset,
-    /// 1-D resizable dataset: period number per message.
-    period_number: Dataset,
-    /// Per-channel voltage datasets, keyed by channel number.
-    channels: HashMap<u32, Dataset>,
-}
-
-impl DigitizerData {
-    /// Creates the HDF5 group and metadata datasets for a new digitiser.
-    fn new(parent: &Group, digitizer_id: u8, chunk_size: usize) -> Result<Self, hdf5::Error> {
-        let group = parent.create_group(&format!("digitiser_{digitizer_id}"))?;
-
-        let frame_number = make_resizable_dataset::<u32>(&group, "frame_number", chunk_size)?;
-        let timestamp = make_resizable_dataset::<VarLenUnicode>(&group, "timestamp", chunk_size)?;
-        let period_number = make_resizable_dataset::<u64>(&group, "period_number", chunk_size)?;
-
-        Ok(Self {
-            group,
-            frame_number,
-            timestamp,
-            period_number,
-            channels: HashMap::new(),
-        })
-    }
-
-    /// Writes one [DigitizerAnalogTraceMessage] into this digitiser's datasets.
-    fn write_trace(
-        &mut self,
-        msg: &DigitizerAnalogTraceMessage<'_>,
-        chunk_size: usize,
-    ) -> Result<(), TraceWriterError> {
-        let metadata = msg.metadata();
-
-        append_value(&self.frame_number, metadata.frame_number())?;
-        append_value(&self.period_number, metadata.period_number())?;
-
-        let timestamp = metadata
-            .timestamp()
-            .copied()
-            .ok_or(TraceWriterError::MissingField("timestamp"))?;
-        let timestamp: DateTime<Utc> = timestamp
-            .try_into()
-            .map_err(|_| TraceWriterError::TimestampConversionFailed)?;
-        let timestamp = timestamp.to_rfc3339();
-        let timestamp: VarLenUnicode = timestamp
-            .parse()
-            .map_err(|_| TraceWriterError::UnicodeConversionFailed(timestamp.clone()))?;
-        append_value(&self.timestamp, timestamp)?;
-
-        let Some(channels) = msg.channels() else {
-            return Ok(());
-        };
-
-        for channel_trace in channels.iter() {
-            let channel_num = channel_trace.channel();
-
-            // Lazily create a dataset for this channel.
-            if !self.channels.contains_key(&channel_num) {
-                let ds = make_resizable_dataset::<VarLenArray<u16>>(
-                    &self.group,
-                    &format!("channel_{channel_num}"),
-                    chunk_size,
-                )?;
-                self.channels.insert(channel_num, ds);
-            }
-            let ds = self
-                .channels
-                .get(&channel_num)
-                .expect("channel was just inserted");
-
-            let voltage: Vec<u16> = channel_trace
-                .voltage()
-                .map(|v| v.iter().collect())
-                .unwrap_or_default();
-            let vla = VarLenArray::from_slice(&voltage);
-            append_value(ds, vla)?;
-        }
-
-        Ok(())
-    }
-}
 
 /// Manages one open HDF5 file for writing digitiser trace data.
 ///
 /// Digitiser groups and channel datasets are created lazily the first time
 /// a message from that digitiser / channel is received.
 pub(crate) struct TraceFileWriter {
+    /// The underlying HDF5 file.
     file: File,
+    /// The chunk size to use for datasets.
     chunk_size: usize,
+    /// Map of digitisers that have previously been encountered.
     digitizers: HashMap<u8, DigitizerData>,
 }
 
 impl TraceFileWriter {
     /// Creates a new HDF5 file at `path` and prepares it for writing.
+    ///
+    /// # Parameters
+    /// - path: the path to write to.
+    /// - chunk_size: chunk size for new datasets.
     pub(crate) fn new(path: &Path, chunk_size: usize) -> Result<Self, TraceWriterError> {
         let file = File::create(path)?;
+        file.new_attr::<bool>()
+            .shape(Extents::Scalar)
+            .create("config_timestamp_as_rfc3339")?
+            .write_scalar(&false)?;
+        file.new_attr::<bool>()
+            .shape(Extents::Scalar)
+            .create("config_multiple_channel_datasets")?
+            .write_scalar(&false)?;
         Ok(Self {
             file,
             chunk_size,
+            digitizers: HashMap::new(),
+        })
+    }
+
+    #[cfg(test)]
+    /// Creates a new HDF5 file purely in memory.
+    ///
+    /// Only used for testing.
+    pub(crate) fn new_temp(name: &str) -> Result<Self, TraceWriterError> {
+        let mut builder = File::with_options();
+        builder.fapl().core();
+        let file = builder.create(name)?;
+        Ok(Self {
+            file,
+            chunk_size: 1,
             digitizers: HashMap::new(),
         })
     }
@@ -170,12 +85,11 @@ impl TraceFileWriter {
             self.digitizers.insert(digitizer_id, dig_data);
         }
 
-        let chunk_size = self.chunk_size;
         let dig_data = self
             .digitizers
             .get_mut(&digitizer_id)
             .expect("digitizer was just inserted");
-        dig_data.write_trace(msg, chunk_size)?;
+        dig_data.write_trace(msg, self.chunk_size)?;
 
         Ok(())
     }
@@ -192,5 +106,50 @@ impl TraceFileWriter {
         self.file.flush()?;
         self.file.close()?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{digitiser_data::tests::test_internal_structure, handle_trace_message};
+    use std::{fs::File, io::Read};
+
+    #[test]
+    fn test() {
+        let mut file = File::open("test_assets/test.dat2").unwrap();
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).unwrap();
+        let mut hdf5 = TraceFileWriter::new_temp("temp").unwrap();
+        handle_trace_message(data.as_slice(), Some(&mut hdf5));
+        handle_trace_message(data.as_slice(), Some(&mut hdf5));
+
+        assert!(hdf5.digitizers.contains_key(&0));
+        test_internal_structure(hdf5.digitizers.get(&0).unwrap());
+
+        let true_hdf5 = hdf5::File::open("test_assets/test.hdf5").unwrap();
+        compare_to_true_file(true_hdf5, hdf5.file);
+    }
+
+    fn compare_to_true_file(true_hdf5: hdf5::File, test_hdf5: hdf5::File) {
+        for true_group in true_hdf5.groups().unwrap() {
+            assert!(test_hdf5.group(&true_group.name()).is_ok());
+            for true_dataset in true_group.datasets().unwrap() {
+                let true_data = true_dataset.read_raw::<u8>().unwrap();
+
+                let test_dataset = test_hdf5.dataset(&true_dataset.name());
+                // Ensure test dataset exists.
+                assert!(test_dataset.is_ok());
+
+                let test_dataset = test_dataset.unwrap();
+                let test_data = test_dataset.read_raw::<u8>();
+                // Ensure test dataset value can be read.
+                assert!(test_data.is_ok());
+                let test_data = test_data.unwrap();
+
+                // Ensure dataset values are equal.
+                assert_eq!(true_data, test_data);
+            }
+        }
     }
 }
