@@ -1,22 +1,29 @@
-mod loader;
-mod processing;
+mod hdf5trace;
+mod picoscope;
 
-use crate::{loader::load_trace_file, processing::dispatch_trace_file};
-use clap::Parser;
-use digital_muon_common::{CommonKafkaOpts, DigitizerId, FrameNumber};
-use rand::seq::IteratorRandom;
-use rdkafka::producer::FutureProducer;
+use crate::{hdf5trace::read_hdf5_file, picoscope::read_picoscope_file};
+use chrono::{DateTime, Utc};
+use clap::{Parser, Subcommand};
+use digital_muon_common::{
+    CommonKafkaOpts, DigitizerId, FrameNumber, init_tracer,
+    tracer::{TracerEngine, TracerOptions},
+};
+use miette::IntoDiagnostic;
 use std::path::PathBuf;
 
-#[derive(Debug, Parser)]
+#[derive(Parser)]
 #[clap(author, version = digital_muon_common::version!(), about)]
 struct Cli {
     #[clap(flatten)]
     common_kafka_options: CommonKafkaOpts,
 
-    /// Kafka consumer group
+    /// If set, then OpenTelemetry data is sent to the URL specified, otherwise the standard tracing subscriber is used.
     #[clap(long)]
-    consumer_group: String,
+    otel_endpoint: Option<String>,
+
+    /// All OpenTelemetry spans are emitted with this as the "service.namespace" property. Can be used to track different instances of the pipeline running in parallel.
+    #[clap(long, default_value = "")]
+    otel_namespace: String,
 
     /// The Kafka topic that trace messages will be produced to
     #[clap(long)]
@@ -26,6 +33,48 @@ struct Cli {
     #[clap(long)]
     file_name: PathBuf,
 
+    /// Relative path to the .trace file to be read
+    #[clap(flatten)]
+    run: Run,
+
+    /// The value to use for the kafka messages keys.
+    #[clap(long)]
+    key: String,
+
+    #[command(subcommand)]
+    mode: Mode,
+}
+
+#[derive(Clone, Parser)]
+struct Run {
+    /// The frame number to assign the message
+    #[clap(long)]
+    run_name: Option<String>,
+
+    /// The frame number to assign the message
+    #[clap(long)]
+    instrument_name: Option<String>,
+
+    /// The frame number to assign the message
+    #[clap(long)]
+    run_start_time: Option<DateTime<Utc>>,
+
+    /// The frame number to assign the message
+    #[clap(long)]
+    run_stop_time: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Subcommand)]
+enum Mode {
+    /// Run in single shot mode, output a single frame then exit
+    Picoscope(Picoscope),
+
+    /// Run in continuous mode, outputting one frame every `frame-time` milliseconds
+    HDF5(Hdf5),
+}
+
+#[derive(Clone, Parser)]
+struct Picoscope {
     /// The frame number to assign the message
     #[clap(long, default_value = "0")]
     frame_number: FrameNumber,
@@ -43,11 +92,53 @@ struct Cli {
     random_sample: bool,
 }
 
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::fmt::init();
+#[derive(Clone, Parser)]
+struct Hdf5 {
+    /// If true, print a summary of the contents and exit.
+    #[clap(long)]
+    summary_only: bool,
 
+    /// If present the index to begin the run with, otherwise, derived from `from_frame_number`.
+    #[clap(long)]
+    from_index: Option<usize>,
+
+    /// If present the index to end the run with, otherwise, derived from `to_frame_number`.
+    #[clap(long)]
+    to_index: Option<usize>,
+
+    /// Only if `from_index` is not present, If present, the frame to begin the run with, otherwise, starts at 0.
+    #[clap(long)]
+    from_frame_number: Option<FrameNumber>,
+
+    /// Only if `to_index` is not present, If present, the frame to end the run with, otherwise, ends at the last frame.
+    #[clap(long)]
+    to_frame_number: Option<FrameNumber>,
+
+    /// If non-empty, only emit the given digitiser ids, otherwise emit all.
+    #[clap(short, long, value_delimiter = ',')]
+    digitizer_id: Vec<DigitizerId>,
+
+    /// If set, all timestamps are shifted to today's date.
+    #[clap(long)]
+    shift_to_today: bool,
+
+    /// If set, load the datasets in chunks of this size, otherwise use the given chunk size in the file.
+    #[clap(long)]
+    cache_size: Option<usize>,
+
+    /// If no value is present in the file, the sampling rate to use for the digitiser messages.
+    #[clap(long, default_value = "1000000000")]
+    sample_rate: u64,
+}
+
+#[tokio::main]
+async fn main() -> miette::Result<()> {
     let args = Cli::parse();
+
+    let _tracer = init_tracer!(TracerOptions::new(
+        args.otel_endpoint.as_deref(),
+        args.otel_namespace.clone()
+    ));
 
     let kafka_opts = args.common_kafka_options;
 
@@ -57,42 +148,19 @@ async fn main() {
         &kafka_opts.password,
     );
 
-    let producer: FutureProducer = client_config
-        .create()
-        .expect("Kafka Producer should be created");
-
-    let trace_file = load_trace_file(args.file_name).expect("Trace File should load");
-    let total_trace_events = trace_file.get_number_of_trace_events();
-    let num_trace_events = if args.number_of_trace_events == 0 {
-        total_trace_events
-    } else {
-        args.number_of_trace_events
-    };
-
-    let trace_event_indices: Vec<_> = if args.random_sample {
-        (0..num_trace_events)
-            .map(|_| {
-                (0..num_trace_events)
-                    .choose(&mut rand::rng())
-                    .unwrap_or_default()
-            })
-            .collect()
-    } else {
-        (0..num_trace_events)
-            .cycle()
-            .take(num_trace_events)
-            .collect()
-    };
-
-    dispatch_trace_file(
-        trace_file,
-        trace_event_indices,
-        args.frame_number,
-        args.digitizer_id,
-        &producer,
-        &args.trace_topic,
-        6000,
-    )
-    .await
-    .expect("Trace File should be dispatched to Kafka");
+    match args.mode {
+        Mode::Picoscope(picoscope) => {
+            read_picoscope_file(args.file_name, &client_config, &args.trace_topic, picoscope).await
+        }
+        Mode::HDF5(hdf5) => read_hdf5_file(
+            args.file_name,
+            &client_config,
+            &args.trace_topic,
+            &args.key,
+            hdf5,
+        )
+        .await
+        .into_diagnostic()?,
+    }
+    Ok(())
 }
