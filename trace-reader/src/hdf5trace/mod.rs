@@ -14,11 +14,11 @@ use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use rdkafka::{
     ClientConfig,
     error::KafkaError,
-    producer::{BaseRecord, DefaultProducerContext, ThreadedProducer},
+    producer::{BaseRecord, DefaultProducerContext, Producer, ThreadedProducer}, util::Timeout,
 };
 use std::{fmt::Debug, num::ParseIntError, path::PathBuf, str::FromStr};
 use thiserror::Error;
-use tracing::{debug, info_span};
+use tracing::{debug, error, info_span};
 
 pub(crate) use digitiser::{HDF5Config, Hdf5Digitiser};
 
@@ -250,6 +250,14 @@ impl DigitiserReader {
             true
         } else {
             ids.contains(&self.digitiser.get_id())
+        }
+    }
+}
+
+impl Drop for DigitiserReader {
+    fn drop(&mut self) {
+        if let Err(e) = self.producer.flush(Timeout::Never) {
+            error!("{e}");
         }
     }
 }
