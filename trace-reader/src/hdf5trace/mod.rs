@@ -18,7 +18,7 @@ use rdkafka::{
 };
 use std::{fmt::Debug, num::ParseIntError, path::PathBuf, str::FromStr};
 use thiserror::Error;
-use tracing::{debug, error, info_span};
+use tracing::{debug, error, info, info_span};
 
 pub(crate) use digitiser::{HDF5Config, Hdf5Digitiser};
 
@@ -198,6 +198,7 @@ impl DigitiserReader {
                 .and_then(|frame_number| digitiser.get_index_from_frame_number(frame_number))
                 .unwrap_or(digitiser.get_num_frames() - 1),
         );
+        info!("Reader for digitiser {}: from index {from_index} to {to_index}.", digitiser.get_id());
         let producer = client_config.create()?;
         Ok(Self {
             digitiser,
