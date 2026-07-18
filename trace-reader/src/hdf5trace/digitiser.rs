@@ -288,6 +288,8 @@ impl Hdf5Digitiser {
             timestamp = timestamp
                 .with_day(Utc::now().day())
                 .expect("Timestamp with current day should be possible, this should never fail.")
+                .with_month(Utc::now().month())
+                .expect("Timestamp with current month should be possible, this should never fail.")
                 .with_year(Utc::now().year())
                 .expect("Timestamp with current year should be possible, this should never fail.");
         }
