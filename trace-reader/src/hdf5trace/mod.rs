@@ -224,7 +224,7 @@ impl DigitiserReader {
     ) -> Result<(), Error> {
         let mut fbb = FlatBufferBuilder::new();
         self.digitiser
-            .create_message(&mut fbb, index, args.sample_rate, args.shift_to_today)?;
+            .create_message(&mut fbb, self.from_index + index, args.sample_rate, args.shift_to_today)?;
         info_span!("Send").in_scope(|| self.send_record(&mut fbb, trace_topic, key));
         Ok(())
     }
@@ -252,6 +252,18 @@ impl DigitiserReader {
         } else {
             ids.contains(&self.digitiser.get_id())
         }
+    }
+
+    /// Given an index, ensure the necessary data is in the cache.
+    /// This should each time before the `create_message` method is used.
+    ///
+    /// This method is idempotent, so does nothing if the required index is already cached.
+    ///
+    /// # Parameters
+    /// - index: the index to ensure is cached.
+    #[tracing::instrument(skip_all)]
+    pub(crate) fn ensure_elements_cached(&mut self, index: usize) {
+        self.digitiser.ensure_elements_cached(self.from_index + index);
     }
 }
 
@@ -285,17 +297,14 @@ async fn read_hdf5_at_index(
         .collect::<Vec<_>>();
 
     spanned_digitisers.iter_mut().for_each(|spanned_digitiser| {
-        let index_on_digitiser = index + spanned_digitiser.from_index;
-        let span = spanned_digitiser
+        spanned_digitiser
             .span()
             .get()
-            .expect("Digitiser has span")
-            .clone();
-        span.in_scope(|| {
-            spanned_digitiser
-                .digitiser
-                .ensure_elements_cached(index_on_digitiser)
-        });
+            .expect("Digitiser has span, this should never fail.")
+            .clone()
+            .in_scope(||
+                spanned_digitiser.ensure_elements_cached(index)
+            );
     });
 
     spanned_digitisers
