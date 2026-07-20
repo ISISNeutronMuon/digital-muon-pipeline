@@ -14,7 +14,8 @@ use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use rdkafka::{
     ClientConfig,
     error::KafkaError,
-    producer::{BaseRecord, DefaultProducerContext, Producer, ThreadedProducer}, util::Timeout,
+    producer::{BaseRecord, DefaultProducerContext, Producer, ThreadedProducer},
+    util::Timeout,
 };
 use std::{fmt::Debug, num::ParseIntError, path::PathBuf, str::FromStr};
 use thiserror::Error;
@@ -198,7 +199,10 @@ impl DigitiserReader {
                 .and_then(|frame_number| digitiser.get_index_from_frame_number(frame_number))
                 .unwrap_or(digitiser.get_num_frames() - 1),
         );
-        info!("Reader for digitiser {}: from index {from_index} to {to_index}.", digitiser.get_id());
+        info!(
+            "Reader for digitiser {}: from index {from_index} to {to_index}.",
+            digitiser.get_id()
+        );
         let producer = client_config.create()?;
         Ok(Self {
             digitiser,
@@ -223,8 +227,12 @@ impl DigitiserReader {
         index: usize,
     ) -> Result<(), Error> {
         let mut fbb = FlatBufferBuilder::new();
-        self.digitiser
-            .create_message(&mut fbb, self.from_index + index, args.sample_rate, args.shift_to_today, args.overwrite_period_number, args.overwrite_veto_flag, args.overwrite_protons_per_pulse, args.overwrite_running)?;
+        self.digitiser.create_message(
+            &mut fbb,
+            self.from_index + index,
+            args.sample_rate,
+            &args.overwrite_fields,
+        )?;
         info_span!("Send").in_scope(|| self.send_record(&mut fbb, trace_topic, key));
         Ok(())
     }
@@ -263,7 +271,8 @@ impl DigitiserReader {
     /// - index: the index to ensure is cached.
     #[tracing::instrument(skip_all)]
     pub(crate) fn ensure_elements_cached(&mut self, index: usize) {
-        self.digitiser.ensure_elements_cached(self.from_index + index);
+        self.digitiser
+            .ensure_elements_cached(self.from_index + index);
     }
 }
 
@@ -302,9 +311,7 @@ async fn read_hdf5_at_index(
             .get()
             .expect("Digitiser has span, this should never fail.")
             .clone()
-            .in_scope(||
-                spanned_digitiser.ensure_elements_cached(index)
-            );
+            .in_scope(|| spanned_digitiser.ensure_elements_cached(index));
     });
 
     spanned_digitisers
@@ -319,6 +326,8 @@ async fn read_hdf5_at_index(
 
 #[cfg(test)]
 mod tests {
+    use crate::OverwriteFields;
+
     use super::*;
     use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::root_as_digitizer_analog_trace_message;
     use std::{fs::File, io::Read};
@@ -349,7 +358,7 @@ mod tests {
         // First Message
         assert!(
             digitisers[0]
-                .create_message(&mut fbb, 0, 1_000_000_000, false, None, None, None, None)
+                .create_message(&mut fbb, 0, 1_000_000_000, &OverwriteFields::default())
                 .is_ok()
         );
         let dat_test = root_as_digitizer_analog_trace_message(fbb.unfinished_data()).unwrap();
@@ -398,7 +407,7 @@ mod tests {
         fbb.reset();
         assert!(
             digitisers[0]
-                .create_message(&mut fbb, 1, 1_000_000_000, false, None, None, None, None)
+                .create_message(&mut fbb, 1, 1_000_000_000, &OverwriteFields::default())
                 .is_ok()
         );
         let dat_test = root_as_digitizer_analog_trace_message(fbb.unfinished_data()).unwrap();

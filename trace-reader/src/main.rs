@@ -3,7 +3,7 @@ mod picoscope;
 
 use crate::{hdf5trace::read_hdf5_file, picoscope::read_picoscope_file};
 use chrono::{DateTime, Utc};
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use digital_muon_common::{
     CommonKafkaOpts, DigitizerId, FrameNumber, init_tracer,
     tracer::{TracerEngine, TracerOptions},
@@ -25,15 +25,14 @@ struct Cli {
     #[clap(long, default_value = "")]
     otel_namespace: String,
 
-    /// The Kafka topic that trace messages will be produced to
+    /// The Kafka topic that trace messages will be produced to.
     #[clap(long)]
     trace_topic: String,
 
-    /// Relative path to the .trace file to be read
+    /// Relative path to the `.trace` or `.hdf` file to be read.
     #[clap(long)]
     file_name: PathBuf,
 
-    /// Relative path to the .trace file to be read
     #[clap(flatten)]
     run: Run,
 
@@ -45,6 +44,8 @@ struct Cli {
     mode: Mode,
 }
 
+/// If all options are set, then run start and run stop messages are emitted.
+/// FIXME: To implement.
 #[derive(Clone, Parser)]
 struct Run {
     /// The frame number to assign the message
@@ -118,10 +119,6 @@ struct Hdf5 {
     #[clap(short, long, value_delimiter = ',')]
     digitizer_id: Vec<DigitizerId>,
 
-    /// If set, all timestamps are shifted to today's date.
-    #[clap(long)]
-    shift_to_today: bool,
-
     /// If set, load the datasets in chunks of this size, otherwise use the given chunk size in the file.
     #[clap(long)]
     cache_size: Option<usize>,
@@ -130,13 +127,24 @@ struct Hdf5 {
     #[clap(long, default_value = "1000000000")]
     sample_rate: u64,
 
+    #[clap(flatten)]
+    overwrite_fields: OverwriteFields,
+}
+
+/// Encapsulates options that allow the user to overwrite fields in the digitiser messages.
+#[derive(Default, Clone, Args)]
+pub(crate) struct OverwriteFields {
+    /// If set, all timestamps are shifted to today's date.
+    #[clap(long)]
+    shift_to_today: bool,
+
     /// If present, use this value for the period number field in the digitiser messages.
     #[clap(long)]
     overwrite_period_number: Option<u64>,
 
     /// If present, use this value for the veto flags field in the digitiser messages.
     #[clap(long)]
-    overwrite_veto_flag: Option<u16>,
+    overwrite_veto_flags: Option<u16>,
 
     /// If present, use this value for the protons per pulse field in the digitiser messages.
     #[clap(long)]

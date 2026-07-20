@@ -1,8 +1,11 @@
-use crate::hdf5trace::{
-    Error,
-    cached_dataset::CachedDataset,
-    channel::{Hdf5AllChannels, Hdf5Channel},
-    extract_from_dataset_name,
+use crate::{
+    OverwriteFields,
+    hdf5trace::{
+        Error,
+        cached_dataset::CachedDataset,
+        channel::{Hdf5AllChannels, Hdf5Channel},
+        extract_from_dataset_name,
+    },
 };
 use chrono::{DateTime, Datelike, Utc};
 use digital_muon_common::{Channel, DigitizerId, FrameNumber};
@@ -261,11 +264,7 @@ impl Hdf5Digitiser {
         fbb: &mut FlatBufferBuilder<'_>,
         index: usize,
         sample_rate: u64,
-        shift_timestamp_date_to_today: bool,
-        overwrite_period_number: Option<u64>,
-        overwrite_veto_flags: Option<u16>,
-        overwrite_protons_per_pulse: Option<u8>,
-        overwrite_running: Option<bool>,
+        overwrite_fields: &OverwriteFields,
     ) -> Result<(), Error> {
         if index >= self.num_frames {
             Err(Error::FrameIndexTooLarge(index, self.num_frames))?;
@@ -288,7 +287,7 @@ impl Hdf5Digitiser {
                     .expect("Index should be in range, this should never fail."),
             ),
         };
-        if shift_timestamp_date_to_today {
+        if overwrite_fields.shift_to_today {
             timestamp = timestamp
                 .with_day(Utc::now().day())
                 .expect("Timestamp with current day should be possible, this should never fail.")
@@ -312,11 +311,13 @@ impl Hdf5Digitiser {
         let gps_time = GpsTime::from(timestamp);
         let metadata: FrameMetadataV2Args = FrameMetadataV2Args {
             frame_number,
-            period_number: overwrite_period_number.unwrap_or(period_number),
-            protons_per_pulse: overwrite_protons_per_pulse.unwrap_or(0),
-            running: overwrite_running.unwrap_or(true),
+            period_number: overwrite_fields
+                .overwrite_period_number
+                .unwrap_or(period_number),
+            protons_per_pulse: overwrite_fields.overwrite_protons_per_pulse.unwrap_or(0),
+            running: overwrite_fields.overwrite_running.unwrap_or(true),
             timestamp: Some(&gps_time),
-            veto_flags: overwrite_veto_flags.unwrap_or(0),
+            veto_flags: overwrite_fields.overwrite_veto_flags.unwrap_or(0),
         };
         let metadata: WIPOffset<FrameMetadataV2> = FrameMetadataV2::create(fbb, &metadata);
 
