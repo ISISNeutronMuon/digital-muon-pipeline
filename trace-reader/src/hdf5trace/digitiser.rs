@@ -262,6 +262,10 @@ impl Hdf5Digitiser {
         index: usize,
         sample_rate: u64,
         shift_timestamp_date_to_today: bool,
+        overwrite_period_number: Option<u64>,
+        overwrite_veto_flags: Option<u16>,
+        overwrite_protons_per_pulse: Option<u8>,
+        overwrite_running: Option<bool>,
     ) -> Result<(), Error> {
         if index >= self.num_frames {
             Err(Error::FrameIndexTooLarge(index, self.num_frames))?;
@@ -308,11 +312,11 @@ impl Hdf5Digitiser {
         let gps_time = GpsTime::from(timestamp);
         let metadata: FrameMetadataV2Args = FrameMetadataV2Args {
             frame_number,
-            period_number,
-            protons_per_pulse: 0,
-            running: true,
+            period_number: overwrite_period_number.unwrap_or(period_number),
+            protons_per_pulse: overwrite_protons_per_pulse.unwrap_or(0),
+            running: overwrite_running.unwrap_or(true),
             timestamp: Some(&gps_time),
-            veto_flags: 0,
+            veto_flags: overwrite_veto_flags.unwrap_or(0),
         };
         let metadata: WIPOffset<FrameMetadataV2> = FrameMetadataV2::create(fbb, &metadata);
 

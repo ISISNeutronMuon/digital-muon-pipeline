@@ -224,7 +224,7 @@ impl DigitiserReader {
     ) -> Result<(), Error> {
         let mut fbb = FlatBufferBuilder::new();
         self.digitiser
-            .create_message(&mut fbb, self.from_index + index, args.sample_rate, args.shift_to_today)?;
+            .create_message(&mut fbb, self.from_index + index, args.sample_rate, args.shift_to_today, args.overwrite_period_number, args.overwrite_veto_flag, args.overwrite_protons_per_pulse, args.overwrite_running)?;
         info_span!("Send").in_scope(|| self.send_record(&mut fbb, trace_topic, key));
         Ok(())
     }
@@ -349,7 +349,7 @@ mod tests {
         // First Message
         assert!(
             digitisers[0]
-                .create_message(&mut fbb, 0, 1_000_000_000, false)
+                .create_message(&mut fbb, 0, 1_000_000_000, false, None, None, None, None)
                 .is_ok()
         );
         let dat_test = root_as_digitizer_analog_trace_message(fbb.unfinished_data()).unwrap();
@@ -398,7 +398,7 @@ mod tests {
         fbb.reset();
         assert!(
             digitisers[0]
-                .create_message(&mut fbb, 1, 1_000_000_000, false)
+                .create_message(&mut fbb, 1, 1_000_000_000, false, None, None, None, None)
                 .is_ok()
         );
         let dat_test = root_as_digitizer_analog_trace_message(fbb.unfinished_data()).unwrap();

@@ -129,6 +129,22 @@ struct Hdf5 {
     /// If no value is present in the file, the sampling rate to use for the digitiser messages.
     #[clap(long, default_value = "1000000000")]
     sample_rate: u64,
+
+    /// If present, use this value for the period number field in the digitiser messages.
+    #[clap(long)]
+    overwrite_period_number: Option<u64>,
+
+    /// If present, use this value for the veto flags field in the digitiser messages.
+    #[clap(long)]
+    overwrite_veto_flag: Option<u16>,
+
+    /// If present, use this value for the protons per pulse field in the digitiser messages.
+    #[clap(long)]
+    overwrite_protons_per_pulse: Option<u8>,
+
+    /// If present, use this value for the running field in the digitiser messages.
+    #[clap(long)]
+    overwrite_running: Option<bool>,
 }
 
 #[tokio::main]
