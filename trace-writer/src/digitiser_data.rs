@@ -61,6 +61,14 @@ pub(crate) struct DigitizerData {
     timestamp: Dataset,
     /// 1-D resizable dataset: period number per message.
     period_number: Dataset,
+    /// 1-D resizable dataset: protons per pulse per message.
+    protons_per_pulse: Dataset,
+    /// 1-D resizable dataset: running flag per message.
+    running: Dataset,
+    /// 1-D resizable dataset: veto flags per message.
+    veto_flags: Dataset,
+    /// 1-D resizable dataset: sample rate per message.
+    sample_rate: Dataset,
     /// Dataset containing channel ids and trace data.
     ///
     /// Lazily created when the first digitiser message arrives.
@@ -81,15 +89,24 @@ impl DigitizerData {
     ) -> Result<Self, hdf5::Error> {
         let group = parent.create_group(&format!("digitiser_{digitizer_id}"))?;
 
+        let sample_rate = make_resizable_dataset::<u64>(&group, "sample_rate", chunk_size)?;
         let frame_number = make_resizable_dataset::<u32>(&group, "frame_number", chunk_size)?;
         let timestamp = make_resizable_dataset::<i64>(&group, "timestamp", chunk_size)?;
         let period_number = make_resizable_dataset::<u64>(&group, "period_number", chunk_size)?;
+        let protons_per_pulse =
+            make_resizable_dataset::<u8>(&group, "protons_per_pulse", chunk_size)?;
+        let running = make_resizable_dataset::<bool>(&group, "running", chunk_size)?;
+        let veto_flags = make_resizable_dataset::<u16>(&group, "veto_flags", chunk_size)?;
 
         Ok(Self {
             group,
             frame_number,
             timestamp,
             period_number,
+            sample_rate,
+            protons_per_pulse,
+            running,
+            veto_flags,
             traces: None,
         })
     }
@@ -106,9 +123,13 @@ impl DigitizerData {
     ) -> Result<(), TraceWriterError> {
         let metadata = msg.metadata();
 
-        // Writer frame number and period number.
+        // Write metadata and sample rate.
         append_value(&self.frame_number, metadata.frame_number())?;
         append_value(&self.period_number, metadata.period_number())?;
+        append_value(&self.protons_per_pulse, metadata.protons_per_pulse())?;
+        append_value(&self.running, metadata.running())?;
+        append_value(&self.veto_flags, metadata.veto_flags())?;
+        append_value(&self.sample_rate, msg.sample_rate())?;
 
         // Extract timestamp and write.
         let timestamp: DateTime<Utc> = metadata
