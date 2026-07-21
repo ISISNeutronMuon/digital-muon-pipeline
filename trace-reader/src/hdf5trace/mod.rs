@@ -14,11 +14,12 @@ use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use rdkafka::{
     ClientConfig,
     error::KafkaError,
-    producer::{BaseRecord, DefaultProducerContext, ThreadedProducer},
+    producer::{BaseRecord, DefaultProducerContext, Producer, ThreadedProducer},
+    util::Timeout,
 };
 use std::{fmt::Debug, num::ParseIntError, path::PathBuf, str::FromStr};
 use thiserror::Error;
-use tracing::{debug, info_span};
+use tracing::{debug, error, info, info_span};
 
 pub(crate) use digitiser::{HDF5Config, Hdf5Digitiser};
 
@@ -198,6 +199,10 @@ impl DigitiserReader {
                 .and_then(|frame_number| digitiser.get_index_from_frame_number(frame_number))
                 .unwrap_or(digitiser.get_num_frames() - 1),
         );
+        info!(
+            "Reader for digitiser {}: from index {from_index} to {to_index}.",
+            digitiser.get_id()
+        );
         let producer = client_config.create()?;
         Ok(Self {
             digitiser,
@@ -222,8 +227,12 @@ impl DigitiserReader {
         index: usize,
     ) -> Result<(), Error> {
         let mut fbb = FlatBufferBuilder::new();
-        self.digitiser
-            .create_message(&mut fbb, index, args.sample_rate, args.shift_to_today)?;
+        self.digitiser.create_message(
+            &mut fbb,
+            self.from_index + index,
+            args.sample_rate,
+            &args.overwrite_fields,
+        )?;
         info_span!("Send").in_scope(|| self.send_record(&mut fbb, trace_topic, key));
         Ok(())
     }
@@ -252,6 +261,27 @@ impl DigitiserReader {
             ids.contains(&self.digitiser.get_id())
         }
     }
+
+    /// Given an index, ensure the necessary data is in the cache.
+    /// This should each time before the `create_message` method is used.
+    ///
+    /// This method is idempotent, so does nothing if the required index is already cached.
+    ///
+    /// # Parameters
+    /// - index: the index to ensure is cached.
+    #[tracing::instrument(skip_all)]
+    pub(crate) fn ensure_elements_cached(&mut self, index: usize) {
+        self.digitiser
+            .ensure_elements_cached(self.from_index + index);
+    }
+}
+
+impl Drop for DigitiserReader {
+    fn drop(&mut self) {
+        if let Err(e) = self.producer.flush(Timeout::Never) {
+            error!("{e}");
+        }
+    }
 }
 
 /// Read the messages at the given index, in the given slice of `DigitiserReaders` and produce them to the broker.
@@ -276,17 +306,12 @@ async fn read_hdf5_at_index(
         .collect::<Vec<_>>();
 
     spanned_digitisers.iter_mut().for_each(|spanned_digitiser| {
-        let index_on_digitiser = index + spanned_digitiser.from_index;
-        let span = spanned_digitiser
+        spanned_digitiser
             .span()
             .get()
-            .expect("Digitiser has span")
-            .clone();
-        span.in_scope(|| {
-            spanned_digitiser
-                .digitiser
-                .ensure_elements_cached(index_on_digitiser)
-        });
+            .expect("Digitiser has span, this should never fail.")
+            .clone()
+            .in_scope(|| spanned_digitiser.ensure_elements_cached(index));
     });
 
     spanned_digitisers
@@ -301,6 +326,8 @@ async fn read_hdf5_at_index(
 
 #[cfg(test)]
 mod tests {
+    use crate::OverwriteFields;
+
     use super::*;
     use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::root_as_digitizer_analog_trace_message;
     use std::{fs::File, io::Read};
@@ -331,7 +358,7 @@ mod tests {
         // First Message
         assert!(
             digitisers[0]
-                .create_message(&mut fbb, 0, 1_000_000_000, false)
+                .create_message(&mut fbb, 0, 1_000_000_000, &OverwriteFields::default())
                 .is_ok()
         );
         let dat_test = root_as_digitizer_analog_trace_message(fbb.unfinished_data()).unwrap();
@@ -380,7 +407,7 @@ mod tests {
         fbb.reset();
         assert!(
             digitisers[0]
-                .create_message(&mut fbb, 1, 1_000_000_000, false)
+                .create_message(&mut fbb, 1, 1_000_000_000, &OverwriteFields::default())
                 .is_ok()
         );
         let dat_test = root_as_digitizer_analog_trace_message(fbb.unfinished_data()).unwrap();
