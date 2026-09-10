@@ -87,34 +87,34 @@ impl NexusSchematic for Source {
             _source_type: group.create_constant_string_dataset(labels::SOURCE_TYPE, SOURCE_TYPE)?,
             _probe: group.create_constant_string_dataset(labels::PROBE, PROBE)?, // TODO  Is this correct?,
             _source_frequency: group
-                .create_string_dataset(labels::SOURCE_FREQUENCY)?
+                .create_scalar_dataset::<f32>(labels::SOURCE_FREQUENCY)?
                 .with_units(NexusUnits::Hertz)?,
             _source_frame_pattern,
             _source_energy: group
-                .create_string_dataset(labels::SOURCE_ENERGY)?
+                .create_scalar_dataset::<f32>(labels::SOURCE_ENERGY)?
                 .with_units(NexusUnits::MegaElectronVolts)?,
             _source_current: group
-                .create_string_dataset(labels::SOURCE_CURRENT)?
+                .create_scalar_dataset::<f32>(labels::SOURCE_CURRENT)?
                 .with_units(NexusUnits::MicroAmps)?,
             _source_pulse_width: group
-                .create_string_dataset(labels::SOURCE_PULSE_WIDTH)?
+                .create_scalar_dataset::<f32>(labels::SOURCE_PULSE_WIDTH)?
                 .with_string_attribute("Units")?,
             _target_material: group.create_string_dataset(labels::TARGET_MATERIAL)?,
             _target_thickness: group
-                .create_string_dataset(labels::TARGET_THICKNESS)?
+                .create_scalar_dataset::<f32>(labels::TARGET_THICKNESS)?
                 .with_units(NexusUnits::Millimeters)?,
             _pion_momentum: group
-                .create_string_dataset(labels::PION_MOMENTUM)?
+                .create_scalar_dataset::<f32>(labels::PION_MOMENTUM)?
                 .with_units(NexusUnits::MegaElectronVoltsOverC)?,
             _muon_energy: group
-                .create_string_dataset(labels::MUON_ENERGY)?
+                .create_scalar_dataset::<f32>(labels::MUON_ENERGY)?
                 .with_units(NexusUnits::ElectronVolts)?,
             _muon_momentum: group
-                .create_string_dataset(labels::MUON_MOMENTUM)?
+                .create_scalar_dataset::<f32>(labels::MUON_MOMENTUM)?
                 .with_units(NexusUnits::MegaElectronVoltsOverC)?,
             _muon_pulse_pattern,
             _muon_pulse_width: group
-                .create_string_dataset(labels::MUON_PULSE_WIDTH)?
+                .create_scalar_dataset::<f32>(labels::MUON_PULSE_WIDTH)?
                 .with_units(NexusUnits::Nanoseconds)?,
             _muon_pulse_separation: group
                 .create_scalar_dataset::<f32>(labels::MUON_PULSE_SEPARATION)?

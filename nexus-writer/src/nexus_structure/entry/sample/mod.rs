@@ -16,6 +16,7 @@ mod labels {
     pub(super) const NAME: &str = "name";
     pub(super) const DESCRIPTION: &str = "description";
     pub(super) const SAMPLE_TYPE: &str = "type";
+    pub(super) const SITUATION: &str = "situation";
     pub(super) const GEOMETRY: &str = "geometry";
     pub(super) const THICKNESS: &str = "thickness";
     pub(super) const MASS: &str = "mass";
@@ -29,6 +30,7 @@ pub(crate) struct Sample {
     _name: Dataset,
     _description: Dataset,
     _sample_type: Dataset,
+    _situation: Dataset,
     _geometry: NexusGroup<Geometry>,
     _thickness: Dataset,
     _mass: Dataset,
@@ -46,6 +48,7 @@ impl NexusSchematic for Sample {
             _name: group.create_string_dataset(labels::NAME)?,
             _description: group.create_string_dataset(labels::DESCRIPTION)?,
             _sample_type: group.create_string_dataset(labels::SAMPLE_TYPE)?,
+            _situation: group.create_string_dataset(labels::SITUATION)?,
             _geometry: Geometry::build_new_group(group, labels::GEOMETRY, settings)?,
             _thickness: group
                 .create_resizable_empty_dataset::<f32>(labels::THICKNESS, settings.period)?
@@ -70,6 +73,7 @@ impl NexusSchematic for Sample {
             _name: group.get_dataset(labels::NAME)?,
             _description: group.get_dataset(labels::DESCRIPTION)?,
             _sample_type: group.get_dataset(labels::SAMPLE_TYPE)?,
+            _situation: group.get_dataset(labels::SITUATION)?,
             _geometry: Geometry::open_group(group, labels::GEOMETRY)?,
             _thickness: group.get_dataset(labels::THICKNESS)?,
             _mass: group.get_dataset(labels::MASS)?,
