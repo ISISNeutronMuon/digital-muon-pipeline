@@ -17,10 +17,12 @@ pub(crate) use {
     metric::{
         EventCountProperty, FalseCountProperty, FlatMetric, FlatMetricEventCount,
         FlatMetricFalseCount, FlatMetricPulseHeightSpectra, FlatMetricMuonLifetime, FlatMetricType,
-        PulseHeightSpectraProperty, Metric, MetricType, MetricTypeHistogram,
-        MetricTypePulseHeightSpectraSettings,
+        PulseHeightSpectraProperty, Metric,
         MuonLifetimeProperty, PropertyOfMetric,
     },
     series::{FlatSeries, SeriesType},
     waveform::{FlatWaveform, Waveform, WaveformProperties},
 };
+
+#[cfg(test)]
+pub(crate) use metric::MetricTypeHistogram;

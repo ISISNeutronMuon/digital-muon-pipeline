@@ -14,7 +14,7 @@ use varpro::{
     statistics::Error as StatisticsError,
 };
 
-pub(crate) use output::{MetricOutput, MetricOutputSeries};
+pub(crate) use output::{HistogramWithBands, MetricOutput, MetricOutputSeries};
 pub(crate) use results::{CompletedMetricResult, MetricResultError, PartialMetricResult};
 pub(crate) use utils::Histogram;
 
