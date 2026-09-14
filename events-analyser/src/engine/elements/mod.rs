@@ -16,9 +16,9 @@ pub(crate) use {
     criteria::CriteriaTemplate,
     metric::{
         EventCountProperty, FalseCountProperty, FlatMetric, FlatMetricEventCount,
-        FlatMetricFalseCount, FlatMetricIntensityGraph, FlatMetricMuonLifetime, FlatMetricType,
-        IntensityGraphProperty, Metric, MetricType, MetricTypeHistogram,
-        MetricTypeIntensityGraphSettings, MetricTypeIntensityGraphSettingsDiagnostic,
+        FlatMetricFalseCount, FlatMetricPulseHeightSpectra, FlatMetricMuonLifetime, FlatMetricType,
+        PulseHeightSpectraProperty, Metric, MetricType, MetricTypeHistogram,
+        MetricTypePulseHeightSpectraSettings,
         MuonLifetimeProperty, PropertyOfMetric,
     },
     series::{FlatSeries, SeriesType},

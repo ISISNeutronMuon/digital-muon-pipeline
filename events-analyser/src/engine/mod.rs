@@ -6,9 +6,9 @@ pub(crate) use crate::engine::{
     elements::{
         Chart, EventCountProperty, FalseCountProperty, FlatAlgorithm, FlatBucket, FlatBucketBlock,
         FlatChart, FlatMetric, FlatMetricEventCount, FlatMetricFalseCount,
-        FlatMetricIntensityGraph, FlatMetricMuonLifetime, FlatMetricType, FlatSeries, FlatWaveform,
-        IntensityGraphProperty, Metric, MetricType, MetricTypeHistogram,
-        MetricTypeIntensityGraphSettings, MetricTypeIntensityGraphSettingsDiagnostic,
+        FlatMetricPulseHeightSpectra, FlatMetricMuonLifetime, FlatMetricType, FlatSeries, FlatWaveform,
+        PulseHeightSpectraProperty, Metric, MetricType, MetricTypeHistogram,
+        MetricTypePulseHeightSpectraSettings,
         MuonLifetimeProperty, PropertyOfMetric, SeriesType,
     },
     settings::{AnalysisSettings, Array, Templates},
