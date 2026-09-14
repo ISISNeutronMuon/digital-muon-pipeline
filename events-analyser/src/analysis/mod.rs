@@ -169,7 +169,7 @@ impl AnalysisEngine {
             let mut path = self.path.clone();
             path.push(metrics_json_name);
             path.add_extension("json");
-            
+
             let metrics_from_file: Vec<PartialMetricResult> =
                 serde_json::from_reader(File::open(&path)?)?;
             for (old, new) in Iterator::zip(self.metrics.iter_mut(), metrics_from_file.iter()) {

@@ -8,7 +8,7 @@ pub(crate) enum MetricOutputGeneric<V, E, G, H> {
     Value(V),
     WithErrors(E),
     Group(G),
-    Histograms(H)
+    Histograms(H),
 }
 
 impl<V1, E1, G1, H1> MetricOutputGeneric<V1, E1, G1, H1> {
@@ -38,7 +38,9 @@ impl<V1, E1, G1, H1> MetricOutputGeneric<V1, E1, G1, H1> {
                 fe(vec, value.clone())
             }
             (Self::Group(vec), MetricOutputGeneric::Group(value)) => fg(vec, value.clone()),
-            (Self::Histograms(vec), MetricOutputGeneric::Histograms(value)) => fh(vec, value.clone()),
+            (Self::Histograms(vec), MetricOutputGeneric::Histograms(value)) => {
+                fh(vec, value.clone())
+            }
             _ => unreachable!(),
         }
     }
@@ -65,12 +67,13 @@ impl HistogramWithBands {
     }
 
     pub(crate) fn append(mut self, histogram: &Histogram) -> Self {
-        let zipped_iterators = self.centre
+        let zipped_iterators = self
+            .centre
             .iter_mut()
             .zip(Iterator::zip(self.upper.iter_mut(), self.lower.iter_mut()))
             .zip(histogram.get_counts().iter());
         for ((centre, (upper, lower)), count) in zipped_iterators {
-            *centre = (*centre*self.num + count)/(self.num + 1.0);
+            *centre = (*centre * self.num + count) / (self.num + 1.0);
             *upper = upper.max(*count);
             *lower = lower.min(*count);
         }
@@ -80,8 +83,12 @@ impl HistogramWithBands {
 }
 
 /// Instance of `MetricOutputGeneric` which holds data derived from a single bucket.
-pub(crate) type MetricOutput =
-    MetricOutputGeneric<Option<f64>, Option<(f64, f64)>, Option<Vec<(f64, String)>>, HistogramWithBands>;
+pub(crate) type MetricOutput = MetricOutputGeneric<
+    Option<f64>,
+    Option<(f64, f64)>,
+    Option<Vec<(f64, String)>>,
+    HistogramWithBands,
+>;
 
 /// Instance of `MetricOutputGeneric` which holds data aggregated over several buckets.
 ///
@@ -90,8 +97,12 @@ pub(crate) type MetricOutput =
 /// let metric_output_series = metric_output_collection.collect::<Option<MetricOutputSeries>>();
 /// ```
 /// The type should be collected into an `Option` wrapper, which is `None` if the `metric_output_collection` is empty.
-pub(crate) type MetricOutputSeries =
-    MetricOutputGeneric<Vec<Option<f64>>, Vec<Option<(f64, f64)>>, Vec<Option<Vec<(f64, String)>>>, Vec<HistogramWithBands>>;
+pub(crate) type MetricOutputSeries = MetricOutputGeneric<
+    Vec<Option<f64>>,
+    Vec<Option<(f64, f64)>>,
+    Vec<Option<Vec<(f64, String)>>>,
+    Vec<HistogramWithBands>,
+>;
 
 impl FromIterator<MetricOutput> for Option<MetricOutputSeries> {
     fn from_iter<T: IntoIterator<Item = MetricOutput>>(iter: T) -> Self {

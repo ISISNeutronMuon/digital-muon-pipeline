@@ -3,9 +3,9 @@ use crate::{
         MetricOutput, MetricResultError,
         event_counts::CompletedEventCount,
         false_counts::CompletedFalseCount,
-        pulse_height_spectra::CompletedPulseHeightSpectra,
         muon_lifetime::CompletedMuonLifetime,
         output::MetricOutputSeries,
+        pulse_height_spectra::CompletedPulseHeightSpectra,
         results::{MetricResultByBucket, PartialMetricResultClass},
     },
     engine::PropertyOfMetric,
@@ -65,9 +65,10 @@ impl CompletedMetricResult {
             (Self::MuonLifetime(completed), PropertyOfMetric::MuonLifetime(property)) => {
                 completed.get_property(block, property)?
             }
-            (Self::PulseHeightSpectra(completed), PropertyOfMetric::PulseHeightSpectra(property)) => {
-                completed.get_property(block, property)?
-            }
+            (
+                Self::PulseHeightSpectra(completed),
+                PropertyOfMetric::PulseHeightSpectra(property),
+            ) => completed.get_property(block, property)?,
             _ => {
                 error!("{:?}, {:?}", self, property.clone());
                 unreachable!()

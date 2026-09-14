@@ -143,17 +143,16 @@ impl Flattenable<&[String]> for Metric {
                     histogram: histogram.clone(),
                 })
             }
-            MetricType::PulseHeightSpectra {
-                topic,
-                histogram,
-            } => FlatMetricType::PulseHeightSpectra(FlatMetricPulseHeightSpectra {
-                topic: library
-                    .iter()
-                    .enumerate()
-                    .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
-                    .expect("This should never fail."),
-                histogram: histogram.clone()
-            }),
+            MetricType::PulseHeightSpectra { topic, histogram } => {
+                FlatMetricType::PulseHeightSpectra(FlatMetricPulseHeightSpectra {
+                    topic: library
+                        .iter()
+                        .enumerate()
+                        .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
+                        .expect("This should never fail."),
+                    histogram: histogram.clone(),
+                })
+            }
         };
         Ok(FlatMetric {
             name: self.get_name().to_string(),

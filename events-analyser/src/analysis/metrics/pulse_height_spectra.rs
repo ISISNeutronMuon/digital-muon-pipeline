@@ -1,9 +1,13 @@
 use crate::{
     analysis::metrics::{
-        MetricOutput, MetricResultError, output::HistogramWithBands, results::{CompleteMetricResultClass, PartialMetricResultClass}, utils::Histogram
+        MetricOutput, MetricResultError,
+        output::HistogramWithBands,
+        results::{CompleteMetricResultClass, PartialMetricResultClass},
+        utils::Histogram,
     },
     engine::{
-        FlatAlgorithm, FlatMetricPulseHeightSpectra, FlatWaveform, Interval, PulseHeightSpectraProperty
+        FlatAlgorithm, FlatMetricPulseHeightSpectra, FlatWaveform, Interval,
+        PulseHeightSpectraProperty,
     },
     eventlists::ChannelDataByTopic,
 };
@@ -81,8 +85,16 @@ impl CompleteMetricResultClass for CompletedPulseHeightSpectra {
     fn get_property(&self, property: Self::Property) -> Result<MetricOutput, Self::Error> {
         match property {
             PulseHeightSpectraProperty::Histograms => {
-                let bin_labels = self.histograms.values().next().expect("No histogram values, this should never happen.").get_bin_labels(); // FIXME: This might happen.
-                let histogram = self.histograms.values().fold(HistogramWithBands::new(bin_labels), HistogramWithBands::append);
+                let bin_labels = self
+                    .histograms
+                    .values()
+                    .next()
+                    .expect("No histogram values, this should never happen.")
+                    .get_bin_labels(); // FIXME: This might happen.
+                let histogram = self.histograms.values().fold(
+                    HistogramWithBands::new(bin_labels),
+                    HistogramWithBands::append,
+                );
                 Ok(MetricOutput::Histograms(histogram))
             }
         }

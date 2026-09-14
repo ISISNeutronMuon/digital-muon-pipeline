@@ -1,8 +1,8 @@
 mod event_counts;
 mod false_counts;
-mod pulse_height_spectra;
 mod muon_lifetime;
 mod output;
+mod pulse_height_spectra;
 mod results;
 mod utils;
 

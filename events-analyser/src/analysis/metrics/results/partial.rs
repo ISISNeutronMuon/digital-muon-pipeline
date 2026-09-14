@@ -4,8 +4,8 @@ use crate::{
         metrics::{
             event_counts::PartialEventCount,
             false_counts::PartialFalseCount,
-            pulse_height_spectra::PartialPulseHeightSpectra,
             muon_lifetime::PartialMuonLifetime,
+            pulse_height_spectra::PartialPulseHeightSpectra,
             results::{
                 CompleteMetricResultClass, MetricObject, MetricResultByBucket, MetricResultError,
                 complete::CompletedMetricResult,
@@ -162,9 +162,12 @@ impl PartialMetricResult {
             FlatMetricType::MuonLifetime(flat_metric_muon_lifetime) => Self::MuonLifetime(
                 MetricResultByBucket::new(flat_metric_muon_lifetime, bucket_block_sizes),
             ),
-            FlatMetricType::PulseHeightSpectra(flat_metric_pulse_height_spectra) => Self::PulseHeightSpectra(
-                MetricResultByBucket::new(flat_metric_pulse_height_spectra, bucket_block_sizes),
-            ),
+            FlatMetricType::PulseHeightSpectra(flat_metric_pulse_height_spectra) => {
+                Self::PulseHeightSpectra(MetricResultByBucket::new(
+                    flat_metric_pulse_height_spectra,
+                    bucket_block_sizes,
+                ))
+            }
         }
     }
 
@@ -230,7 +233,9 @@ impl PartialMetricResult {
             (Self::EventCount(store), Self::EventCount(source)) => store.load_data(source),
             (Self::FalseCount(store), Self::FalseCount(source)) => store.load_data(source),
             (Self::MuonLifetime(store), Self::MuonLifetime(source)) => store.load_data(source),
-            (Self::PulseHeightSpectra(store), Self::PulseHeightSpectra(source)) => store.load_data(source),
+            (Self::PulseHeightSpectra(store), Self::PulseHeightSpectra(source)) => {
+                store.load_data(source)
+            }
             _ => return Err(MetricResultError::LoadingDataWrongMetrics),
         }
         Ok(())
