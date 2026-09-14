@@ -1,20 +1,15 @@
-use std::{collections::HashMap, path::PathBuf};
-
 use crate::{
     analysis::metrics::{
-        FittingError, MetricOutput, output::HistogramWithBands, results::{CompleteMetricResultClass, PartialMetricResultClass}, utils::{
-            Histogram, MeanSD,
-        }
+        MetricOutput, MetricResultError, output::HistogramWithBands, results::{CompleteMetricResultClass, PartialMetricResultClass}, utils::Histogram
     },
     engine::{
-        FlatAlgorithm, FlatMetricPulseHeightSpectra, FlatWaveform, PulseHeightSpectraProperty, Interval,
-        MetricTypePulseHeightSpectraSettings
+        FlatAlgorithm, FlatMetricPulseHeightSpectra, FlatWaveform, Interval, PulseHeightSpectraProperty
     },
     eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
-use plotly::{Layout, Plot, Scatter};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -24,7 +19,6 @@ pub(crate) struct PartialPulseHeightSpectra {
     interval: Interval<f64>,
     topic: usize,
     histogram: HashMap<Channel, Histogram>,
-    settings: MetricTypePulseHeightSpectraSettings,
 }
 
 impl PartialMetricResultClass for PartialPulseHeightSpectra {
@@ -38,7 +32,6 @@ impl PartialMetricResultClass for PartialPulseHeightSpectra {
             num_bins: source.histogram.num_bins,
             interval: source.histogram.interval.clone(),
             histogram: Default::default(),
-            settings: source.settings.clone(),
         }
     }
 
@@ -74,13 +67,9 @@ pub(crate) struct CompletedPulseHeightSpectra {
     histograms: HashMap<Channel, Histogram>,
 }
 
-impl CompletedPulseHeightSpectra {
-    
-}
-
 impl CompleteMetricResultClass for CompletedPulseHeightSpectra {
     type Partial = PartialPulseHeightSpectra;
-    type Error = FittingError;
+    type Error = MetricResultError;
     type Property = PulseHeightSpectraProperty;
 
     fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error> {
@@ -89,14 +78,13 @@ impl CompleteMetricResultClass for CompletedPulseHeightSpectra {
         })
     }
 
-    fn get_property(&self, property: Self::Property) -> Result<MetricOutput, FittingError> {
+    fn get_property(&self, property: Self::Property) -> Result<MetricOutput, Self::Error> {
         match property {
             PulseHeightSpectraProperty::Histograms => {
-                let bin_labels = self.histograms.values().next().unwrap().get_bin_labels();
+                let bin_labels = self.histograms.values().next().expect("No histogram values, this should never happen.").get_bin_labels(); // FIXME: This might happen.
                 let histogram = self.histograms.values().fold(HistogramWithBands::new(bin_labels), HistogramWithBands::append);
                 Ok(MetricOutput::Histograms(histogram))
             }
-            _ => unreachable!()
         }
     }
 }

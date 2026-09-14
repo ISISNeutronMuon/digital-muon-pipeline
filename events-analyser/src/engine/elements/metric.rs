@@ -30,18 +30,6 @@ pub(crate) struct MetricTypeHistogram {
     pub(crate) interval: Interval<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) struct MetricTypePulseHeightSpectraSettings {
-    pub(crate) max_degree: usize,
-    /// Estimates the location of the noise peak.
-    pub(crate) noise_peak_estimate: f64,
-    /// Estimates the location of the transition point.
-    pub(crate) transition_point_estimate: f64,
-    /// Estimates the location of the events' peak.
-    pub(crate) events_peak_estimate: f64,
-}
-
 ///
 /// This struct is created from the configuration JSON file.
 ///
@@ -66,8 +54,6 @@ pub(crate) enum MetricType {
         topic: String,
         #[serde(flatten)]
         histogram: MetricTypeHistogram,
-        #[serde(flatten)]
-        settings: MetricTypePulseHeightSpectraSettings,
     },
 }
 
@@ -160,15 +146,13 @@ impl Flattenable<&[String]> for Metric {
             MetricType::PulseHeightSpectra {
                 topic,
                 histogram,
-                settings,
             } => FlatMetricType::PulseHeightSpectra(FlatMetricPulseHeightSpectra {
                 topic: library
                     .iter()
                     .enumerate()
                     .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
                     .expect("This should never fail."),
-                histogram: histogram.clone(),
-                settings: settings.clone(),
+                histogram: histogram.clone()
             }),
         };
         Ok(FlatMetric {
@@ -229,6 +213,4 @@ pub(crate) struct FlatMetricPulseHeightSpectra {
     pub(crate) topic: usize,
     #[serde(flatten)]
     pub(crate) histogram: MetricTypeHistogram,
-    #[serde(flatten)]
-    pub(crate) settings: MetricTypePulseHeightSpectraSettings,
 }
