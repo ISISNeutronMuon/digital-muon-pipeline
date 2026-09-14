@@ -3,6 +3,7 @@ use crate::{
         MetricOutput, MetricResultError,
         event_counts::CompletedEventCount,
         false_counts::CompletedFalseCount,
+        pulse_height_spectra::CompletedPulseHeightSpectra,
         muon_lifetime::CompletedMuonLifetime,
         output::MetricOutputSeries,
         results::{MetricResultByBucket, PartialMetricResultClass},
@@ -10,6 +11,7 @@ use crate::{
     engine::PropertyOfMetric,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use tracing::error;
 
 pub(crate) trait CompleteMetricResultClass: Clone + Serialize + DeserializeOwned {
     type Partial: PartialMetricResultClass<Complete = Self>;
@@ -39,11 +41,12 @@ impl<C: CompleteMetricResultClass> MetricResultByBucket<C> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum CompletedMetricResult {
     EventCount(MetricResultByBucket<CompletedEventCount>),
     FalseCount(MetricResultByBucket<CompletedFalseCount>),
     MuonLifetime(MetricResultByBucket<CompletedMuonLifetime>),
+    PulseHeightSpectra(MetricResultByBucket<CompletedPulseHeightSpectra>),
 }
 
 impl CompletedMetricResult {
@@ -52,7 +55,7 @@ impl CompletedMetricResult {
         block: usize,
         property: PropertyOfMetric,
     ) -> Result<MetricOutputSeries, MetricResultError> {
-        Ok(match (self, property) {
+        Ok(match (self, property.clone()) {
             (Self::EventCount(completed), PropertyOfMetric::EventCount(property)) => {
                 completed.get_property(block, property)?
             }
@@ -62,7 +65,13 @@ impl CompletedMetricResult {
             (Self::MuonLifetime(completed), PropertyOfMetric::MuonLifetime(property)) => {
                 completed.get_property(block, property)?
             }
-            _ => unreachable!(),
+            (Self::PulseHeightSpectra(completed), PropertyOfMetric::PulseHeightSpectra(property)) => {
+                completed.get_property(block, property)?
+            }
+            _ => {
+                error!("{:?}, {:?}", self, property.clone());
+                unreachable!()
+            }
         })
     }
 }

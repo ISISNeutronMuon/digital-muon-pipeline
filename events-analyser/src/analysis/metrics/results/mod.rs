@@ -41,8 +41,25 @@ where
     by_bucket: BucketBlockStore<C>,
 }
 
+impl<C> MetricResultByBucket<C>
+where
+    C: PartialMetricResultClass,
+{
+    pub(crate) fn load_data(&mut self, source: &Self) {
+        for (bucket, source_bucket) in Iterator::zip(
+            self.by_bucket.iter_mut().flatten(),
+            source.by_bucket.iter().flatten(),
+        ) {
+            bucket.num_messages = source_bucket.num_messages;
+            bucket.object.load_data(&source_bucket.object);
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub(crate) enum MetricResultError {
     #[error("{0}")]
     Fitting(#[from] FittingError),
+    #[error("Unable to load data from saved metrics file.")]
+    LoadingDataWrongMetrics,
 }

@@ -3,14 +3,6 @@ use crate::engine::{
     values::{Interval, ValueError},
 };
 use serde::{Deserialize, Serialize};
-//use thiserror::Error;
-
-/*
-#[derive(Debug, Error)]
-pub(crate) enum MetricError {
-    #[error("Property not found {0} for Metric {1}.")]
-    NoProperty(String, String),
-} */
 
 ///
 /// This struct is created from the configuration JSON file.
@@ -31,6 +23,25 @@ impl HasName for Metric {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct MetricTypeHistogram {
+    pub(crate) num_bins: usize,
+    pub(crate) interval: Interval<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct MetricTypePulseHeightSpectraSettings {
+    pub(crate) max_degree: usize,
+    /// Estimates the location of the noise peak.
+    pub(crate) noise_peak_estimate: f64,
+    /// Estimates the location of the transition point.
+    pub(crate) transition_point_estimate: f64,
+    /// Estimates the location of the events' peak.
+    pub(crate) events_peak_estimate: f64,
+}
+
 ///
 /// This struct is created from the configuration JSON file.
 ///
@@ -47,8 +58,16 @@ pub(crate) enum MetricType {
     #[serde(rename_all = "kebab-case")]
     MuonLifetime {
         topic: String,
-        num_bins: usize,
-        interval: Interval<f64>,
+        #[serde(flatten)]
+        histogram: MetricTypeHistogram,
+    },
+    #[serde(rename_all = "kebab-case")]
+    PulseHeightSpectra {
+        topic: String,
+        #[serde(flatten)]
+        histogram: MetricTypeHistogram,
+        #[serde(flatten)]
+        settings: MetricTypePulseHeightSpectraSettings,
     },
 }
 
@@ -58,6 +77,7 @@ pub(crate) enum PropertyOfMetric {
     EventCount(EventCountProperty),
     FalseCount(FalseCountProperty),
     MuonLifetime(MuonLifetimeProperty),
+    PulseHeightSpectra(PulseHeightSpectraProperty),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,6 +113,12 @@ pub(crate) enum MuonLifetimeProperty {
     ChannelsBoxPlot,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum PulseHeightSpectraProperty {
+    Histograms,
+}
+
 impl Flattenable<&[String]> for Metric {
     type Flat = FlatMetric;
     type Error = ValueError;
@@ -121,18 +147,28 @@ impl Flattenable<&[String]> for Metric {
                     .find_map(|(index, topic)| (topic == estimate_topic).then_some(index))
                     .expect("This should never fail."),
             }),
-            MetricType::MuonLifetime {
+            MetricType::MuonLifetime { topic, histogram } => {
+                FlatMetricType::MuonLifetime(FlatMetricMuonLifetime {
+                    topic: library
+                        .iter()
+                        .enumerate()
+                        .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
+                        .expect("This should never fail."),
+                    histogram: histogram.clone(),
+                })
+            }
+            MetricType::PulseHeightSpectra {
                 topic,
-                num_bins,
-                interval,
-            } => FlatMetricType::MuonLifetime(FlatMetricMuonLifetime {
+                histogram,
+                settings,
+            } => FlatMetricType::PulseHeightSpectra(FlatMetricPulseHeightSpectra {
                 topic: library
                     .iter()
                     .enumerate()
                     .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
                     .expect("This should never fail."),
-                num_bins: *num_bins,
-                interval: interval.clone(),
+                histogram: histogram.clone(),
+                settings: settings.clone(),
             }),
         };
         Ok(FlatMetric {
@@ -164,6 +200,7 @@ pub(crate) enum FlatMetricType {
     EventCount(FlatMetricEventCount),
     FalseCount(FlatMetricFalseCount),
     MuonLifetime(FlatMetricMuonLifetime),
+    PulseHeightSpectra(FlatMetricPulseHeightSpectra),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,6 +219,16 @@ pub(crate) struct FlatMetricEventCount {
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatMetricMuonLifetime {
     pub(crate) topic: usize,
-    pub(crate) num_bins: usize,
-    pub(crate) interval: Interval<f64>,
+    #[serde(flatten)]
+    pub(crate) histogram: MetricTypeHistogram,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct FlatMetricPulseHeightSpectra {
+    pub(crate) topic: usize,
+    #[serde(flatten)]
+    pub(crate) histogram: MetricTypeHistogram,
+    #[serde(flatten)]
+    pub(crate) settings: MetricTypePulseHeightSpectraSettings,
 }
