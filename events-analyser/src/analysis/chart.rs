@@ -1,11 +1,11 @@
 use crate::{
     analysis::metrics::{
-        CompletedMetricResult, FittingError, Histogram, HistogramWithBands, MetricOutput, MetricOutputSeries, MetricResultError
+        CompletedMetricResult, FittingError, HistogramWithBands, MetricOutputSeries, MetricResultError
     },
     engine::{FlatChart, FlatSeries, SeriesType},
 };
 use plotly::{
-    Bar, BoxPlot, Layout, Plot, Scatter, Scatter3D, Trace, box_plot::{BoxMean, BoxPoints}, common::{ErrorData, ErrorType, Line, Marker}, layout::{Axis, ModeBar}
+    Bar, BoxPlot, Layout, Plot, Scatter, Trace, box_plot::{BoxMean, BoxPoints}, common::{ErrorData, ErrorType, Line}, layout::{Axis, ModeBar}
 };
 use serde::{Deserialize, Serialize};
 use std::{fs::File, path::Path};
@@ -170,19 +170,15 @@ impl ChartOutput {
         data: &[HistogramWithBands]
     ) -> Vec<Box<dyn Trace>> {
         data.iter()
-            .enumerate()
-            .map(|(index, histogram) : (_, &HistogramWithBands)| {
-                //let z_axis = vec![index as f64; histogram.num as usize];
+            .map(|histogram : &HistogramWithBands| {
                 let scatter = Scatter::new(histogram.labels.clone(), histogram.centre.clone())
                     .line(Self::build_line(series))
-                    .name(format!("Index: {index}"))
+                    .name(&series.settings.name)
                     .error_y(ErrorData::new(ErrorType::Data)
                         .symmetric(false)
                         .array(histogram.upper.clone())
                         .array_minus(histogram.lower.clone())
                         .thickness(0.5)
-                        //.array(Iterator::zip(histogram.upper.iter(),histogram.labels.iter()).map(|(upper, centre)|upper - centre).collect::<Vec<_>>())
-                        //.array_minus(Iterator::zip(histogram.lower.iter(),histogram.labels.iter()).map(|(lower, centre)|centre - lower).collect::<Vec<_>>())
                     );
                     
                 match &series.settings.series_type {
