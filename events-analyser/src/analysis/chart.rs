@@ -1,14 +1,11 @@
 use crate::{
     analysis::metrics::{
-        CompletedMetricResult, FittingError, MetricOutputSeries, MetricResultError,
+        CompletedMetricResult, FittingError, Histogram, HistogramWithBands, MetricOutput, MetricOutputSeries, MetricResultError
     },
     engine::{FlatChart, FlatSeries, SeriesType},
 };
 use plotly::{
-    Bar, BoxPlot, Layout, Plot, Scatter, Trace,
-    box_plot::{BoxMean, BoxPoints},
-    common::{ErrorData, ErrorType, Line},
-    layout::{Axis, ModeBar},
+    Bar, BoxPlot, Layout, Plot, Scatter, Scatter3D, Trace, box_plot::{BoxMean, BoxPoints}, common::{ErrorData, ErrorType, Line, Marker}, layout::{Axis, ModeBar}
 };
 use serde::{Deserialize, Serialize};
 use std::{fs::File, path::Path};
@@ -82,11 +79,7 @@ impl ChartOutput {
         Ok(())
     }
 
-    pub(crate) fn build_trace(
-        &self,
-        series: &FlatSeries,
-        data: Option<&MetricOutputSeries>,
-    ) -> Box<dyn Trace> {
+    pub(crate) fn build_line(series: &FlatSeries) -> Line {
         let mut line = Line::new();
         if let Some(line_style) = &series.settings.line_style {
             line = line.dash(line_style.into());
@@ -94,72 +87,127 @@ impl ChartOutput {
         if let Some(line_colour) = &series.settings.line_colour {
             line = line.color(line_colour.to_string());
         }
+        line
+    }
 
+    fn build_scalar_x_axis<T>(&self, data: &[Option<T>]) -> Vec<f64> {
+        self
+            .chart
+            .x_axis
+            .iter()
+            .zip(data)
+            .filter_map(|(a, b)| b.is_some().then_some(*a))
+            .collect::<Vec<_>>()
+    }
+
+    pub(crate) fn build_scalar_trace(
+        &self,
+        series: &FlatSeries,
+        data: &[Option<f64>]
+    ) -> Box<dyn Trace> {
+        let x_axis = self.build_scalar_x_axis(data);
+        let y_axis = data.iter().flatten().copied().collect::<Vec<_>>();
+        match &series.settings.series_type {
+            SeriesType::Scatter(scatter_type) => Scatter::new(x_axis, y_axis)
+                .line(Self::build_line(series))
+                .mode(scatter_type.into())
+                .name(&series.settings.name),
+            SeriesType::Bar => Bar::new(x_axis, y_axis).name(&series.settings.name),
+        }
+    }
+
+    pub(crate) fn build_scalar_with_errors_trace(
+        &self,
+        series: &FlatSeries,
+        data: &[Option<(f64,f64)>]
+    ) -> Box<dyn Trace> {
+        let x_axis = self.build_scalar_x_axis(data);
+        let y_axis = data.iter().flatten().map(|x| x.0).collect::<Vec<_>>();
+        let band = data.iter().flatten().map(|x| x.1).collect::<Vec<_>>();
+        match &series.settings.series_type {
+            SeriesType::Scatter(scatter_type) => Scatter::new(x_axis, y_axis)
+                .line(Self::build_line(series))
+                .name(&series.settings.name)
+                .mode(scatter_type.into())
+                .error_y(ErrorData::new(ErrorType::Data).array(band)),
+            SeriesType::Bar => Bar::new(x_axis, y_axis)
+                .error_y(ErrorData::new(ErrorType::Data).array(band))
+                .name(&series.settings.name),
+            }
+    }
+
+    pub(crate) fn build_group_trace(
+        &self,
+        series: &FlatSeries,
+        data: &[Option<Vec<(f64,String)>>]
+    ) -> Box<dyn Trace> {
+        let x_axis = self
+            .chart
+            .x_axis
+            .iter()
+            .zip(data.iter())
+            .filter_map(|(a, b)| b.as_ref().map(|b| vec![*a; b.len()]))
+            .flatten()
+            .collect::<Vec<_>>();
+        let (y_axis, hover_text) = data
+            .iter()
+            .flatten()
+            .flatten()
+            .cloned()
+            .unzip::<_, _, Vec<_>, Vec<_>>();
+
+        BoxPlot::new_xy(x_axis, y_axis)
+            .name(&series.settings.name)
+            .box_points(BoxPoints::All)
+            .jitter(10.0)
+            .hover_text_array(hover_text)
+            .box_mean(BoxMean::True)
+    }
+
+    pub(crate) fn build_histograms_trace(
+        &self,
+        series: &FlatSeries,
+        data: &[HistogramWithBands]
+    ) -> Vec<Box<dyn Trace>> {
+        data.iter()
+            .enumerate()
+            .map(|(index, histogram) : (_, &HistogramWithBands)| {
+                //let z_axis = vec![index as f64; histogram.num as usize];
+                let scatter = Scatter::new(histogram.labels.clone(), histogram.centre.clone())
+                    .line(Self::build_line(series))
+                    .name(format!("Index: {index}"))
+                    .error_y(ErrorData::new(ErrorType::Data)
+                        .symmetric(false)
+                        .array(histogram.upper.clone())
+                        .array_minus(histogram.lower.clone())
+                        .thickness(0.5)
+                        //.array(Iterator::zip(histogram.upper.iter(),histogram.labels.iter()).map(|(upper, centre)|upper - centre).collect::<Vec<_>>())
+                        //.array_minus(Iterator::zip(histogram.lower.iter(),histogram.labels.iter()).map(|(lower, centre)|centre - lower).collect::<Vec<_>>())
+                    );
+                    
+                match &series.settings.series_type {
+                    SeriesType::Scatter(scatter_type) => scatter.mode(scatter_type.into()) as Box<dyn Trace>,
+                    SeriesType::Bar => scatter as Box<dyn Trace>
+                }
+            })
+            .collect::<Vec<_>>()
+    }
+
+    pub(crate) fn build_trace(
+        &self,
+        series: &FlatSeries,
+        data: Option<&MetricOutputSeries>
+    ) -> Vec<Box<dyn Trace>> {
         match data {
-            Some(MetricOutputSeries::Value(data)) => {
-                let x_axis = self
-                    .chart
-                    .x_axis
-                    .iter()
-                    .zip(data)
-                    .filter_map(|(a, b)| b.is_some().then_some(*a))
-                    .collect::<Vec<_>>();
-                let y_axis = data.iter().flatten().copied().collect::<Vec<_>>();
-                match &series.settings.series_type {
-                    SeriesType::Scatter(scatter_type) => Scatter::new(x_axis, y_axis)
-                        .line(line)
-                        .mode(scatter_type.into())
-                        .name(&series.settings.name),
-                    SeriesType::Bar => Bar::new(x_axis, y_axis).name(&series.settings.name),
-                }
-            }
-            Some(MetricOutputSeries::WithErrors(values)) => {
-                let x_axis = self
-                    .chart
-                    .x_axis
-                    .iter()
-                    .zip(values.iter())
-                    .filter_map(|(a, b)| (b.is_some()).then_some(*a))
-                    .collect::<Vec<_>>();
-                let y_axis = values.iter().flatten().map(|x| x.0).collect::<Vec<_>>();
-                let band = values.iter().flatten().map(|x| x.1).collect::<Vec<_>>();
-                match &series.settings.series_type {
-                    SeriesType::Scatter(scatter_type) => Scatter::new(x_axis, y_axis)
-                        .line(line)
-                        .name(&series.settings.name)
-                        .mode(scatter_type.into())
-                        .error_y(ErrorData::new(ErrorType::Data).array(band)),
-                    SeriesType::Bar => Bar::new(x_axis, y_axis)
-                        .error_y(ErrorData::new(ErrorType::Data).array(band))
-                        .name(&series.settings.name),
-                }
-            }
-            Some(MetricOutputSeries::Group(data)) => {
-                let x_axis = self
-                    .chart
-                    .x_axis
-                    .iter()
-                    .zip(data.iter())
-                    .filter_map(|(a, b)| b.as_ref().map(|b| vec![*a; b.len()]))
-                    .flatten()
-                    .collect::<Vec<_>>();
-                let (y_axis, hover_text) = data
-                    .iter()
-                    .flatten()
-                    .flatten()
-                    .cloned()
-                    .unzip::<_, _, Vec<_>, Vec<_>>();
-
-                BoxPlot::new_xy(x_axis, y_axis)
-                    .name(&series.settings.name)
-                    .box_points(BoxPoints::All)
-                    .jitter(10.0)
-                    .hover_text_array(hover_text)
-                    .box_mean(BoxMean::True)
-            }
-            None => Scatter::<f64, f64>::new(Default::default(), Default::default())
-                .line(line)
-                .name(format!("{} - values missing.", series.settings.name)),
+            Some(MetricOutputSeries::Value(data)) => vec![self.build_scalar_trace(series, data)],
+            Some(MetricOutputSeries::WithErrors(data)) => vec![self.build_scalar_with_errors_trace(series, data)],
+            Some(MetricOutputSeries::Group(data)) => vec![self.build_group_trace(series, data)],
+            Some(MetricOutputSeries::Histograms(data)) => self.build_histograms_trace(series, data),
+            None => vec![
+                Scatter::<f64, f64>::new(Default::default(), Default::default())
+                    .line(Self::build_line(series))
+                    .name(format!("{} - values missing.", series.settings.name))
+            ],
         }
     }
 
@@ -174,9 +222,14 @@ impl ChartOutput {
             .y_axis(Axis::new().title(&self.chart.settings.y_axis_label));
 
         plot.set_layout(layout);
-        for (series, data) in Iterator::zip(self.chart.series.iter(), self.data.iter()) {
-            plot.add_trace(self.build_trace(series, data.as_ref()));
-        }
-        plot
+
+        // Using `fold`` rather than `for` as this fixes some compiler type-checking issues.
+        let add_traces = |mut plot: Plot, (series, series_data) : (_, &Option<_>)| {
+            let traces = self.build_trace(series, series_data.as_ref());
+            plot.add_traces(traces);
+            plot
+        };
+        Iterator::zip(self.chart.series.iter(), self.data.iter())
+            .fold(plot, add_traces)
     }
 }
