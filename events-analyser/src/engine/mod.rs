@@ -5,9 +5,11 @@ mod values;
 pub(crate) use crate::engine::{
     elements::{
         Chart, EventCountProperty, FalseCountProperty, FlatAlgorithm, FlatBucket, FlatBucketBlock,
-        FlatChart, FlatMetric, FlatMetricEventCount, FlatMetricFalseCount, FlatMetricMuonLifetime,
-        FlatMetricType, FlatSeries, FlatWaveform, Metric, MuonLifetimeProperty, PropertyOfMetric,
-        SeriesType,
+        FlatChart, FlatMetric, FlatMetricEventCount, FlatMetricFalseCount,
+        FlatMetricIntensityGraph, FlatMetricMuonLifetime, FlatMetricType, FlatSeries, FlatWaveform,
+        IntensityGraphProperty, Metric, MetricType, MetricTypeHistogram,
+        MetricTypeIntensityGraphSettings, MetricTypeIntensityGraphSettingsDiagnostic,
+        MuonLifetimeProperty, PropertyOfMetric, SeriesType,
     },
     settings::{AnalysisSettings, Array, Templates},
     values::Interval,

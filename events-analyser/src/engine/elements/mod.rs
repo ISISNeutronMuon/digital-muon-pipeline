@@ -16,8 +16,10 @@ pub(crate) use {
     criteria::CriteriaTemplate,
     metric::{
         EventCountProperty, FalseCountProperty, FlatMetric, FlatMetricEventCount,
-        FlatMetricFalseCount, FlatMetricMuonLifetime, FlatMetricType, Metric, MuonLifetimeProperty,
-        PropertyOfMetric,
+        FlatMetricFalseCount, FlatMetricIntensityGraph, FlatMetricMuonLifetime, FlatMetricType,
+        IntensityGraphProperty, Metric, MetricType, MetricTypeHistogram,
+        MetricTypeIntensityGraphSettings, MetricTypeIntensityGraphSettingsDiagnostic,
+        MuonLifetimeProperty, PropertyOfMetric,
     },
     series::{FlatSeries, SeriesType},
     waveform::{FlatWaveform, Waveform, WaveformProperties},

@@ -42,6 +42,10 @@ impl PartialMetricResultClass for PartialMuonLifetime {
         }
     }
 
+    fn load_data(&mut self, source: &Self) {
+        *self = source.clone();
+    }
+
     fn push(
         &mut self,
         _waveform: &FlatWaveform,
@@ -56,7 +60,12 @@ impl PartialMetricResultClass for PartialMuonLifetime {
         {
             self.histogram
                 .entry(channel)
-                .or_insert_with(|| Histogram::new(self.source.num_bins, &self.source.interval))
+                .or_insert_with(|| {
+                    Histogram::new(
+                        self.source.histogram.num_bins,
+                        &self.source.histogram.interval,
+                    )
+                })
                 .push(*time as f64);
         }
     }
@@ -216,7 +225,10 @@ impl CompleteMetricResultClass for CompletedMuonLifetime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{analysis::metrics::Histogram, engine::Interval};
+    use crate::{
+        analysis::metrics::Histogram,
+        engine::{Interval, MetricTypeHistogram},
+    };
 
     #[test]
     fn test1() {
@@ -233,8 +245,10 @@ mod tests {
         let source = PartialMuonLifetime {
             source: FlatMetricMuonLifetime {
                 topic: 1,
-                num_bins: 10,
-                interval,
+                histogram: MetricTypeHistogram {
+                    num_bins: 10,
+                    interval,
+                },
             },
             histogram: [(0, histogram)].into_iter().collect::<HashMap<_, _>>(),
         };
@@ -266,8 +280,10 @@ mod tests {
         let source = PartialMuonLifetime {
             source: FlatMetricMuonLifetime {
                 topic: 1,
-                num_bins: 10,
-                interval,
+                histogram: MetricTypeHistogram {
+                    num_bins: 10,
+                    interval,
+                },
             },
             histogram: [(0, histogram)].into_iter().collect::<HashMap<_, _>>(),
         };
