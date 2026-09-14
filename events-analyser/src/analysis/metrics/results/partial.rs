@@ -4,10 +4,10 @@ use crate::{
         metrics::{
             event_counts::PartialEventCount,
             false_counts::PartialFalseCount,
+            intensity_graph::PartialIntensityGraph,
             muon_lifetime::PartialMuonLifetime,
-            results::CompleteMetricResultClass,
             results::{
-                MetricObject, MetricResultByBucket, MetricResultError,
+                CompleteMetricResultClass, MetricObject, MetricResultByBucket, MetricResultError,
                 complete::CompletedMetricResult,
             },
         },
@@ -23,6 +23,9 @@ pub(crate) trait PartialMetricResultClass: Clone + Serialize + DeserializeOwned 
     type Complete: CompleteMetricResultClass<Partial = Self>;
 
     fn make_default(source: &Self::Source) -> Self;
+    fn load_data(&mut self, source: &Self) {
+        *self = source.clone();
+    }
     fn push(
         &mut self,
         waveform: &FlatWaveform,
@@ -143,6 +146,8 @@ pub(crate) enum PartialMetricResult {
     FalseCount(MetricResultByBucket<PartialFalseCount>),
     /// Descriptive statistics on the muon-lifetime estimated from the data.
     MuonLifetime(MetricResultByBucket<PartialMuonLifetime>),
+    /// Descriptive statistics on the muon-lifetime estimated from the data.
+    IntensityGraph(MetricResultByBucket<PartialIntensityGraph>),
 }
 
 impl PartialMetricResult {
@@ -157,6 +162,9 @@ impl PartialMetricResult {
             FlatMetricType::MuonLifetime(flat_metric_muon_lifetime) => Self::MuonLifetime(
                 MetricResultByBucket::new(flat_metric_muon_lifetime, bucket_block_sizes),
             ),
+            FlatMetricType::IntensityGraph(flat_metric_intensity_graph) => Self::IntensityGraph(
+                MetricResultByBucket::new(flat_metric_intensity_graph, bucket_block_sizes),
+            ),
         }
     }
 
@@ -169,6 +177,9 @@ impl PartialMetricResult {
                 patrial_metric_result_class.are_buckets_full_enough(block, min)
             }
             Self::MuonLifetime(patrial_metric_result_class) => {
+                patrial_metric_result_class.are_buckets_full_enough(block, min)
+            }
+            Self::IntensityGraph(patrial_metric_result_class) => {
                 patrial_metric_result_class.are_buckets_full_enough(block, min)
             }
         }
@@ -191,6 +202,9 @@ impl PartialMetricResult {
             Self::MuonLifetime(patrial_metric_result_store) => {
                 patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
             }
+            Self::IntensityGraph(patrial_metric_result_store) => {
+                patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
+            }
         }
     }
 
@@ -205,6 +219,20 @@ impl PartialMetricResult {
             Self::MuonLifetime(patrial_metric_result_store) => {
                 CompletedMetricResult::MuonLifetime(patrial_metric_result_store.aggregate()?)
             }
+            Self::IntensityGraph(patrial_metric_result_store) => {
+                CompletedMetricResult::IntensityGraph(patrial_metric_result_store.aggregate()?)
+            }
         })
+    }
+
+    pub(crate) fn load_data(&mut self, source: &Self) -> Result<(), MetricResultError> {
+        match (self, source) {
+            (Self::EventCount(store), Self::EventCount(source)) => store.load_data(source),
+            (Self::FalseCount(store), Self::FalseCount(source)) => store.load_data(source),
+            (Self::MuonLifetime(store), Self::MuonLifetime(source)) => store.load_data(source),
+            (Self::IntensityGraph(store), Self::IntensityGraph(source)) => store.load_data(source),
+            _ => return Err(MetricResultError::LoadingDataWrongMetrics),
+        }
+        Ok(())
     }
 }
