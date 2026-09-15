@@ -169,7 +169,12 @@ impl AnalysisEngine {
             let mut path = self.path.clone();
             path.push(metrics_json_name);
             path.add_extension("json");
-            self.metrics = serde_json::from_reader(File::open(&path)?)?;
+
+            let metrics_from_file: Vec<PartialMetricResult> =
+                serde_json::from_reader(File::open(&path)?)?;
+            for (old, new) in Iterator::zip(self.metrics.iter_mut(), metrics_from_file.iter()) {
+                old.load_data(new)?;
+            }
 
             // Set the last message timestamp field to trigger the evaluation.
             self.last_message_timestamp = Some(

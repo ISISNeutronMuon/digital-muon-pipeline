@@ -47,6 +47,10 @@ impl Histogram {
         &self.bin_labels
     }
 
+    pub(crate) fn get_counts(&self) -> &[f64] {
+        &self.bins
+    }
+
     pub(crate) fn get_normalised_counts(&self) -> Vec<f64> {
         let coef = 1.0 / self.num_values as f64;
         self.bins.iter().map(|value| value * coef).collect()

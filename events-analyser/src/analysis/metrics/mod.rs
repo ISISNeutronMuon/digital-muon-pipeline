@@ -2,6 +2,7 @@ mod event_counts;
 mod false_counts;
 mod muon_lifetime;
 mod output;
+mod pulse_height_spectra;
 mod results;
 mod utils;
 
@@ -13,10 +14,8 @@ use varpro::{
     statistics::Error as StatisticsError,
 };
 
-pub(crate) use output::{MetricOutput, MetricOutputSeries};
+pub(crate) use output::{HistogramWithBands, MetricOutput, MetricOutputSeries};
 pub(crate) use results::{CompletedMetricResult, MetricResultError, PartialMetricResult};
-
-#[cfg(test)]
 pub(crate) use utils::Histogram;
 
 #[derive(Debug, Error)]
