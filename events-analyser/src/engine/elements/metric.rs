@@ -102,7 +102,10 @@ pub(crate) enum MuonLifetimeProperty {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum PulseHeightSpectraProperty {
-    Histograms,
+    Sum,
+    Mean,
+    MeanSd,
+    MeanBounds,
 }
 
 impl Flattenable<&[String]> for Metric {
@@ -150,7 +153,7 @@ impl Flattenable<&[String]> for Metric {
                         .enumerate()
                         .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
                         .expect("This should never fail."),
-                    histogram: histogram.clone(),
+                    histogram: histogram.clone()
                 })
             }
         };
@@ -211,5 +214,5 @@ pub(crate) struct FlatMetricMuonLifetime {
 pub(crate) struct FlatMetricPulseHeightSpectra {
     pub(crate) topic: usize,
     #[serde(flatten)]
-    pub(crate) histogram: MetricTypeHistogram,
+    pub(crate) histogram: MetricTypeHistogram
 }

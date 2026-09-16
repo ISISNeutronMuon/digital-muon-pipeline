@@ -3,18 +3,19 @@ use crate::{
         MetricOutput, MetricResultError,
         output::HistogramWithBands,
         results::{CompleteMetricResultClass, PartialMetricResultClass},
-        utils::Histogram,
+        utils::{Histogram, SumWithSumOfSqrs},
     },
     engine::{
-        FlatAlgorithm, FlatMetricPulseHeightSpectra, FlatWaveform, Interval,
-        PulseHeightSpectraProperty,
+        FlatAlgorithm, FlatMetricPulseHeightSpectra, FlatWaveform, Interval, PulseHeightSpectraProperty
     },
     eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
+use num::Float;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Builds up histograms of pulse heights, for each channel.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PartialPulseHeightSpectra {
@@ -66,9 +67,15 @@ impl PartialMetricResultClass for PartialPulseHeightSpectra {
     }
 }
 
+/// Aggregates the pulse height histograms into a single histogram.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct CompletedPulseHeightSpectra {
-    histograms: HashMap<Channel, Histogram>,
+    labels: Vec<f64>,
+    sum: Vec<f64>,
+    mean: Vec<f64>,
+    sd: Vec<f64>,
+    upper: Vec<f64>,
+    lower: Vec<f64>,
 }
 
 impl CompleteMetricResultClass for CompletedPulseHeightSpectra {
@@ -77,26 +84,82 @@ impl CompleteMetricResultClass for CompletedPulseHeightSpectra {
     type Property = PulseHeightSpectraProperty;
 
     fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error> {
+        let labels = source
+            .histogram
+            .values()
+            .next()
+            .expect("No histogram values, this should never happen.") // FIXME: This might happen.
+            .get_bin_labels()
+            .to_vec();
+        let mut sum = vec![0.0; labels.len()];
+        let mut mean = vec![0.0; labels.len()];
+        let mut sd = vec![0.0; labels.len()];
+        let mut upper = vec![0.0; labels.len()];
+        let mut lower = vec![f64::MAX; labels.len()];
+
+        let zipped_iterators = sum.iter_mut()
+            .enumerate()
+            .zip(mean.iter_mut())
+            .zip(sd.iter_mut())
+            .zip(upper.iter_mut())
+            .zip(lower.iter_mut())
+            .map(|(((((index, sum), mean), sd), upper), lower)| (index, sum, mean, sd, upper, lower));
+        
+        for (index, sum, mean, sd, upper, lower) in zipped_iterators {
+            let mut sum_with_sum_of_sqrs = SumWithSumOfSqrs::default();
+            for histogram in source.histogram.values() {
+                let count = histogram.get_counts().get(index).expect("This should never fail.");
+                *sum += count;
+                sum_with_sum_of_sqrs.add_to(*count);
+                *upper = upper.max(*count);
+                *lower = lower.min(*count);
+            }
+            let mean_sd = sum_with_sum_of_sqrs.mean_and_stddev();
+            *mean = mean_sd.mean;
+            *sd =  mean_sd.sd;
+        }
+
         Ok(CompletedPulseHeightSpectra {
-            histograms: source.histogram.clone(),
+            labels,
+            mean,
+            sd,
+            sum,
+            upper,
+            lower,
         })
     }
 
     fn get_property(&self, property: Self::Property) -> Result<MetricOutput, Self::Error> {
-        match property {
-            PulseHeightSpectraProperty::Histograms => {
-                let bin_labels = self
-                    .histograms
-                    .values()
-                    .next()
-                    .expect("No histogram values, this should never happen.")
-                    .get_bin_labels(); // FIXME: This might happen.
-                let histogram = self.histograms.values().fold(
-                    HistogramWithBands::new(bin_labels),
-                    HistogramWithBands::append,
-                );
-                Ok(MetricOutput::Histograms(histogram))
+        let histogram = match property {
+            PulseHeightSpectraProperty::Sum => {
+                HistogramWithBands {
+                    labels: self.labels.clone(),
+                    central: self.sum.clone(),
+                    bands: None,
+                }
             }
-        }
+            PulseHeightSpectraProperty::Mean => {
+                HistogramWithBands {
+                    labels: self.labels.clone(),
+                    central: self.mean.clone(),
+                    bands: None,
+                }
+            }
+            PulseHeightSpectraProperty::MeanSd => {
+                HistogramWithBands {
+                    labels: self.labels.clone(),
+                    central: self.sum.clone(),
+                    bands: Some((self.mean.iter().zip(self.sd.iter()).map(|(m,s)|m + s).collect(), self.mean.iter().zip(self.sd.iter()).map(|(m,s)|m - s).collect())),
+                }
+            }
+            PulseHeightSpectraProperty::MeanBounds => {
+                HistogramWithBands {
+                    labels: self.labels.clone(),
+                    central: self.sum.clone(),
+                    bands: Some((self.upper.clone(), self.lower.clone())),
+                }
+            }
+        };
+        Ok(MetricOutput::Histograms(histogram))
     }
 }
