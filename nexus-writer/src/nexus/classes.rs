@@ -9,6 +9,9 @@
 /// [NexusGroup]: crate::nexus::NexusGroup
 #[derive(strum::Display)]
 pub(crate) enum NexusClass {
+    /// The nexus class for the `DAE` group structure.
+    #[strum(to_string = "NXdae")]
+    Dae,
     /// The nexus class for the `Entry` group structure.
     #[strum(to_string = "NXentry")]
     Entry,

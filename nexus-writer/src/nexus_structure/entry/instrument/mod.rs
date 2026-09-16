@@ -1,5 +1,6 @@
 //! Defines [Instrument] group structure which contains details about the instrument used to probe the sample.
 //! Currently unknown where this data is obtained from.
+mod dae;
 mod source;
 
 use crate::{
@@ -9,6 +10,7 @@ use crate::{
     nexus_structure::{NexusGroup, NexusMessageHandler, NexusSchematic},
     run_engine::run_messages::PushRunStart,
 };
+use dae::Dae;
 use hdf5::{Dataset, Group};
 use source::Source;
 
@@ -16,6 +18,7 @@ use source::Source;
 mod labels {
     pub(super) const NAME: &str = "name";
     pub(super) const SOURCE: &str = "source";
+    pub(super) const DAE: &str = "dae";
 }
 
 /// Contains details about the instrument used to probe the sample.
@@ -24,6 +27,8 @@ pub(crate) struct Instrument {
     name: Dataset,
     /// The particle beam source used to probe the sample.
     _source: NexusGroup<Source>,
+    /// The data acquisition electronics (DAE).
+    _dae: NexusGroup<Dae>,
 }
 
 impl NexusSchematic for Instrument {
@@ -33,7 +38,8 @@ impl NexusSchematic for Instrument {
     fn build_group_structure(group: &Group, _: &Self::Settings) -> NexusHDF5Result<Self> {
         Ok(Self {
             name: group.create_string_dataset("name")?,
-            _source: Source::build_new_group(group, "source", &())?,
+            _source: Source::build_new_group(group, labels::SOURCE, &())?,
+            _dae: Dae::build_new_group(group, labels::DAE, &())?,
         })
     }
 
@@ -41,6 +47,7 @@ impl NexusSchematic for Instrument {
         Ok(Self {
             name: group.get_dataset(labels::NAME)?,
             _source: Source::open_group(group, labels::SOURCE)?,
+            _dae: Dae::open_group(group, labels::DAE)?,
         })
     }
 }
