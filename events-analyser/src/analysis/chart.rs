@@ -174,8 +174,7 @@ impl ChartOutput {
     ) -> Vec<Box<dyn Trace>> {
         data.iter()
             .map(|histogram: &HistogramWithBands| {
-                let mut error_y = ErrorData::new(ErrorType::Data)
-                    .thickness(0.5);
+                let mut error_y = ErrorData::new(ErrorType::Data).thickness(0.5);
                 if let Some((upper, lower)) = histogram.bands.as_ref() {
                     error_y = error_y
                         .symmetric(false)

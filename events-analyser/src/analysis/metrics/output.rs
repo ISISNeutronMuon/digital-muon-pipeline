@@ -48,7 +48,7 @@ impl<V1, E1, G1, H1> MetricOutputGeneric<V1, E1, G1, H1> {
 pub(crate) struct HistogramWithBands {
     pub(crate) labels: Vec<f64>,
     pub(crate) central: Vec<f64>,
-    pub(crate) bands: Option<(Vec<f64>,Vec<f64>)>,
+    pub(crate) bands: Option<(Vec<f64>, Vec<f64>)>,
 }
 /*
 impl HistogramWithBands {

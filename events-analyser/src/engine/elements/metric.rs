@@ -153,7 +153,7 @@ impl Flattenable<&[String]> for Metric {
                         .enumerate()
                         .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
                         .expect("This should never fail."),
-                    histogram: histogram.clone()
+                    histogram: histogram.clone(),
                 })
             }
         };
@@ -214,5 +214,5 @@ pub(crate) struct FlatMetricMuonLifetime {
 pub(crate) struct FlatMetricPulseHeightSpectra {
     pub(crate) topic: usize,
     #[serde(flatten)]
-    pub(crate) histogram: MetricTypeHistogram
+    pub(crate) histogram: MetricTypeHistogram,
 }
