@@ -37,7 +37,7 @@ pub(crate) struct Period {
     labels: Dataset,
 
     /// Vector of the number of frames (per period) before switching (0 indicates unlimited).
-    frames_requested: Dataset,
+    _frames_requested: Dataset,
 }
 
 impl Period {
@@ -79,7 +79,7 @@ impl NexusSchematic for Period {
             labels: group
                 .create_string_dataset(labels::LABELS)?
                 .with_constant_string_attribute(labels::LABELS_SEPARATOR, LABELS_SEPARATOR)?,
-            frames_requested: group
+            _frames_requested: group
                 .create_resizable_empty_dataset::<u32>(labels::FRAMES_REQUESTED, *settings)?
                 .with_constant_string_attribute(labels::FRAMES_REQUESTED_FRAME_TYPE, FRAMES_REQUESTED_FRAME_TYPE)?,
         })
@@ -90,7 +90,7 @@ impl NexusSchematic for Period {
             number: group.get_dataset(labels::NUMBER)?,
             period_type: group.get_dataset(labels::PERIOD_TYPE)?,
             labels: group.get_dataset(labels::LABELS)?,
-            frames_requested: group.get_dataset(labels::FRAMES_REQUESTED_FRAME_TYPE)?,
+            _frames_requested: group.get_dataset(labels::FRAMES_REQUESTED_FRAME_TYPE)?,
         })
     }
 }
