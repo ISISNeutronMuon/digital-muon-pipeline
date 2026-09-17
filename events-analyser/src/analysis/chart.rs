@@ -174,16 +174,18 @@ impl ChartOutput {
     ) -> Vec<Box<dyn Trace>> {
         data.iter()
             .map(|histogram: &HistogramWithBands| {
-                let scatter = Scatter::new(histogram.labels.clone(), histogram.centre.clone())
+                let mut error_y = ErrorData::new(ErrorType::Data)
+                    .thickness(0.5);
+                if let Some((upper, lower)) = histogram.bands.as_ref() {
+                    error_y = error_y
+                        .symmetric(false)
+                        .array(upper.clone())
+                        .array_minus(lower.clone())
+                }
+                let scatter = Scatter::new(histogram.labels.clone(), histogram.central.clone())
                     .line(Self::build_line(series))
                     .name(&series.settings.name)
-                    .error_y(
-                        ErrorData::new(ErrorType::Data)
-                            .symmetric(false)
-                            .array(histogram.upper.clone())
-                            .array_minus(histogram.lower.clone())
-                            .thickness(0.5),
-                    );
+                    .error_y(error_y);
 
                 match &series.settings.series_type {
                     SeriesType::Scatter(scatter_type) => {
