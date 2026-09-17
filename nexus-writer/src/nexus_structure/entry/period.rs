@@ -13,11 +13,17 @@ mod labels {
     pub(super) const PERIOD_TYPE: &str = "type";
     pub(super) const LABELS: &str = "labels";
     pub(super) const LABELS_SEPARATOR: &str = "separator";
+    pub(super) const FRAMES_REQUESTED: &str = "frames_requested";
+    pub(super) const FRAMES_REQUESTED_FRAME_TYPE: &str = "frame_type";
+    
 }
 
 // Values of Nexus Constant
 /// The character used to separate the period labels.
 const LABELS_SEPARATOR: &str = ",";
+
+/// A default constant. FIXME: This should be modifiable.
+const FRAMES_REQUESTED_FRAME_TYPE: &str = "good";
 
 /// Handles all period data.
 pub(crate) struct Period {
@@ -29,6 +35,9 @@ pub(crate) struct Period {
 
     /// String of [LABELS_SEPARATOR]-separated values listing all period values.
     labels: Dataset,
+
+    /// Vector of the number of frames (per period) before switching (0 indicates unlimited).
+    frames_requested: Dataset,
 }
 
 impl Period {
@@ -70,6 +79,9 @@ impl NexusSchematic for Period {
             labels: group
                 .create_string_dataset(labels::LABELS)?
                 .with_constant_string_attribute(labels::LABELS_SEPARATOR, LABELS_SEPARATOR)?,
+            frames_requested: group
+                .create_resizable_empty_dataset::<u32>(labels::FRAMES_REQUESTED, *settings)?
+                .with_constant_string_attribute(labels::FRAMES_REQUESTED_FRAME_TYPE, FRAMES_REQUESTED_FRAME_TYPE)?,
         })
     }
 
@@ -78,6 +90,7 @@ impl NexusSchematic for Period {
             number: group.get_dataset(labels::NUMBER)?,
             peroid_type: group.get_dataset(labels::PERIOD_TYPE)?,
             labels: group.get_dataset(labels::LABELS)?,
+            frames_requested: group.get_dataset(labels::FRAMES_REQUESTED_FRAME_TYPE)?,
         })
     }
 }
