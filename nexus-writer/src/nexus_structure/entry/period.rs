@@ -80,7 +80,10 @@ impl NexusSchematic for Period {
                 .with_constant_string_attribute(labels::LABELS_SEPARATOR, LABELS_SEPARATOR)?,
             _frames_requested: group
                 .create_resizable_empty_dataset::<u32>(labels::FRAMES_REQUESTED, *settings)?
-                .with_constant_string_attribute(labels::FRAMES_REQUESTED_FRAME_TYPE, FRAMES_REQUESTED_FRAME_TYPE)?,
+                .with_constant_string_attribute(
+                    labels::FRAMES_REQUESTED_FRAME_TYPE,
+                    FRAMES_REQUESTED_FRAME_TYPE,
+                )?,
         })
     }
 
