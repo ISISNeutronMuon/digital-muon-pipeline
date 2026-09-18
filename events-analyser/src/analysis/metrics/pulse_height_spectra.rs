@@ -6,8 +6,7 @@ use crate::{
         utils::{Histogram, SumWithSumOfSqrs},
     },
     engine::{
-        FlatAlgorithm, FlatMetricPulseHeightSpectra, FlatWaveform, Interval,
-        PulseHeightSpectraProperty,
+        FlatAlgorithm, FlatMetricPulseHeightSpectra, FlatWaveform, PulseHeightSpectraProperty,
     },
     eventlists::ChannelDataByTopic,
 };
@@ -20,10 +19,9 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PartialPulseHeightSpectra {
-    num: usize,
-    num_bins: usize,
-    interval: Interval<f64>,
-    topic: usize,
+    /// Metric settings.
+    source: FlatMetricPulseHeightSpectra,
+    /// Per-channel histograms pulse heights.
     histogram: HashMap<Channel, Histogram>,
 }
 
@@ -33,17 +31,12 @@ impl PartialMetricResultClass for PartialPulseHeightSpectra {
 
     fn make_default(source: &FlatMetricPulseHeightSpectra) -> Self {
         Self {
-            num: Default::default(),
-            topic: source.topic,
-            num_bins: source.histogram.num_bins,
-            interval: source.histogram.interval.clone(),
+            source: source.clone(),
             histogram: Default::default(),
         }
     }
 
     fn load_data(&mut self, source: &Self) {
-        self.num = source.num;
-        self.topic = source.topic;
         self.histogram = source.histogram.clone();
     }
 
@@ -54,15 +47,17 @@ impl PartialMetricResultClass for PartialPulseHeightSpectra {
         channel: Channel,
         by_topic: &ChannelDataByTopic,
     ) {
-        self.num += 1;
         for (_, intensity) in by_topic
-            .get(self.topic)
+            .get(self.source.topic)
             .expect("This should never fail.")
             .get_time_intensity()
         {
             self.histogram
                 .entry(channel)
-                .or_insert(Histogram::new(self.num_bins, &self.interval))
+                .or_insert(Histogram::new(
+                    self.source.histogram.num_bins,
+                    &self.source.histogram.interval,
+                ))
                 .push(*intensity as f64);
         }
     }
@@ -71,11 +66,17 @@ impl PartialMetricResultClass for PartialPulseHeightSpectra {
 /// Aggregates the pulse height histograms into a single histogram.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct CompletedPulseHeightSpectra {
+    /// Histogram bin labels.
     labels: Vec<f64>,
+    /// Values of the histogram formed by summing all per-channel histograms together.
     sum: Vec<f64>,
+    /// Values of the histogram formed by taking the arithmetic mean of all per-channel histograms.
     mean: Vec<f64>,
+    /// Standard deviations of the histogram values formed by taking the arithmetic mean of all per-channel histograms.
     sd: Vec<f64>,
+    /// Values of the histogram formed by taking the maximum of all per-channel histograms.
     upper: Vec<f64>,
+    /// Values of the histogram formed by taking the minimum of all per-channel histograms.
     lower: Vec<f64>,
 }
 
@@ -98,6 +99,7 @@ impl CompleteMetricResultClass for CompletedPulseHeightSpectra {
         let mut upper = vec![0.0; labels.len()];
         let mut lower = vec![f64::MAX; labels.len()];
 
+        // Gather muta iterators of all the above vectors together (along with the index) and convert them to a convenient tuple form.
         let zipped_iterators = sum
             .iter_mut()
             .enumerate()
@@ -109,15 +111,19 @@ impl CompleteMetricResultClass for CompletedPulseHeightSpectra {
                 (index, sum, mean, sd, upper, lower)
             });
 
+        // Compute statistics.
         for (index, sum, mean, sd, upper, lower) in zipped_iterators {
-            let mut sum_with_sum_of_sqrs = SumWithSumOfSqrs::default();
-            for histogram in source.histogram.values() {
-                let count = histogram
+            let counts_iterator = source.histogram.values().map(|histogram| {
+                histogram
                     .get_counts()
                     .get(index)
-                    .expect("This should never fail.");
-                *sum += count;
+                    .expect("This should never fail.")
+            });
+
+            let mut sum_with_sum_of_sqrs = SumWithSumOfSqrs::default();
+            for count in counts_iterator {
                 sum_with_sum_of_sqrs.add_to(*count);
+                *sum += count;
                 *upper = upper.max(*count);
                 *lower = lower.min(*count);
             }

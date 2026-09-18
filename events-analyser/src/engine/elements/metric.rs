@@ -51,7 +51,9 @@ pub(crate) enum MetricType {
     },
     #[serde(rename_all = "kebab-case")]
     PulseHeightSpectra {
+        /// The topic to listen for eventlist messages.
         topic: String,
+        /// Encapsulates how the histogram is constructed.
         #[serde(flatten)]
         histogram: MetricTypeHistogram,
     },
@@ -102,9 +104,13 @@ pub(crate) enum MuonLifetimeProperty {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum PulseHeightSpectraProperty {
+    /// Display histogram whose counts are the sums of the per-channel counts.
     Sum,
+    /// Display histogram whose counts are the mean of the per-channel counts.
     Mean,
+    /// Display histogram whose counts are the mean of the per-channel counts, along with the standard deviation bands.
     MeanSd,
+    /// Display histogram whose counts are the mean of the per-channel counts, along with the minimum and maximum count bands.
     MeanBounds,
 }
 
@@ -209,10 +215,14 @@ pub(crate) struct FlatMetricMuonLifetime {
     pub(crate) histogram: MetricTypeHistogram,
 }
 
+/// Encapsulates the flattened pulse height spectra metric,
+/// that is with all dependencies in the unflattened struct resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatMetricPulseHeightSpectra {
+    /// The topic to listen for eventlist messages.
     pub(crate) topic: usize,
+    /// Encapsulates how the histogram is constructed.
     #[serde(flatten)]
     pub(crate) histogram: MetricTypeHistogram,
 }
