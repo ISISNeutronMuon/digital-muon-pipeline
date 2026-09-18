@@ -9,7 +9,7 @@ use plotly::{
     Bar, BoxPlot, Layout, Plot, Scatter, Trace,
     box_plot::{BoxMean, BoxPoints},
     common::{ErrorData, ErrorType, Line},
-    layout::{Axis, ModeBar},
+    layout::{Axis, GridPattern, LayoutGrid, ModeBar},
 };
 use serde::{Deserialize, Serialize};
 use std::{fs::File, path::Path};
@@ -183,6 +183,8 @@ impl ChartOutput {
                 }
                 let scatter = Scatter::new(histogram.labels.clone(), histogram.central.clone())
                     .line(Self::build_line(series))
+                    .x_axis(&series.settings.x_axis)
+                    .y_axis(&series.settings.y_axis)
                     .name(&series.settings.name)
                     .error_y(error_y);
 
@@ -224,7 +226,12 @@ impl ChartOutput {
             .show_legend(true)
             .auto_size(true)
             .x_axis(Axis::new().title(&self.chart.settings.x_axis_label))
-            .y_axis(Axis::new().title(&self.chart.settings.y_axis_label));
+            .y_axis(Axis::new().title(&self.chart.settings.y_axis_label))
+            .grid(LayoutGrid::new()
+                .columns(self.chart.settings.num_cols)
+                .rows(self.chart.settings.num_rows)
+                .pattern(GridPattern::Independent),
+            );
 
         plot.set_layout(layout);
 

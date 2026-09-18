@@ -37,6 +37,10 @@ pub(crate) struct ChartBasicSettings {
     pub(crate) y_axis_label: String,
     /// Title that appears on the graph (as well as the file name).
     pub(crate) title: String,
+    /// Number of rows the chart layout grid.
+    pub(crate) num_rows: usize,
+    /// Number of columns the chart layout grid.
+    pub(crate) num_cols: usize,
 }
 
 /// Defines a chart that can be written as a graphical chart, or as a json structure.
