@@ -16,7 +16,7 @@ impl Histogram {
     pub(crate) fn new(num: usize, interval: &Interval<f64>) -> Self {
         let bins = vec![Default::default(); num];
         let coef = (interval.max - interval.min) / num as f64;
-        let bin_labels = (0..num).map(|i| i as f64 * coef).collect();
+        let bin_labels = (0..num).map(|i| i as f64 * coef + interval.min).collect();
         Self {
             num_values: Default::default(),
             bin_labels,
