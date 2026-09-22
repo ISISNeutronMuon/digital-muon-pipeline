@@ -8,8 +8,8 @@ use crate::{
 use plotly::{
     Bar, BoxPlot, Layout, Plot, Scatter, Trace,
     box_plot::{BoxMean, BoxPoints},
-    common::{ErrorData, ErrorType, Line},
-    layout::{Axis, GridPattern, LayoutGrid, ModeBar},
+    common::{Anchor, ErrorData, ErrorType, LegendGroupTitle, Line},
+    layout::{Axis, GridPattern, GroupClick, LayoutGrid, Legend, ModeBar, TraceOrder},
 };
 use serde::{Deserialize, Serialize};
 use std::{fs::File, path::Path};
@@ -23,6 +23,51 @@ pub(crate) enum ChartOutputError {
     IO(#[from] std::io::Error),
     #[error("Metric Result Error: {0}")]
     Metric(#[from] MetricResultError),
+}
+
+/// Helper trait for plotly chart components.
+trait TraceExt {
+    /// Sets the name, x_axis, y_axis, and legend data/
+    fn apply_settings(self, series: &FlatSeries) -> Self;
+}
+
+impl<X,Y> TraceExt for Box<Scatter<X,Y>> where X: Clone + Serialize, Y: Clone + Serialize {
+    fn apply_settings(self, series: &FlatSeries) -> Self {
+        let mut line = Line::new();
+        if let Some(line_style) = &series.settings.line_style {
+            line = line.dash(line_style.into());
+        }
+        if let Some(line_colour) = &series.settings.line_colour {
+            line = line.color(line_colour.to_string());
+        }
+
+        self.name(&series.settings.name)
+            .line(line)
+            .x_axis(&series.settings.x_axis)
+            .y_axis(&series.settings.y_axis)
+            .legend_group(format!("x{0}y{1}", series.settings.x_axis, series.settings.y_axis))
+            .legend_group_title(LegendGroupTitle::new().text(series.settings.legend_group_title.as_ref().unwrap_or(&series.settings.name)))
+    }
+}
+
+impl<X,Y> TraceExt for Box<Bar<X,Y>> where X: Clone + Serialize, Y: Clone + Serialize {
+    fn apply_settings(self, series: &FlatSeries) -> Self {
+        self.name(&series.settings.name)
+            .x_axis(&series.settings.x_axis)
+            .y_axis(&series.settings.y_axis)
+            .legend_group(format!("x{0}y{1}", series.settings.x_axis, series.settings.y_axis))
+            .legend_group_title(LegendGroupTitle::new().text(series.settings.legend_group_title.as_ref().unwrap_or(&series.settings.name)))
+    }
+}
+
+impl<X,Y> TraceExt for Box<BoxPlot<X,Y>> where X: Clone + Serialize, Y: Clone + Serialize {
+    fn apply_settings(self, series: &FlatSeries) -> Self {
+        self.name(&series.settings.name)
+            .x_axis(&series.settings.x_axis)
+            .y_axis(&series.settings.y_axis)
+            .legend_group(format!("x{0}y{1}", series.settings.x_axis, series.settings.y_axis))
+            .legend_group_title(LegendGroupTitle::new().text(series.settings.legend_group_title.as_ref().unwrap_or(&series.settings.name)))
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -83,17 +128,6 @@ impl ChartOutput {
         Ok(())
     }
 
-    pub(crate) fn build_line(series: &FlatSeries) -> Line {
-        let mut line = Line::new();
-        if let Some(line_style) = &series.settings.line_style {
-            line = line.dash(line_style.into());
-        }
-        if let Some(line_colour) = &series.settings.line_colour {
-            line = line.color(line_colour.to_string());
-        }
-        line
-    }
-
     fn build_scalar_x_axis<T>(&self, data: &[Option<T>]) -> Vec<f64> {
         self.chart
             .x_axis
@@ -103,7 +137,12 @@ impl ChartOutput {
             .collect::<Vec<_>>()
     }
 
-    pub(crate) fn build_scalar_trace(
+    /// Builds a trace composed from a single scalar value over the x-axis.
+    /// 
+    /// # Arguments
+    /// - series: Source of series settings
+    /// - data: Slice of optional values.
+    fn build_scalar_trace(
         &self,
         series: &FlatSeries,
         data: &[Option<f64>],
@@ -112,13 +151,18 @@ impl ChartOutput {
         let y_axis = data.iter().flatten().copied().collect::<Vec<_>>();
         match &series.settings.series_type {
             SeriesType::Scatter(scatter_type) => Scatter::new(x_axis, y_axis)
-                .line(Self::build_line(series))
                 .mode(scatter_type.into())
-                .name(&series.settings.name),
-            SeriesType::Bar => Bar::new(x_axis, y_axis).name(&series.settings.name),
+                .apply_settings(series),
+            SeriesType::Bar => Bar::new(x_axis, y_axis)
+                .apply_settings(series),
         }
     }
 
+    /// Builds a trace composed from a scalar value over the x-axis as well as a symmetric error band.
+    /// 
+    /// # Arguments
+    /// - series: Source of series settings
+    /// - data: Slice of optional pairs of the form `(value, error_value)`.
     pub(crate) fn build_scalar_with_errors_trace(
         &self,
         series: &FlatSeries,
@@ -127,18 +171,23 @@ impl ChartOutput {
         let x_axis = self.build_scalar_x_axis(data);
         let y_axis = data.iter().flatten().map(|x| x.0).collect::<Vec<_>>();
         let band = data.iter().flatten().map(|x| x.1).collect::<Vec<_>>();
+        let error_y = ErrorData::new(ErrorType::Data).array(band).thickness(0.5);
         match &series.settings.series_type {
             SeriesType::Scatter(scatter_type) => Scatter::new(x_axis, y_axis)
-                .line(Self::build_line(series))
-                .name(&series.settings.name)
                 .mode(scatter_type.into())
-                .error_y(ErrorData::new(ErrorType::Data).array(band)),
+                .error_y(error_y)
+                .apply_settings(series),
             SeriesType::Bar => Bar::new(x_axis, y_axis)
-                .error_y(ErrorData::new(ErrorType::Data).array(band))
-                .name(&series.settings.name),
+                .error_y(error_y)
+                .apply_settings(series),
         }
     }
 
+    /// Builds a trace [TODO]
+    /// 
+    /// # Arguments
+    /// - series: Source of series settings
+    /// - data: FIXME: TODO
     pub(crate) fn build_group_trace(
         &self,
         series: &FlatSeries,
@@ -160,20 +209,25 @@ impl ChartOutput {
             .unzip::<_, _, Vec<_>, Vec<_>>();
 
         BoxPlot::new_xy(x_axis, y_axis)
-            .name(&series.settings.name)
             .box_points(BoxPoints::All)
             .jitter(10.0)
             .hover_text_array(hover_text)
             .box_mean(BoxMean::True)
+            .apply_settings(series)
     }
 
+    /// Builds a trace [TODO]
+    /// 
+    /// # Arguments
+    /// - series: Source of series settings
+    /// - data: FIXME: TODO
     pub(crate) fn build_histograms_trace(
         &self,
         series: &FlatSeries,
         data: &[HistogramWithBands],
     ) -> Vec<Box<dyn Trace>> {
         data.iter()
-            .map(|histogram: &HistogramWithBands| {
+            .map(|histogram| {
                 let mut error_y = ErrorData::new(ErrorType::Data).thickness(0.5);
                 if let Some((upper, lower)) = histogram.bands.as_ref() {
                     error_y = error_y
@@ -182,11 +236,8 @@ impl ChartOutput {
                         .array_minus(lower.clone())
                 }
                 let scatter = Scatter::new(histogram.labels.clone(), histogram.central.clone())
-                    .line(Self::build_line(series))
-                    .x_axis(&series.settings.x_axis)
-                    .y_axis(&series.settings.y_axis)
-                    .name(&series.settings.name)
-                    .error_y(error_y);
+                    .error_y(error_y)
+                    .apply_settings(series);
 
                 match &series.settings.series_type {
                     SeriesType::Scatter(scatter_type) => {
@@ -212,7 +263,6 @@ impl ChartOutput {
             Some(MetricOutputSeries::Histograms(data)) => self.build_histograms_trace(series, data),
             None => vec![
                 Scatter::<f64, f64>::new(Default::default(), Default::default())
-                    .line(Self::build_line(series))
                     .name(format!("{} - values missing.", series.settings.name)),
             ],
         }
@@ -220,18 +270,29 @@ impl ChartOutput {
 
     pub(crate) fn build_graph(&self) -> Plot {
         let mut plot: Plot = Plot::new();
+        //let y_axis_methods = [Layout::y_axis, Layout::y_axis2, Layout::y_axis3, Layout::y_axis4, Layout::y_axis5];
         let layout = Layout::new()
             .title(&self.chart.settings.title)
             .mode_bar(ModeBar::new())
             .show_legend(true)
             .auto_size(true)
             .x_axis(Axis::new().title(&self.chart.settings.x_axis_label))
+            .x_axis2(Axis::new().title(&self.chart.settings.x_axis_label))
+            .x_axis3(Axis::new().title(&self.chart.settings.x_axis_label))
             .y_axis(Axis::new().title(&self.chart.settings.y_axis_label))
+            .y_axis2(Axis::new().title(&self.chart.settings.y_axis_label))
+            .y_axis3(Axis::new().title(&self.chart.settings.y_axis_label))
+            .legend(Legend::new()
+                .y_anchor(Anchor::Top)
+                .group_click(GroupClick::ToggleItem)
+                .trace_order(TraceOrder::Grouped)
+            )
             .grid(LayoutGrid::new()
                 .columns(self.chart.settings.num_cols)
                 .rows(self.chart.settings.num_rows)
-                .pattern(GridPattern::Independent),
-            );
+                .pattern(GridPattern::Coupled),
+            )
+            .height((self.chart.settings.num_rows + 1)*240);
 
         plot.set_layout(layout);
 

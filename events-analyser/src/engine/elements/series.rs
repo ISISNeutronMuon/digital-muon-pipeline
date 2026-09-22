@@ -25,6 +25,8 @@ pub(crate) struct SeriesBasicSettings {
     pub(crate) line_style: Option<DashStyle>,
     /// Whether to display the series as a bar chart (if applicable).
     pub(crate) series_type: SeriesType,
+    /// If present, the title used to group series together.
+    pub(crate) legend_group_title: Option<String>,
     /// The name of the x-axis to plot the series on.
     pub(crate) x_axis: String,
     /// The name of the y-axis to plot the series on.
