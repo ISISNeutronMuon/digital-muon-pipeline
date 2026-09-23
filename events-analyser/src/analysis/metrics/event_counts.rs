@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct PartialEventCount {
-    num: usize,
     topic: usize,
     count: HashMap<Channel, SumWithSumOfSqrs>,
 }
@@ -25,7 +24,6 @@ impl PartialMetricResultBucket for PartialEventCount {
 
     fn make_default(source: &FlatMetricEventCount) -> Self {
         Self {
-            num: Default::default(),
             topic: source.topic,
             count: Default::default(),
         }
@@ -38,7 +36,6 @@ impl PartialMetricResultBucket for PartialEventCount {
         channel: Channel,
         collection_by_topic: &ChannelDataByTopic,
     ) {
-        self.num += 1;
         let data = collection_by_topic
             .get(self.topic)
             .expect("Topic should exist, this should never fail.");
