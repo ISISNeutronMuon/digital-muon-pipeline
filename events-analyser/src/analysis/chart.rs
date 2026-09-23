@@ -31,7 +31,11 @@ trait TraceExt {
     fn apply_settings(self, series: &FlatSeries) -> Self;
 }
 
-impl<X,Y> TraceExt for Box<Scatter<X,Y>> where X: Clone + Serialize, Y: Clone + Serialize {
+impl<X, Y> TraceExt for Box<Scatter<X, Y>>
+where
+    X: Clone + Serialize,
+    Y: Clone + Serialize,
+{
     fn apply_settings(self, series: &FlatSeries) -> Self {
         let mut line = Line::new();
         if let Some(line_style) = &series.settings.line_style {
@@ -45,28 +49,69 @@ impl<X,Y> TraceExt for Box<Scatter<X,Y>> where X: Clone + Serialize, Y: Clone + 
             .line(line)
             .x_axis(&series.settings.x_axis)
             .y_axis(&series.settings.y_axis)
-            .legend_group(format!("x{0}y{1}", series.settings.x_axis, series.settings.y_axis))
-            .legend_group_title(LegendGroupTitle::new().text(series.settings.legend_group_title.as_ref().unwrap_or(&series.settings.name)))
+            .legend_group(format!(
+                "x{0}y{1}",
+                series.settings.x_axis, series.settings.y_axis
+            ))
+            .legend_group_title(
+                LegendGroupTitle::new().text(
+                    series
+                        .settings
+                        .legend_group_title
+                        .as_ref()
+                        .unwrap_or(&series.settings.name),
+                ),
+            )
     }
 }
 
-impl<X,Y> TraceExt for Box<Bar<X,Y>> where X: Clone + Serialize, Y: Clone + Serialize {
+impl<X, Y> TraceExt for Box<Bar<X, Y>>
+where
+    X: Clone + Serialize,
+    Y: Clone + Serialize,
+{
     fn apply_settings(self, series: &FlatSeries) -> Self {
         self.name(&series.settings.name)
             .x_axis(&series.settings.x_axis)
             .y_axis(&series.settings.y_axis)
-            .legend_group(format!("x{0}y{1}", series.settings.x_axis, series.settings.y_axis))
-            .legend_group_title(LegendGroupTitle::new().text(series.settings.legend_group_title.as_ref().unwrap_or(&series.settings.name)))
+            .legend_group(format!(
+                "x{0}y{1}",
+                series.settings.x_axis, series.settings.y_axis
+            ))
+            .legend_group_title(
+                LegendGroupTitle::new().text(
+                    series
+                        .settings
+                        .legend_group_title
+                        .as_ref()
+                        .unwrap_or(&series.settings.name),
+                ),
+            )
     }
 }
 
-impl<X,Y> TraceExt for Box<BoxPlot<X,Y>> where X: Clone + Serialize, Y: Clone + Serialize {
+impl<X, Y> TraceExt for Box<BoxPlot<X, Y>>
+where
+    X: Clone + Serialize,
+    Y: Clone + Serialize,
+{
     fn apply_settings(self, series: &FlatSeries) -> Self {
         self.name(&series.settings.name)
             .x_axis(&series.settings.x_axis)
             .y_axis(&series.settings.y_axis)
-            .legend_group(format!("x{0}y{1}", series.settings.x_axis, series.settings.y_axis))
-            .legend_group_title(LegendGroupTitle::new().text(series.settings.legend_group_title.as_ref().unwrap_or(&series.settings.name)))
+            .legend_group(format!(
+                "x{0}y{1}",
+                series.settings.x_axis, series.settings.y_axis
+            ))
+            .legend_group_title(
+                LegendGroupTitle::new().text(
+                    series
+                        .settings
+                        .legend_group_title
+                        .as_ref()
+                        .unwrap_or(&series.settings.name),
+                ),
+            )
     }
 }
 
@@ -88,8 +133,7 @@ impl ChartOutput {
             .iter()
             .map(|series: &FlatSeries| {
                 let metric = metrics.get(series.metric).expect("This should never fail");
-                match metric.get_property(series.from_bucket_block, series.property.clone())
-                {
+                match metric.get_property(series.from_bucket_block, series.property.clone()) {
                     Ok(value) => Ok(Some(value)),
                     Err(MetricResultError::Fitting(FittingError::NoValue)) => Ok(None),
                     Err(e) => Err(e),
@@ -137,28 +181,23 @@ impl ChartOutput {
     }
 
     /// Builds a trace composed from a single scalar value over the x-axis.
-    /// 
+    ///
     /// # Arguments
     /// - series: Source of series settings
     /// - data: Slice of optional values.
-    fn build_scalar_trace(
-        &self,
-        series: &FlatSeries,
-        data: &[Option<f64>],
-    ) -> Box<dyn Trace> {
+    fn build_scalar_trace(&self, series: &FlatSeries, data: &[Option<f64>]) -> Box<dyn Trace> {
         let x_axis = self.build_scalar_x_axis(data);
         let y_axis = data.iter().flatten().copied().collect::<Vec<_>>();
         match &series.settings.series_type {
             SeriesType::Scatter(scatter_type) => Scatter::new(x_axis, y_axis)
                 .mode(scatter_type.into())
                 .apply_settings(series),
-            SeriesType::Bar => Bar::new(x_axis, y_axis)
-                .apply_settings(series),
+            SeriesType::Bar => Bar::new(x_axis, y_axis).apply_settings(series),
         }
     }
 
     /// Builds a trace composed from a scalar value over the x-axis as well as a symmetric error band.
-    /// 
+    ///
     /// # Arguments
     /// - series: Source of series settings
     /// - data: Slice of optional pairs of the form `(value, error_value)`.
@@ -183,7 +222,7 @@ impl ChartOutput {
     }
 
     /// Builds a trace [TODO]
-    /// 
+    ///
     /// # Arguments
     /// - series: Source of series settings
     /// - data: FIXME: TODO
@@ -216,7 +255,7 @@ impl ChartOutput {
     }
 
     /// Builds a trace [TODO]
-    /// 
+    ///
     /// # Arguments
     /// - series: Source of series settings
     /// - data: FIXME: TODO
@@ -281,17 +320,19 @@ impl ChartOutput {
             .y_axis(Axis::new().title(&self.chart.settings.y_axis_label))
             .y_axis2(Axis::new().title(&self.chart.settings.y_axis_label))
             .y_axis3(Axis::new().title(&self.chart.settings.y_axis_label))
-            .legend(Legend::new()
-                .y_anchor(Anchor::Top)
-                .group_click(GroupClick::ToggleItem)
-                .trace_order(TraceOrder::Grouped)
+            .legend(
+                Legend::new()
+                    .y_anchor(Anchor::Top)
+                    .group_click(GroupClick::ToggleItem)
+                    .trace_order(TraceOrder::Grouped),
             )
-            .grid(LayoutGrid::new()
-                .columns(self.chart.settings.num_cols)
-                .rows(self.chart.settings.num_rows)
-                .pattern(GridPattern::Coupled),
+            .grid(
+                LayoutGrid::new()
+                    .columns(self.chart.settings.num_cols)
+                    .rows(self.chart.settings.num_rows)
+                    .pattern(GridPattern::Coupled),
             )
-            .height((self.chart.settings.num_rows + 1)*240);
+            .height((self.chart.settings.num_rows + 1) * 240);
 
         plot.set_layout(layout);
 

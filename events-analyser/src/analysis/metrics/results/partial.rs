@@ -7,8 +7,8 @@ use crate::{
             muon_lifetime::PartialMuonLifetime,
             pulse_height_spectra::PartialPulseHeightSpectra,
             results::{
-                CompleteMetricResultBucket, MetricResultBucket, MetricResultByBucket, MetricResultError,
-                complete::CompletedMetricResult,
+                CompleteMetricResultBucket, MetricResultBucketWrapper, MetricResultByBucket,
+                MetricResultError, complete::CompletedMetricResult,
             },
         },
     },
@@ -35,7 +35,7 @@ pub(crate) trait PartialMetricResultBucket: Clone + Serialize + DeserializeOwned
     );
 }
 
-impl<C> MetricResultBucket<C>
+impl<C> MetricResultBucketWrapper<C>
 where
     C: PartialMetricResultBucket,
 {
@@ -60,8 +60,11 @@ where
     /// Create aggregated version of this type.
     pub(crate) fn aggregate(
         &self,
-    ) -> Result<MetricResultBucket<C::Complete>, <C::Complete as CompleteMetricResultBucket>::Error> {
-        Ok(MetricResultBucket {
+    ) -> Result<
+        MetricResultBucketWrapper<C::Complete>,
+        <C::Complete as CompleteMetricResultBucket>::Error,
+    > {
+        Ok(MetricResultBucketWrapper {
             num_messages: self.num_messages,
             object: C::Complete::aggregate(self)?,
         })
@@ -69,7 +72,8 @@ where
 }
 
 impl<C> MetricResultByBucket<C>
-where C: PartialMetricResultBucket,
+where
+    C: PartialMetricResultBucket,
     MetricResultError:
         From<<<C as PartialMetricResultBucket>::Complete as CompleteMetricResultBucket>::Error>,
 {
@@ -81,7 +85,7 @@ where C: PartialMetricResultBucket,
     pub(super) fn new(source: C::Source, bucket_block_sizes: &[usize]) -> Self {
         let by_bucket = bucket_block_sizes
             .iter()
-            .map(|size| vec![MetricResultBucket::<C>::new(&source); *size])
+            .map(|size| vec![MetricResultBucketWrapper::<C>::new(&source); *size])
             .collect::<Vec<_>>();
         Self { by_bucket }
     }
@@ -104,7 +108,7 @@ where C: PartialMetricResultBucket,
     ///
     /// # Parameters
     /// - bucket_index: the bucket to obtain.
-    fn get_bucket_mut(&mut self, bucket_index: BucketIndex) -> &mut MetricResultBucket<C> {
+    fn get_bucket_mut(&mut self, bucket_index: BucketIndex) -> &mut MetricResultBucketWrapper<C> {
         self.by_bucket
             .get_mut(bucket_index.block_index)
             .expect("Block index should be valid, this should never fail")
@@ -113,7 +117,7 @@ where C: PartialMetricResultBucket,
     }
 
     /// Adds data to the metric, pushing it to the given bucket index.
-    /// 
+    ///
     /// # Parameters
     /// - bucket_index: the bucket to push to.
     pub(super) fn push(
@@ -131,7 +135,7 @@ where C: PartialMetricResultBucket,
                 .push(waveform, algorithm, channel, by_topic);
         }
     }
-    
+
     /// Loads the results from an external source.
     pub(crate) fn load_data(&mut self, source: &Self) {
         for (bucket, source_bucket) in Iterator::zip(
@@ -153,7 +157,7 @@ where C: PartialMetricResultBucket,
                 .iter()
                 .map(|by| {
                     by.iter()
-                        .map(MetricResultBucket::aggregate)
+                        .map(MetricResultBucketWrapper::aggregate)
                         .collect::<Result<_, _>>()
                 })
                 .collect::<Result<_, _>>()?,

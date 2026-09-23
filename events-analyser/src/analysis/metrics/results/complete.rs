@@ -23,7 +23,7 @@ pub(crate) trait CompleteMetricResultBucket: Clone + Serialize + DeserializeOwne
     /// Type which specifies a particular property of the metric.
     type Property: Clone;
 
-    /// Creates an instance of this object by aggregating the results from a partial results object. 
+    /// Creates an instance of this object by aggregating the results from a partial results object.
     fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error>;
     /// Extract a particular property of the results.
     fn get_property(&self, property: Self::Property) -> Result<MetricOutput, Self::Error>;

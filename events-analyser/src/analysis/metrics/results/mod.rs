@@ -10,15 +10,17 @@ use thiserror::Error;
 pub(crate) use complete::{CompleteMetricResultBucket, CompletedMetricResult};
 pub(crate) use partial::{PartialMetricResult, PartialMetricResultBucket};
 
+/// Encapulates an object implementing `MetricResultBucket`, as well as
+/// the number of messages that have been pushed to it.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct MetricResultBucket<C> {
+pub(crate) struct MetricResultBucketWrapper<C> {
     /// Number of messages stored in this bucket.
     pub(crate) num_messages: usize,
     /// Underlying results storage object.
     pub(crate) object: C,
 }
 
-impl<C> Deref for MetricResultBucket<C> {
+impl<C> Deref for MetricResultBucketWrapper<C> {
     type Target = C;
 
     fn deref(&self) -> &Self::Target {
@@ -35,7 +37,7 @@ where
 {
     /// Metric results are stored by bucket and bucket block, that is the
     /// inner and outer `Vec`` is bucket and bucket block respectively.
-    by_bucket: Vec<Vec<MetricResultBucket<C>>>,
+    by_bucket: Vec<Vec<MetricResultBucketWrapper<C>>>,
 }
 
 #[derive(Debug, Error)]
