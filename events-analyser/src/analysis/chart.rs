@@ -88,8 +88,7 @@ impl ChartOutput {
             .iter()
             .map(|series: &FlatSeries| {
                 let metric = metrics.get(series.metric).expect("This should never fail");
-                match metric
-                    .get_aggregate_property(series.from_bucket_block, series.property.clone())
+                match metric.get_property(series.from_bucket_block, series.property.clone())
                 {
                     Ok(value) => Ok(Some(value)),
                     Err(MetricResultError::Fitting(FittingError::NoValue)) => Ok(None),

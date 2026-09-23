@@ -6,23 +6,30 @@ use crate::{
         muon_lifetime::CompletedMuonLifetime,
         output::MetricOutputSeries,
         pulse_height_spectra::CompletedPulseHeightSpectra,
-        results::{MetricResultByBucket, PartialMetricResultClass},
+        results::{MetricResultByBucket, PartialMetricResultBucket},
     },
     engine::PropertyOfMetric,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tracing::error;
 
-pub(crate) trait CompleteMetricResultClass: Clone + Serialize + DeserializeOwned {
-    type Partial: PartialMetricResultClass<Complete = Self>;
+/// Encapsulates the completed results of a metric, aggregated from instances
+/// of objects implementing `PartialMetricResultBucket`.
+pub(crate) trait CompleteMetricResultBucket: Clone + Serialize + DeserializeOwned {
+    /// The corresponding partial results type.
+    type Partial: PartialMetricResultBucket<Complete = Self>;
+    /// Error type.
     type Error: Into<MetricResultError>;
+    /// Type which specifies a particular property of the metric.
     type Property: Clone;
 
+    /// Creates an instance of this object by aggregating the results from a partial results object. 
     fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error>;
+    /// Extract a particular property of the results.
     fn get_property(&self, property: Self::Property) -> Result<MetricOutput, Self::Error>;
 }
 
-impl<C: CompleteMetricResultClass> MetricResultByBucket<C> {
+impl<C: CompleteMetricResultBucket> MetricResultByBucket<C> {
     pub(super) fn get_property(
         &self,
         block: usize,
@@ -41,6 +48,8 @@ impl<C: CompleteMetricResultClass> MetricResultByBucket<C> {
     }
 }
 
+/// Stores the complete results of a metric, arranging the results by bucket.
+/// Each variant wraps a different concrete instance of [MetricResultByBucket].
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum CompletedMetricResult {
     EventCount(MetricResultByBucket<CompletedEventCount>),
@@ -50,7 +59,7 @@ pub(crate) enum CompletedMetricResult {
 }
 
 impl CompletedMetricResult {
-    pub(crate) fn get_aggregate_property(
+    pub(crate) fn get_property(
         &self,
         block: usize,
         property: PropertyOfMetric,

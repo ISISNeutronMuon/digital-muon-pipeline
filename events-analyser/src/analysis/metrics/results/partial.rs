@@ -7,7 +7,7 @@ use crate::{
             muon_lifetime::PartialMuonLifetime,
             pulse_height_spectra::PartialPulseHeightSpectra,
             results::{
-                CompleteMetricResultClass, MetricObject, MetricResultByBucket, MetricResultError,
+                CompleteMetricResultBucket, MetricResultBucket, MetricResultByBucket, MetricResultError,
                 complete::CompletedMetricResult,
             },
         },
@@ -18,9 +18,9 @@ use crate::{
 use digital_muon_common::Channel;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-pub(crate) trait PartialMetricResultClass: Clone + Serialize + DeserializeOwned {
+pub(crate) trait PartialMetricResultBucket: Clone + Serialize + DeserializeOwned {
     type Source;
-    type Complete: CompleteMetricResultClass<Partial = Self>;
+    type Complete: CompleteMetricResultBucket<Partial = Self>;
 
     fn make_default(source: &Self::Source) -> Self;
     fn load_data(&mut self, source: &Self) {
@@ -35,10 +35,11 @@ pub(crate) trait PartialMetricResultClass: Clone + Serialize + DeserializeOwned 
     );
 }
 
-impl<C> MetricObject<C>
+impl<C> MetricResultBucket<C>
 where
-    C: PartialMetricResultClass,
+    C: PartialMetricResultBucket,
 {
+    /// Create a new and empty partial results storage object.
     pub(crate) fn new(source: &C::Source) -> Self {
         Self {
             num_messages: Default::default(),
@@ -46,28 +47,31 @@ where
         }
     }
 
+    /// Tests whether the bucket has enough data to be aggregrated.
     pub(crate) fn is_bucket_full_enough(&self, bucket: &FlatBucket) -> bool {
         self.num_messages >= bucket.limits.min
     }
 
+    /// Increate message count.
     pub(crate) fn increment_count(&mut self) {
         self.num_messages += 1;
     }
 
+    /// Create aggregated version of this type.
     pub(crate) fn aggregate(
         &self,
-    ) -> Result<MetricObject<C::Complete>, <C::Complete as CompleteMetricResultClass>::Error> {
-        Ok(MetricObject {
+    ) -> Result<MetricResultBucket<C::Complete>, <C::Complete as CompleteMetricResultBucket>::Error> {
+        Ok(MetricResultBucket {
             num_messages: self.num_messages,
             object: C::Complete::aggregate(self)?,
         })
     }
 }
 
-impl<C: PartialMetricResultClass> MetricResultByBucket<C>
-where
+impl<C> MetricResultByBucket<C>
+where C: PartialMetricResultBucket,
     MetricResultError:
-        From<<<C as PartialMetricResultClass>::Complete as CompleteMetricResultClass>::Error>,
+        From<<<C as PartialMetricResultBucket>::Complete as CompleteMetricResultBucket>::Error>,
 {
     /// Create new instance from a `Source` instance and a list of the number of buckets in each block.
     ///
@@ -77,7 +81,7 @@ where
     pub(super) fn new(source: C::Source, bucket_block_sizes: &[usize]) -> Self {
         let by_bucket = bucket_block_sizes
             .iter()
-            .map(|size| vec![MetricObject::<C>::new(&source); *size])
+            .map(|size| vec![MetricResultBucket::<C>::new(&source); *size])
             .collect::<Vec<_>>();
         Self { by_bucket }
     }
@@ -96,7 +100,22 @@ where
             .all(|(store_object, bucket)| store_object.is_bucket_full_enough(bucket))
     }
 
+    /// Obtain a mutable reference to the bucket specified by the given index.
+    ///
+    /// # Parameters
+    /// - bucket_index: the bucket to obtain.
+    fn get_bucket_mut(&mut self, bucket_index: BucketIndex) -> &mut MetricResultBucket<C> {
+        self.by_bucket
+            .get_mut(bucket_index.block_index)
+            .expect("Block index should be valid, this should never fail")
+            .get_mut(bucket_index.bucket_index)
+            .expect("Bucket index should be valid, this should never fail")
+    }
+
     /// Adds data to the metric, pushing it to the given bucket index.
+    /// 
+    /// # Parameters
+    /// - bucket_index: the bucket to push to.
     pub(super) fn push(
         &mut self,
         waveform: &FlatWaveform,
@@ -104,13 +123,7 @@ where
         bucket_index: BucketIndex,
         collection: &ChannelCollection,
     ) {
-        let partial_metric_result = self
-            .by_bucket
-            .get_mut(bucket_index.block_index)
-            .expect("Block index should be valid, this should never fail")
-            .get_mut(bucket_index.bucket_index)
-            .expect("Bucket index should be valid, this should never fail");
-
+        let partial_metric_result = self.get_bucket_mut(bucket_index);
         partial_metric_result.increment_count();
         for (&channel, by_topic) in collection.iter() {
             partial_metric_result
@@ -118,10 +131,21 @@ where
                 .push(waveform, algorithm, channel, by_topic);
         }
     }
+    
+    /// Loads the results from an external source.
+    pub(crate) fn load_data(&mut self, source: &Self) {
+        for (bucket, source_bucket) in Iterator::zip(
+            self.by_bucket.iter_mut().flatten(),
+            source.by_bucket.iter().flatten(),
+        ) {
+            bucket.num_messages = source_bucket.num_messages;
+            bucket.object.load_data(&source_bucket.object);
+        }
+    }
 
     pub(super) fn aggregate(
         &self,
-    ) -> Result<MetricResultByBucket<C::Complete>, <C::Complete as CompleteMetricResultClass>::Error>
+    ) -> Result<MetricResultByBucket<C::Complete>, <C::Complete as CompleteMetricResultBucket>::Error>
     {
         Ok(MetricResultByBucket {
             by_bucket: self
@@ -129,7 +153,7 @@ where
                 .iter()
                 .map(|by| {
                     by.iter()
-                        .map(MetricObject::aggregate)
+                        .map(MetricResultBucket::aggregate)
                         .collect::<Result<_, _>>()
                 })
                 .collect::<Result<_, _>>()?,
@@ -137,7 +161,8 @@ where
     }
 }
 
-/// Each variant wraps a different concrete instance of [MetricResultStore].
+/// Stores the partial results of a metric, arranging the results by bucket.
+/// Each variant wraps a different concrete instance of [MetricResultByBucket].
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum PartialMetricResult {
     /// Descriptive statistics on the count of events.

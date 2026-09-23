@@ -2,7 +2,7 @@ use crate::{
     analysis::metrics::{
         MetricOutput, MetricResultError,
         output::HistogramWithBands,
-        results::{CompleteMetricResultClass, PartialMetricResultClass},
+        results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{Histogram, SumWithSumOfSqrs},
     },
     engine::{
@@ -25,7 +25,7 @@ pub(crate) struct PartialPulseHeightSpectra {
     histogram: HashMap<Channel, Histogram>,
 }
 
-impl PartialMetricResultClass for PartialPulseHeightSpectra {
+impl PartialMetricResultBucket for PartialPulseHeightSpectra {
     type Source = FlatMetricPulseHeightSpectra;
     type Complete = CompletedPulseHeightSpectra;
 
@@ -80,7 +80,7 @@ pub(crate) struct CompletedPulseHeightSpectra {
     lower: Vec<f64>,
 }
 
-impl CompleteMetricResultClass for CompletedPulseHeightSpectra {
+impl CompleteMetricResultBucket for CompletedPulseHeightSpectra {
     type Partial = PartialPulseHeightSpectra;
     type Error = MetricResultError;
     type Property = PulseHeightSpectraProperty;

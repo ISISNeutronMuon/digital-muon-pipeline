@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     analysis::metrics::{
         MetricOutput, MetricResultError,
-        results::{CompleteMetricResultClass, PartialMetricResultClass},
+        results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{MeanSD, SumWithSumOfSqrs},
     },
     engine::{EventCountProperty, FlatAlgorithm, FlatMetricEventCount, FlatWaveform},
@@ -19,7 +19,7 @@ pub(crate) struct PartialEventCount {
     count: HashMap<Channel, SumWithSumOfSqrs>,
 }
 
-impl PartialMetricResultClass for PartialEventCount {
+impl PartialMetricResultBucket for PartialEventCount {
     type Source = FlatMetricEventCount;
     type Complete = CompletedEventCount;
 
@@ -55,7 +55,7 @@ pub(crate) struct CompletedEventCount {
     total_count: MeanSD,
 }
 
-impl CompleteMetricResultClass for CompletedEventCount {
+impl CompleteMetricResultBucket for CompletedEventCount {
     type Partial = PartialEventCount;
     type Error = MetricResultError;
     type Property = EventCountProperty;

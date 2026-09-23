@@ -1,7 +1,7 @@
 use crate::{
     analysis::metrics::{
         MetricOutput, MetricResultError,
-        results::{CompleteMetricResultClass, PartialMetricResultClass},
+        results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{GroupDataBy, MeanSD, SumWithSumOfSqrs},
     },
     engine::{FalseCountProperty, FlatAlgorithm, FlatMetricFalseCount, FlatWaveform},
@@ -73,7 +73,7 @@ pub(crate) struct PartialFalseCount {
     channels: HashMap<Channel, FalseCountValues<SumWithSumOfSqrs>>,
 }
 
-impl PartialMetricResultClass for PartialFalseCount {
+impl PartialMetricResultBucket for PartialFalseCount {
     type Source = FlatMetricFalseCount;
     type Complete = CompletedFalseCount;
 
@@ -154,7 +154,7 @@ pub(crate) struct CompletedFalseCount {
     total: FalseCountValues<MeanSD>,
 }
 
-impl CompleteMetricResultClass for CompletedFalseCount {
+impl CompleteMetricResultBucket for CompletedFalseCount {
     type Partial = PartialFalseCount;
     type Error = MetricResultError;
     type Property = FalseCountProperty;

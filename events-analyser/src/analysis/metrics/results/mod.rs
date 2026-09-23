@@ -7,22 +7,18 @@ use crate::analysis::metrics::FittingError;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
-pub(crate) use complete::{CompleteMetricResultClass, CompletedMetricResult};
-pub(crate) use partial::{PartialMetricResult, PartialMetricResultClass};
-
-/// Type which stores metric results by bucket within a block.
-type BucketStore<C> = Vec<C>;
-
-/// Type which stores metric results by bucket block.
-type BucketBlockStore<C> = Vec<BucketStore<MetricObject<C>>>;
+pub(crate) use complete::{CompleteMetricResultBucket, CompletedMetricResult};
+pub(crate) use partial::{PartialMetricResult, PartialMetricResultBucket};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct MetricObject<C> {
+pub(crate) struct MetricResultBucket<C> {
+    /// Number of messages stored in this bucket.
     pub(crate) num_messages: usize,
+    /// Underlying results storage object.
     pub(crate) object: C,
 }
 
-impl<C> Deref for MetricObject<C> {
+impl<C> Deref for MetricResultBucket<C> {
     type Target = C;
 
     fn deref(&self) -> &Self::Target {
@@ -30,30 +26,16 @@ impl<C> Deref for MetricObject<C> {
     }
 }
 
-/// A generic type which stores
+/// A generic type which stores results of a metric by bucket.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(bound = "C: Serialize + DeserializeOwned")]
 pub(crate) struct MetricResultByBucket<C>
 where
     C: Clone + Serialize + DeserializeOwned,
 {
-    /// Metric results storage by bucket block and bucket.
-    by_bucket: BucketBlockStore<C>,
-}
-
-impl<C> MetricResultByBucket<C>
-where
-    C: PartialMetricResultClass,
-{
-    pub(crate) fn load_data(&mut self, source: &Self) {
-        for (bucket, source_bucket) in Iterator::zip(
-            self.by_bucket.iter_mut().flatten(),
-            source.by_bucket.iter().flatten(),
-        ) {
-            bucket.num_messages = source_bucket.num_messages;
-            bucket.object.load_data(&source_bucket.object);
-        }
-    }
+    /// Metric results are stored by bucket and bucket block, that is the
+    /// inner and outer `Vec`` is bucket and bucket block respectively.
+    by_bucket: Vec<Vec<MetricResultBucket<C>>>,
 }
 
 #[derive(Debug, Error)]
