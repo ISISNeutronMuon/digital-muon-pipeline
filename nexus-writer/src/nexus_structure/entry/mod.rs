@@ -5,19 +5,18 @@ mod period;
 mod runlog;
 mod sample;
 mod selog;
+mod user;
 
 use super::{NexusGroup, NexusMessageHandler, NexusSchematic};
 use crate::{
-    hdf5_handlers::{DatasetExt, GroupExt, HasAttributesExt, NexusHDF5Result},
-    nexus::{DATETIME_FORMAT, DatasetUnitExt, NexusClass, NexusUnits},
-    run_engine::{
+    hdf5_handlers::{DatasetExt, GroupExt, HasAttributesExt, NexusHDF5Result}, nexus::{DATETIME_FORMAT, DatasetUnitExt, NexusClass, NexusUnits}, nexus_structure::entry::user::User, run_engine::{
         ChunkSizeSettings, RunParameters, RunStopParameters,
         run_messages::{
             InitialiseNewNexusRun, InitialiseNewNexusStructure, PushAlarm, PushFrameEventList,
             PushInternallyGeneratedLogWarning, PushRunLog, PushRunStart, PushSampleEnvironmentLog,
             SetEndTime, UpdatePeriodList,
         },
-    },
+    }
 };
 use chrono::Utc;
 use event_data::EventData;
@@ -50,6 +49,7 @@ mod labels {
     pub(super) const SELOGS: &str = "selog";
     pub(super) const SAMPLE: &str = "sample";
     pub(super) const DETECTOR_1: &str = "detector_1_events";
+    pub(super) const USER_1: &str = "user_1";
 }
 
 // Values of Nexus Constant
@@ -96,6 +96,8 @@ pub(crate) struct Entry {
     periods: NexusGroup<Period>,
     /// Details of the sample under investigation.
     _sample: NexusGroup<Sample>,
+    /// Details of a representative user.
+    _user_1: NexusGroup<User>,
 
     /// Container for log(s) of sample environment parameters, that may be specific to each experiment.
     selogs: NexusGroup<SELog>,
@@ -160,6 +162,7 @@ impl NexusSchematic for Entry {
             periods: Period::build_new_group(group, labels::PERIODS, &settings.period)?,
             selogs: SELog::build_new_group(group, labels::SELOGS, &())?,
             _sample: Sample::build_new_group(group, labels::SAMPLE, settings)?,
+            _user_1: User::build_new_group(group, labels::USER_1, &())?,
             detector_1: EventData::build_new_group(
                 group,
                 labels::DETECTOR_1,
@@ -186,6 +189,7 @@ impl NexusSchematic for Entry {
         let instrument = Instrument::open_group(group, labels::INSTRUMENT)?;
         let periods = Period::open_group(group, labels::PERIODS)?;
         let _sample = Sample::open_group(group, labels::SAMPLE)?;
+        let _user_1 = User::open_group(group, labels::USER_1)?;
 
         let run_logs = RunLog::open_group(group, labels::RUNLOGS)?;
         let selogs = SELog::open_group(group, labels::SELOGS)?;
@@ -207,6 +211,7 @@ impl NexusSchematic for Entry {
             experiment_identifier,
             run_logs,
             _sample,
+            _user_1,
             instrument,
             periods,
             detector_1,
@@ -255,7 +260,8 @@ impl NexusMessageHandler<InitialiseNewNexusStructure<'_>> for Entry {
         self.run_number
             .set_scalar(&extract_run_number(&parameters.run_name)?)?;
 
-        self.experiment_identifier.set_string("")?;
+        // FIXME: Change default value.
+        self.experiment_identifier.set_string("RB0000001")?;
 
         self.program_name.add_constant_string_attribute(
             labels::PROGRAM_NAME_CONFIGURATION,
@@ -268,7 +274,8 @@ impl NexusMessageHandler<InitialiseNewNexusStructure<'_>> for Entry {
         self.end_time.set_string("")?;
 
         self.name.set_string(&parameters.run_name)?;
-        self.title.set_string("")?;
+        // FIXME: Change default value.
+        self.title.set_string("Default Title (sample, temperature and field)")?;
 
         self.detector_1
             .handle_message(&InitialiseNewNexusRun { parameters })?;
@@ -332,7 +339,6 @@ impl NexusMessageHandler<PushInternallyGeneratedLogWarning<'_>> for Entry {
 impl NexusMessageHandler<SetEndTime<'_>> for Entry {
     fn handle_message(&mut self, message: &SetEndTime<'_>) -> NexusHDF5Result<()> {
         let end_time = message.end_time.format(DATETIME_FORMAT).to_string();
-
         self.end_time.set_string(&end_time)
     }
 }

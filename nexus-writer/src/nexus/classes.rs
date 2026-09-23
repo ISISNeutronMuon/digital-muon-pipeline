@@ -42,6 +42,9 @@ pub(crate) enum NexusClass {
     /// The nexus class for the `Source` group structure.
     #[strum(to_string = "NXsource")]
     Source,
+    /// The nexus class for the `Source` group structure.
+    #[strum(to_string = "NXuser")]
+    User,
     /// The nexus class for the `Sample` group structure.
     #[strum(to_string = "NXsample")]
     Sample,
