@@ -38,7 +38,7 @@ impl PartialMetricResultClass for PartialMuonLifetime {
     fn make_default(source: &FlatMetricMuonLifetime) -> Self {
         Self {
             source: source.clone(),
-            histogram: Default::default(), //Histogram::new(source.num_bins, &source.interval),
+            histogram: Default::default()
         }
     }
 
