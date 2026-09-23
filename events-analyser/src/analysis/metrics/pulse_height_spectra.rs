@@ -99,7 +99,7 @@ impl CompleteMetricResultClass for CompletedPulseHeightSpectra {
         let mut upper = vec![0.0; labels.len()];
         let mut lower = vec![f64::MAX; labels.len()];
 
-        // Gather muta iterators of all the above vectors together (along with the index) and convert them to a convenient tuple form.
+        // Gather mut iterators of all the above vectors together (along with the index) and convert them to a convenient tuple form.
         let zipped_iterators = sum
             .iter_mut()
             .enumerate()
