@@ -9,7 +9,9 @@ use plotly::{
     Bar, BoxPlot, Layout, Plot, Scatter, Trace,
     box_plot::{BoxMean, BoxPoints},
     common::{ErrorData, ErrorType, LegendGroupTitle, Line},
-    layout::{Axis, GridPattern, GroupClick, ItemClick, LayoutGrid, Legend, ModeBar, TraceOrder, VAlign},
+    layout::{
+        Axis, GridPattern, GroupClick, ItemClick, LayoutGrid, Legend, ModeBar, TraceOrder, VAlign,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::{fs::File, path::Path};
@@ -344,22 +346,52 @@ impl ChartOutput {
         if let Some(height) = &self.chart.settings.height {
             layout = layout.height((self.chart.settings.num_rows + 1) * height);
         }
-        
+
         // Apply x- and y-axes settings.
-        const X_AXIS_METHODS: [fn(Layout, Axis) -> Layout; 8] = [Layout::x_axis, Layout::x_axis2, Layout::x_axis3, Layout::x_axis4, Layout::x_axis5, Layout::x_axis6, Layout::x_axis7, Layout::x_axis8];
-        const Y_AXIS_METHODS: [fn(Layout, Axis) -> Layout; 8] = [Layout::y_axis, Layout::y_axis2, Layout::y_axis3, Layout::y_axis4, Layout::y_axis5, Layout::y_axis6, Layout::y_axis7, Layout::y_axis8];
-        layout = X_AXIS_METHODS.iter()
-            .take(self.chart.settings.num_rows*self.chart.settings.num_cols)
+        const X_AXIS_METHODS: [fn(Layout, Axis) -> Layout; 8] = [
+            Layout::x_axis,
+            Layout::x_axis2,
+            Layout::x_axis3,
+            Layout::x_axis4,
+            Layout::x_axis5,
+            Layout::x_axis6,
+            Layout::x_axis7,
+            Layout::x_axis8,
+        ];
+        const Y_AXIS_METHODS: [fn(Layout, Axis) -> Layout; 8] = [
+            Layout::y_axis,
+            Layout::y_axis2,
+            Layout::y_axis3,
+            Layout::y_axis4,
+            Layout::y_axis5,
+            Layout::y_axis6,
+            Layout::y_axis7,
+            Layout::y_axis8,
+        ];
+        layout = X_AXIS_METHODS
+            .iter()
+            .take(self.chart.settings.num_rows * self.chart.settings.num_cols)
             .enumerate()
-            .fold(layout, |layout, (index, x_axis)|
-                x_axis(layout, Axis::new().title(&self.chart.settings.x_axis_label).anchor(format!("y{}", index + 1)))
-            );
-        layout = Y_AXIS_METHODS.iter()
-            .take(self.chart.settings.num_rows*self.chart.settings.num_cols)
+            .fold(layout, |layout, (index, x_axis)| {
+                x_axis(
+                    layout,
+                    Axis::new()
+                        .title(&self.chart.settings.x_axis_label)
+                        .anchor(format!("y{}", index + 1)),
+                )
+            });
+        layout = Y_AXIS_METHODS
+            .iter()
+            .take(self.chart.settings.num_rows * self.chart.settings.num_cols)
             .enumerate()
-            .fold(layout, |layout, (index, y_axis)|
-                y_axis(layout, Axis::new().title(&self.chart.settings.y_axis_label).anchor(format!("x{}", index + 1)))
-            );
+            .fold(layout, |layout, (index, y_axis)| {
+                y_axis(
+                    layout,
+                    Axis::new()
+                        .title(&self.chart.settings.y_axis_label)
+                        .anchor(format!("x{}", index + 1)),
+                )
+            });
         layout
     }
 
