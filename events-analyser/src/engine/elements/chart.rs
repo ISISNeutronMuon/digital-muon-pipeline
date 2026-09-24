@@ -41,6 +41,14 @@ pub(crate) struct ChartBasicSettings {
     pub(crate) num_rows: usize,
     /// Number of columns the chart layout grid.
     pub(crate) num_cols: usize,
+    /// Number of columns the chart layout grid.
+    pub(crate) width: Option<usize>,
+    /// Width of each graph in this chart.
+    pub(crate) height: Option<usize>,
+    /// Horizontal space between graphs in this chart as a proportion of the width.
+    pub(crate) x_gap_fraction: Option<f64>,
+    /// Vertical space between graphs in this chart as a proportion of the height.
+    pub(crate) y_gap_fraction: Option<f64>,
 }
 
 /// Defines a chart that can be written as a graphical chart, or as a json structure.

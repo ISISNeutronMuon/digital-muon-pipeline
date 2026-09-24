@@ -8,8 +8,8 @@ use crate::{
 use plotly::{
     Bar, BoxPlot, Layout, Plot, Scatter, Trace,
     box_plot::{BoxMean, BoxPoints},
-    common::{Anchor, ErrorData, ErrorType, LegendGroupTitle, Line},
-    layout::{Axis, GridPattern, GroupClick, LayoutGrid, Legend, ModeBar, TraceOrder},
+    common::{ErrorData, ErrorType, LegendGroupTitle, Line},
+    layout::{Axis, GridPattern, GroupClick, ItemClick, LayoutGrid, Legend, ModeBar, TraceOrder, VAlign},
 };
 use serde::{Deserialize, Serialize};
 use std::{fs::File, path::Path};
@@ -201,7 +201,7 @@ impl ChartOutput {
     /// # Arguments
     /// - series: Source of series settings
     /// - data: Slice of optional pairs of the form `(value, error_value)`.
-    pub(crate) fn build_scalar_with_errors_trace(
+    fn build_scalar_with_errors_trace(
         &self,
         series: &FlatSeries,
         data: &[Option<(f64, f64)>],
@@ -226,7 +226,7 @@ impl ChartOutput {
     /// # Arguments
     /// - series: Source of series settings
     /// - data: FIXME: TODO
-    pub(crate) fn build_group_trace(
+    fn build_box_plot_trace(
         &self,
         series: &FlatSeries,
         data: &[Option<Vec<(f64, String)>>],
@@ -259,7 +259,7 @@ impl ChartOutput {
     /// # Arguments
     /// - series: Source of series settings
     /// - data: FIXME: TODO
-    pub(crate) fn build_histograms_trace(
+    fn build_histograms_trace(
         &self,
         series: &FlatSeries,
         data: &[HistogramWithBands],
@@ -297,7 +297,7 @@ impl ChartOutput {
             Some(MetricOutputSeries::WithErrors(data)) => {
                 vec![self.build_scalar_with_errors_trace(series, data)]
             }
-            Some(MetricOutputSeries::Group(data)) => vec![self.build_group_trace(series, data)],
+            Some(MetricOutputSeries::Group(data)) => vec![self.build_box_plot_trace(series, data)],
             Some(MetricOutputSeries::Histograms(data)) => self.build_histograms_trace(series, data),
             None => vec![
                 Scatter::<f64, f64>::new(Default::default(), Default::default())
@@ -306,35 +306,66 @@ impl ChartOutput {
         }
     }
 
-    pub(crate) fn build_graph(&self) -> Plot {
-        let mut plot: Plot = Plot::new();
-        //let y_axis_methods = [Layout::y_axis, Layout::y_axis2, Layout::y_axis3, Layout::y_axis4, Layout::y_axis5];
-        let layout = Layout::new()
+    fn build_grid(&self) -> LayoutGrid {
+        let mut grid = LayoutGrid::new()
+            .columns(self.chart.settings.num_cols)
+            .rows(self.chart.settings.num_rows)
+            .pattern(GridPattern::Coupled);
+        if let Some(x_gap_fraction) = &self.chart.settings.x_gap_fraction {
+            grid = grid.x_gap(*x_gap_fraction);
+        }
+        if let Some(y_gap_fraction) = &self.chart.settings.y_gap_fraction {
+            grid = grid.y_gap(*y_gap_fraction);
+        }
+        grid
+    }
+
+    fn build_legend(&self) -> Legend {
+        Legend::new()
+            .item_click(ItemClick::Toggle)
+            .item_double_click(ItemClick::ToggleOthers)
+            .group_click(GroupClick::ToggleItem)
+            .trace_order(TraceOrder::Grouped)
+            .trace_group_gap(self.chart.settings.height.unwrap_or(100))
+            .valign(VAlign::Middle)
+    }
+
+    fn build_layout(&self) -> Layout {
+        let mut layout = Layout::new()
             .title(&self.chart.settings.title)
             .mode_bar(ModeBar::new())
             .show_legend(true)
             .auto_size(true)
-            .x_axis(Axis::new().title(&self.chart.settings.x_axis_label))
-            .x_axis2(Axis::new().title(&self.chart.settings.x_axis_label))
-            .x_axis3(Axis::new().title(&self.chart.settings.x_axis_label))
-            .y_axis(Axis::new().title(&self.chart.settings.y_axis_label))
-            .y_axis2(Axis::new().title(&self.chart.settings.y_axis_label))
-            .y_axis3(Axis::new().title(&self.chart.settings.y_axis_label))
-            .legend(
-                Legend::new()
-                    .y_anchor(Anchor::Top)
-                    .group_click(GroupClick::ToggleItem)
-                    .trace_order(TraceOrder::Grouped),
-            )
-            .grid(
-                LayoutGrid::new()
-                    .columns(self.chart.settings.num_cols)
-                    .rows(self.chart.settings.num_rows)
-                    .pattern(GridPattern::Coupled),
-            )
-            .height((self.chart.settings.num_rows + 1) * 240);
+            .legend(self.build_legend())
+            .grid(self.build_grid());
+        if let Some(width) = &self.chart.settings.width {
+            layout = layout.width((self.chart.settings.num_cols + 1) * width);
+        }
+        if let Some(height) = &self.chart.settings.height {
+            layout = layout.height((self.chart.settings.num_rows + 1) * height);
+        }
+        
+        // Apply x- and y-axes settings.
+        const X_AXIS_METHODS: [fn(Layout, Axis) -> Layout; 8] = [Layout::x_axis, Layout::x_axis2, Layout::x_axis3, Layout::x_axis4, Layout::x_axis5, Layout::x_axis6, Layout::x_axis7, Layout::x_axis8];
+        const Y_AXIS_METHODS: [fn(Layout, Axis) -> Layout; 8] = [Layout::y_axis, Layout::y_axis2, Layout::y_axis3, Layout::y_axis4, Layout::y_axis5, Layout::y_axis6, Layout::y_axis7, Layout::y_axis8];
+        layout = X_AXIS_METHODS.iter()
+            .take(self.chart.settings.num_rows*self.chart.settings.num_cols)
+            .enumerate()
+            .fold(layout, |layout, (index, x_axis)|
+                x_axis(layout, Axis::new().title(&self.chart.settings.x_axis_label).anchor(format!("y{}", index + 1)))
+            );
+        layout = Y_AXIS_METHODS.iter()
+            .take(self.chart.settings.num_rows*self.chart.settings.num_cols)
+            .enumerate()
+            .fold(layout, |layout, (index, y_axis)|
+                y_axis(layout, Axis::new().title(&self.chart.settings.y_axis_label).anchor(format!("x{}", index + 1)))
+            );
+        layout
+    }
 
-        plot.set_layout(layout);
+    pub(crate) fn build_graph(&self) -> Plot {
+        let mut plot = Plot::new();
+        plot.set_layout(self.build_layout());
 
         // Using `fold`` rather than `for` as this fixes some compiler type-checking issues.
         let add_traces = |mut plot: Plot, (series, series_data): (_, &Option<_>)| {
