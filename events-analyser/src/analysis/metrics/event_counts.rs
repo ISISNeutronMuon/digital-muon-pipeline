@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     analysis::metrics::{
         MetricOutput, MetricResultError,
-        results::{CompleteMetricResultClass, PartialMetricResultClass},
+        results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{MeanSD, SumWithSumOfSqrs},
     },
     engine::{EventCountProperty, FlatAlgorithm, FlatMetricEventCount, FlatWaveform},
@@ -14,18 +14,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct PartialEventCount {
-    num: usize,
     topic: usize,
     count: HashMap<Channel, SumWithSumOfSqrs>,
 }
 
-impl PartialMetricResultClass for PartialEventCount {
+impl PartialMetricResultBucket for PartialEventCount {
     type Source = FlatMetricEventCount;
     type Complete = CompletedEventCount;
 
     fn make_default(source: &FlatMetricEventCount) -> Self {
         Self {
-            num: Default::default(),
             topic: source.topic,
             count: Default::default(),
         }
@@ -38,7 +36,6 @@ impl PartialMetricResultClass for PartialEventCount {
         channel: Channel,
         collection_by_topic: &ChannelDataByTopic,
     ) {
-        self.num += 1;
         let data = collection_by_topic
             .get(self.topic)
             .expect("Topic should exist, this should never fail.");
@@ -55,7 +52,7 @@ pub(crate) struct CompletedEventCount {
     total_count: MeanSD,
 }
 
-impl CompleteMetricResultClass for CompletedEventCount {
+impl CompleteMetricResultBucket for CompletedEventCount {
     type Partial = PartialEventCount;
     type Error = MetricResultError;
     type Property = EventCountProperty;

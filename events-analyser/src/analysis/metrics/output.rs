@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::analysis::metrics::Histogram;
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum MetricOutputGeneric<V, E, G, H> {
@@ -48,38 +46,9 @@ impl<V1, E1, G1, H1> MetricOutputGeneric<V1, E1, G1, H1> {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct HistogramWithBands {
-    pub(crate) num: f64,
     pub(crate) labels: Vec<f64>,
-    pub(crate) centre: Vec<f64>,
-    pub(crate) upper: Vec<f64>,
-    pub(crate) lower: Vec<f64>,
-}
-
-impl HistogramWithBands {
-    pub(crate) fn new(labels: &[f64]) -> Self {
-        Self {
-            num: 0.0,
-            labels: labels.to_vec(),
-            centre: vec![0.0; labels.len()],
-            upper: vec![0.0; labels.len()],
-            lower: vec![f64::MAX; labels.len()],
-        }
-    }
-
-    pub(crate) fn append(mut self, histogram: &Histogram) -> Self {
-        let zipped_iterators = self
-            .centre
-            .iter_mut()
-            .zip(Iterator::zip(self.upper.iter_mut(), self.lower.iter_mut()))
-            .zip(histogram.get_counts().iter());
-        for ((centre, (upper, lower)), count) in zipped_iterators {
-            *centre = (*centre * self.num + count) / (self.num + 1.0);
-            *upper = upper.max(*count);
-            *lower = lower.min(*count);
-        }
-        self.num += 1.0;
-        self
-    }
+    pub(crate) central: Vec<f64>,
+    pub(crate) bands: Option<(Vec<f64>, Vec<f64>)>,
 }
 
 /// Instance of `MetricOutputGeneric` which holds data derived from a single bucket.

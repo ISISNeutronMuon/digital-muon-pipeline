@@ -16,6 +16,7 @@ use varpro::{
 
 pub(crate) use output::{HistogramWithBands, MetricOutput, MetricOutputSeries};
 pub(crate) use results::{CompletedMetricResult, MetricResultError, PartialMetricResult};
+#[cfg(test)]
 pub(crate) use utils::Histogram;
 
 #[derive(Debug, Error)]

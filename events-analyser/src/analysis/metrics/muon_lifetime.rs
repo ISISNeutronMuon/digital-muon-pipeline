@@ -5,7 +5,7 @@
 use crate::{
     analysis::metrics::{
         FittingError, MetricOutput,
-        results::{CompleteMetricResultClass, PartialMetricResultClass},
+        results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{Histogram, MeanSD},
     },
     engine::{FlatAlgorithm, FlatMetricMuonLifetime, FlatWaveform, MuonLifetimeProperty},
@@ -31,14 +31,14 @@ pub(crate) struct PartialMuonLifetime {
     histogram: HashMap<Channel, Histogram>,
 }
 
-impl PartialMetricResultClass for PartialMuonLifetime {
+impl PartialMetricResultBucket for PartialMuonLifetime {
     type Source = FlatMetricMuonLifetime;
     type Complete = CompletedMuonLifetime;
 
     fn make_default(source: &FlatMetricMuonLifetime) -> Self {
         Self {
             source: source.clone(),
-            histogram: Default::default(), //Histogram::new(source.num_bins, &source.interval),
+            histogram: Default::default(),
         }
     }
 
@@ -172,7 +172,7 @@ impl CompletedMuonLifetime {
     }
 }
 
-impl CompleteMetricResultClass for CompletedMuonLifetime {
+impl CompleteMetricResultBucket for CompletedMuonLifetime {
     type Partial = PartialMuonLifetime;
     type Error = FittingError;
     type Property = MuonLifetimeProperty;
