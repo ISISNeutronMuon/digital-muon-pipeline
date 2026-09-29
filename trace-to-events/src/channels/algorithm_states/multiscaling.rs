@@ -173,7 +173,8 @@ impl AlgorithmState for MultiscalingDetectorState {
         baseline: Real,
     ) -> (Vec<usize>, Vec<Intensity>) {
         self.cache.ensure_cache_lengths(trace.len());
-        self.cache.write_input_values(trace.map(|v| polarity_sign * (v as Real - baseline)));
+        self.cache
+            .write_input_values(trace.map(|v| polarity_sign * (v as Real - baseline)));
 
         // Apply three stages of the pyramid algorithm.
         self.cache.pyramid.build(
@@ -211,7 +212,7 @@ impl AlgorithmState for MultiscalingDetectorState {
                 .get(index)
                 .expect("Element should exist, this should never fail.");
             // Reverse baseline transformation (Assume `polarity_sign`` is 1.0 or -1.0 to use `*` as equivalent to `/`).
-            *val = (value*polarity_sign + baseline) as Intensity;
+            *val = (value * polarity_sign + baseline) as Intensity;
         }
         (index, intensity)
     }

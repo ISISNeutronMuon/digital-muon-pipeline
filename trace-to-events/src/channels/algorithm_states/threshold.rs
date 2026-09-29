@@ -49,7 +49,7 @@ impl AlgorithmState for ThresholdDetectorState {
         for pulse in pulses {
             index.push(pulse.0);
             // Reverse baseline transformation (Assume `polarity_sign`` is 1.0 or -1.0 to use `*` as equivalent to `/`).
-            let intensity = (pulse.1.pulse_height*polarity_sign + baseline) as Intensity;
+            let intensity = (pulse.1.pulse_height * polarity_sign + baseline) as Intensity;
             voltage.push(intensity);
         }
         (index, voltage)
