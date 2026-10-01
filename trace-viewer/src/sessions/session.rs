@@ -63,7 +63,7 @@ impl Session {
     }
 
     #[instrument(skip_all)]
-    pub fn register_results(&mut self, result: SearchResults) {
+    pub(crate) fn register_results(&mut self, result: SearchResults) {
         self.results = Some(result);
     }
 
