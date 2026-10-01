@@ -1,6 +1,3 @@
-use leptos::{logging, prelude::*};
-use leptos_use::use_interval;
-
 use crate::{
     Uuid,
     app::{
@@ -8,6 +5,8 @@ use crate::{
         server_functions::{AwaitSearch, CreateNewSearch, FetchSearchSummaries, RefreshSession},
     },
 };
+use leptos::{logging, prelude::*};
+use leptos_use::use_interval;
 
 /// This struct enable a degree of type-checking for the [use_context]/[use_context] functions.
 /// Any component making use of the following fields should call `use_context::<MainLevelContext>()`
