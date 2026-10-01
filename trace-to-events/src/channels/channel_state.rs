@@ -93,7 +93,7 @@ impl ChannelState {
             .into_iter()
             .map(|x| x as Real);
         self.time.ensure_time_data_written(trace.len(), sample_time);
-        let (indices, intensitices) = match &mut self.algorithm {
+        let (indices, intensities) = match &mut self.algorithm {
             ChannelAlgorithmState::FixedThreshold(state) => {
                 state.find_events(trace, self.polarity_sign, self.baseline)
             }
@@ -109,6 +109,6 @@ impl ChannelState {
         };
         tracing::Span::current().record("num_pulses", indices.len());
         let times = self.time.get_times(indices);
-        (times, intensitices)
+        (times, intensities)
     }
 }

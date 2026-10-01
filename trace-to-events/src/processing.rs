@@ -349,7 +349,7 @@ mod tests {
         );
 
         assert_eq!(
-            vec![8, 8],
+            vec![11, 11],
             event_message.voltage().unwrap().iter().collect::<Vec<_>>()
         );
     }
@@ -396,7 +396,7 @@ mod tests {
         );
 
         assert_eq!(
-            vec![8, 8],
+            vec![2, 2],
             event_message.voltage().unwrap().iter().collect::<Vec<_>>()
         );
     }

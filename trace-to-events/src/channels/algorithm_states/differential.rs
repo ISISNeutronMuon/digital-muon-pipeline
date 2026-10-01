@@ -78,12 +78,14 @@ impl AlgorithmState for DifferentialThresholdDiscriminatorState {
         let mut voltage = Vec::<Intensity>::new();
         for pulse in pulses {
             index.push(pulse.0);
-            voltage.push(match self.peak_height.basis {
-                PeakHeightBasis::TraceBaseline => pulse.1.peak_height as Intensity,
-                PeakHeightBasis::PulseBaseline => {
-                    (pulse.1.peak_height - pulse.1.base_height) as Intensity
+            // Reverse baseline transformation (Assume `polarity_sign`` is 1.0 or -1.0 to use `*` as equivalent to `/`).
+            let intensity = polarity_sign
+                * match self.peak_height.basis {
+                    PeakHeightBasis::TraceBaseline => pulse.1.peak_height,
+                    PeakHeightBasis::PulseBaseline => pulse.1.peak_height - pulse.1.base_height,
                 }
-            });
+                + baseline;
+            voltage.push(intensity as Intensity);
         }
         (index, voltage)
     }
