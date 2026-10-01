@@ -28,6 +28,8 @@ pub async fn get_client_side_data() -> Result<ClientSideData, ServerFnError> {
         .expect("Client-side data should be provided, this should never fail."))
 }
 
+/// Server function which runs an ActionForm with inputs: integer-valued input with name `events_topic_index`,
+/// integer-valued input with name `poll_broker_timeout_ms`.
 #[server]
 #[instrument(skip_all)]
 pub async fn poll_broker(

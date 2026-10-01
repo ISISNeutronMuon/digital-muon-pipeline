@@ -4,6 +4,10 @@ use crate::{
 };
 use leptos::{IntoView, component, either::Either, prelude::*, view};
 
+/// Component containing the output of a broker poll request, that is a summary of the broker's contents.
+/// 
+/// # Parameters
+/// - poll_broker_action: server action which receives the broker summary.
 #[component]
 pub fn DisplayBrokerInfo(poll_broker_action: ServerAction<PollBroker>) -> impl IntoView {
     move || {
@@ -23,6 +27,10 @@ pub fn DisplayBrokerInfo(poll_broker_action: ServerAction<PollBroker>) -> impl I
     }
 }
 
+/// Displays the summary of a broker's contents.
+/// 
+/// # Parameters
+/// - broker_info: the data returned from the poll broker request.
 #[component]
 fn BrokerInfoTable(broker_info: BrokerInfo) -> impl IntoView {
     let date = broker_info
@@ -45,6 +53,11 @@ fn BrokerInfoTable(broker_info: BrokerInfo) -> impl IntoView {
     }
 }
 
+/// Displays the summary of a broker's topic's contents.
+/// 
+/// # Parameters
+/// - name: name of the topic.
+/// - info: the data returned from the poll broker request, pertaining to the particular topic.
 #[component]
 pub fn TopicInfo(name: &'static str, info: BrokerTopicInfo) -> impl IntoView {
     match info.timestamps {

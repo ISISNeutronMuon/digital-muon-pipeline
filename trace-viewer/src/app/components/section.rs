@@ -2,6 +2,8 @@
 use crate::app::components::toggle_closed;
 use leptos::{IntoView, component, prelude::*, view};
 
+/// Closable top-level container which should only contain functionally self-contained components,
+/// i.e. components within each `Section` should not depend on components inside another `Section`.
 #[component]
 pub(crate) fn Section(id: &'static str, text: &'static str, children: Children) -> impl IntoView {
     view! {

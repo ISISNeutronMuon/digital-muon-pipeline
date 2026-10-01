@@ -5,6 +5,7 @@ use crate::app::{
 };
 use leptos::{IntoView, component, prelude::*, view};
 
+/// Top-level section component containing the `Section` which allows the user to run a poll broker request and display the results.
 #[component]
 pub(crate) fn BrokerSection() -> impl IntoView {
     let poll_broker_action = ServerAction::<PollBroker>::new();
