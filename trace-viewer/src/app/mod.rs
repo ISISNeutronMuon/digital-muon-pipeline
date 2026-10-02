@@ -29,6 +29,10 @@ pub(crate) struct TopLevelContext {
     pub(crate) client_side_data: ClientSideData,
 }
 
+/// Creates outermost html tags, the header and body containing the [App] component.
+/// 
+/// # Parameters
+/// - leptos_options: options utilised in some of Leptos's helper tags.
 pub fn shell(leptos_options: LeptosOptions) -> impl IntoView + 'static {
     let public_url = use_context::<ClientSideData>()
         .expect("ClientSideData should be provided, this should never fail.")
@@ -85,7 +89,7 @@ pub fn App() -> impl IntoView {
     }
 }
 
-/// To display if the required page is not found
+/// To display if the required page is not found.
 #[component]
 pub fn NotFound() -> impl IntoView {
     view! {

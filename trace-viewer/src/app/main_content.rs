@@ -13,9 +13,13 @@ use leptos_use::use_interval;
 /// and select the desired field.
 #[derive(Clone)]
 pub(crate) struct MainLevelContext {
+    /// Creates a new search session (should be triggered by the user).
     pub(crate) create_new_search: ServerAction<CreateNewSearch>,
+    /// This should be triggered when [Self::uuid] changes.
     pub(crate) await_search: ServerAction<AwaitSearch>,
+    /// This should be triggered when [Self::uuid] changes and after [Self::await_search] completes.
     pub(crate) fetch_search_search: ServerAction<FetchSearchSummaries>,
+    /// Uuid of the current search session, this should be a derived signal which updates whenever [Self::create_new_search] completes.
     pub(crate) uuid: Signal<Uuid>,
 }
 
