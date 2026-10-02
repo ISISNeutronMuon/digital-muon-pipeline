@@ -22,7 +22,7 @@ pub(crate) fn ResultsSettingsPanel() -> impl IntoView {
 #[component]
 pub(crate) fn ShowSelectedChannelsOnly(by: SearchTargetBy) -> impl IntoView {
     let result_level_context = use_context::<ResultsLevelContext>()
-        .expect("results_settings_node_refs should be provided, this should never fail.");
+        .expect("ResultsLevelContext should be provided, this should never fail.");
 
     match by {
         SearchTargetBy::ByChannels { channels: _ } => Either::Left(view! {

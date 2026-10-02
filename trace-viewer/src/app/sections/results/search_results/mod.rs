@@ -73,22 +73,25 @@ pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView
     }
 }
 
+
 #[component]
 pub(crate) fn SearchSummary() -> impl IntoView {
     let eventlist_topics = use_context::<TopLevelContext>()
-        .expect("")
+        .expect("TopLevelContext should be provided, this should never fail.")
         .client_side_data
         .eventlist_topics;
+
     let SelectTraceLevelContext {
         eventlist_topic_indices,
         target,
         num_results,
         select_trace_index: _,
-    } = use_context::<SelectTraceLevelContext>().expect("");
+    } = use_context::<SelectTraceLevelContext>()
+        .expect("SelectTraceLevelContext should be provided, this should never fail.");
 
     let eventlist_topic_indices = eventlist_topic_indices
         .into_iter()
-        .map(|idx| eventlist_topics.get(idx).expect("").clone())
+        .map(|idx| eventlist_topics.get(idx).expect("Element should exist, this should never fail.").clone())
         .collect::<Vec<_>>();
 
     view! {
