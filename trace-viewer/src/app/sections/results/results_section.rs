@@ -12,6 +12,8 @@ use crate::{
 };
 use leptos::{IntoView, component, prelude::*, view};
 
+/// Top-level section component containing the `Section` which displays the results of a search,
+/// and allows the user to select a particular trace and eventslist to display.
 #[component]
 pub(crate) fn ResultsSection() -> impl IntoView {
     let main_context = use_context::<MainLevelContext>()
@@ -36,6 +38,10 @@ pub(crate) fn ResultsSection() -> impl IntoView {
     }
 }
 
+/// Component containing the search results panel, alongside the panel displaying the selected trace (if one is selected).
+/// 
+/// # Parameters
+/// - search_summary: summary of the search results.
 #[component]
 pub(crate) fn DisplayResults(search_summary: SearchSummary) -> impl IntoView {
     view! {

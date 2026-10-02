@@ -6,6 +6,7 @@ use crate::{
 };
 use leptos::{IntoView, component, either::Either, prelude::*, view};
 
+/// Panel containing settings which control how results of a search are shown.
 #[component]
 pub(crate) fn ResultsSettingsPanel() -> impl IntoView {
     let target = use_context::<SelectTraceLevelContext>()
@@ -19,6 +20,12 @@ pub(crate) fn ResultsSettingsPanel() -> impl IntoView {
     }
 }
 
+/// Checkbox allowing the user to show only those channels specified in the selection criteria,
+/// or all channels in the digitiser messages. This will only display if the search mode is
+/// set to `SearchTargetBy::ByChannels`.
+/// 
+/// # Parameters
+/// - by: the current search mode.
 #[component]
 pub(crate) fn ShowSelectedChannelsOnly(by: SearchTargetBy) -> impl IntoView {
     let result_level_context = use_context::<ResultsLevelContext>()

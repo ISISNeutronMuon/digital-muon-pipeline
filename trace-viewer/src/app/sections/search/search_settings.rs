@@ -3,6 +3,7 @@ use leptos::{IntoView, component, either::EitherOf3, prelude::*, view};
 use std::str::FromStr;
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 
+/// Panel which allows the user to set search criteria.
 #[component]
 pub(crate) fn SearchSettings() -> impl IntoView {
     let search_level_context = use_context::<SearchLevelContext>()
@@ -71,6 +72,11 @@ pub(crate) fn SearchSettings() -> impl IntoView {
     }
 }
 
+/// Displays a list of checkboxes.
+/// 
+/// # Parameters
+/// - name: name of the fieldset encapsulating the checkboxes.
+/// - checkboxes: list of signals, tagged with the checkbox names, which capture the state of the checkboxes.
 #[component]
 pub(crate) fn CheckBoxList(
     name: &'static str,
@@ -101,6 +107,7 @@ pub(crate) enum SearchMode {
     Dragnet,
 }
 
+/// Panel displaying and controlling the `SearchMode` select box.
 #[component]
 pub(crate) fn SearchMode() -> impl IntoView {
     let search_level_context = use_context::<SearchLevelContext>()
@@ -140,6 +147,7 @@ pub(crate) enum SearchBy {
     ByDigitiserIds,
 }
 
+/// Panel displaying and controlling the `SearchBy` select box.
 #[component]
 pub(crate) fn MatchCriteria() -> impl IntoView {
     let search_level_context = use_context::<SearchLevelContext>()
@@ -170,6 +178,7 @@ pub(crate) fn MatchCriteria() -> impl IntoView {
     }
 }
 
+/// Panel displaying and controlling the search criteria controls.
 #[component]
 pub(crate) fn MatchBy() -> impl IntoView {
     let search_level_context = use_context::<SearchLevelContext>()
