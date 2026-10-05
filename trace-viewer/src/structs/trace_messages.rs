@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 pub struct SearchSummary {
     /// Topic from which the events were captured.
     pub eventlist_topic_indices: Vec<usize>,
+    /// Search criteria that was used in this search.
     pub target: SearchTarget,
+    /// List of result summaries.
     pub traces: Vec<TraceSummary>,
 }
 

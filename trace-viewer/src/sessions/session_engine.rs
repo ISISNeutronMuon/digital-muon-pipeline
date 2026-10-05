@@ -12,27 +12,36 @@ use uuid::Uuid;
 /// Encapsulates all run-time settings which are needed by the session engine.
 #[derive(Default, Clone, Debug)]
 pub struct SessionEngineSettings {
+    /// Address of the broker.
     pub broker: String,
+    /// Topics that are available to the search engine.
     pub topics: Topics,
     pub username: Option<String>,
     pub password: Option<String>,
+    /// Kafka consumer group to use.
     pub consumer_group: String,
+    /// TTL of any session.
     pub session_ttl_sec: i64,
 }
 
 #[derive(Default)]
 pub struct SessionEngine {
+    /// Settings for this engine.
     settings: SessionEngineSettings,
+    /// Currently active search sessions, addressed by their Uuid.
     sessions: HashMap<String, Session>,
 }
 
 impl SessionEngine {
+    /// Create new session engine, boxed in an `Arc<Mutex<_>>`.
     pub fn with_arc_mutex(settings: SessionEngineSettings) -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             settings,
             sessions: Default::default(),
         }))
     }
+
+    /// Generate random Uuid for a session key.
     fn generate_key(&self) -> String {
         let mut key = Uuid::new_v4().to_string();
         while self.sessions.contains_key(&key) {
@@ -41,6 +50,11 @@ impl SessionEngine {
         key
     }
 
+    /// Create a new search session.
+    /// 
+    /// # Parameters
+    /// - target: search criteria.
+    /// - events_topic_indices: list of eventlist topics to search on.
     pub fn create_new_search(
         &mut self,
         target: SearchTarget,
@@ -64,20 +78,30 @@ impl SessionEngine {
         Ok(key)
     }
 
+    /// Get a reference to the session with the corresponding uuid.
+    /// 
+    /// # Parameters
+    /// - uuid: the uuid of the desired session.
     pub fn session(&self, uuid: &str) -> Result<&Session, SessionError> {
         self.sessions.get(uuid).ok_or(SessionError::DoesNotExist)
     }
 
+    /// Get a reference to the settings.
     pub fn settings(&self) -> &SessionEngineSettings {
         &self.settings
     }
 
+    /// Get a mutable reference to the session with the corresponding uuid.
+    /// 
+    /// # Parameters
+    /// - uuid: the uuid of the desired session.
     pub fn session_mut(&mut self, uuid: &str) -> Result<&mut Session, SessionError> {
         self.sessions
             .get_mut(uuid)
             .ok_or(SessionError::DoesNotExist)
     }
 
+    /// Delete any expired sessions from the engine.
     #[instrument(skip_all)]
     pub fn purge_expired(&mut self) {
         let dead_uuids: Vec<String> = self
@@ -94,6 +118,12 @@ impl SessionEngine {
         }
     }
 
+    /// Create a thread that owns a copy of an `Arc<Mut<_>>` of the engine, and periodically calls [Self::purge_expired]
+    /// to remove old search sessions.
+    /// 
+    /// # Parameters
+    /// - session_engine: `Arc<Mut<_>>` of the engine to purge.
+    /// - purge_session_interval_sec: how often to run the purge.
     pub fn spawn_purge_task(
         session_engine: Arc<Mutex<Self>>,
         purge_session_interval_sec: u64,
@@ -109,6 +139,12 @@ impl SessionEngine {
         })
     }
 
+
+    /// Poll the broker for a summary of its contents, on both the trace topic and a specified eventlist topic.
+    /// 
+    /// # Parameters
+    /// - poll_broker_timeout_ms: duration in milliseconds at which the request should timeout.
+    /// - events_topic_index: eventlist topic to poll.
     #[instrument(skip_all)]
     pub async fn poll_broker(
         &self,

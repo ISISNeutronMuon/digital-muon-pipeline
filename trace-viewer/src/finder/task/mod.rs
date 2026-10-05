@@ -13,6 +13,7 @@ use tracing::info;
 pub(crate) use binary_by_timestamp::BinarySearchByTimestamp;
 pub(crate) use dragnet::Dragnet;
 
+/// 
 pub(crate) trait TaskClass {}
 
 pub(crate) struct SearchTask<'a, C: TaskClass> {

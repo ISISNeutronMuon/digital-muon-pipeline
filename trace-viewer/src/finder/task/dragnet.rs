@@ -15,6 +15,7 @@ impl<'a> SearchTask<'a, Dragnet> {
     /// Performs a dragnet search, with generic filtering functions.
     /// 
     /// This begins with a binary tree search followed by a search window focussed about the binary tree search result.
+    /// 
     /// # Parameters
     /// - searcher: the topic-specific [Searcher].
     /// - target: timestamp to search for initially.
@@ -70,6 +71,7 @@ impl<'a> SearchTask<'a, Dragnet> {
     /// Performs a dragnet search.
     /// 
     /// This begins with a binary tree search followed by a search window focussed about the binary tree search result.
+    /// 
     /// # Parameters
     /// - target: timestamp to search for initially.
     /// - backstep: number of messages to jump back.

@@ -53,7 +53,6 @@ impl<'a, M> Searcher<'a, M, StreamConsumer> {
     /// - consumer: the broker's consumer to use.
     /// - topic: the topic to search on.
     /// - offset: the offset to search from.
-    /// - send_status: send channel, along which status messages should be sent.
     #[instrument(skip_all)]
     pub(crate) fn new(
         consumer: &'a StreamConsumer,

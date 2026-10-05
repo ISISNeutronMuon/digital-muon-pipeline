@@ -17,6 +17,7 @@ impl TaskClass for BinarySearchByTimestamp {}
 
 impl<'a> SearchTask<'a, BinarySearchByTimestamp> {
     /// Performs a binary tree search on a given topic, with generic filtering functions.
+    /// 
     /// # Parameters
     /// - searcher: the topic-specific [Searcher].
     /// - target: the [Timestamp] to aim for.
@@ -77,6 +78,7 @@ impl<'a> SearchTask<'a, BinarySearchByTimestamp> {
     }
 
     /// Performs a binary tree search.
+    /// 
     /// # Parameters
     /// - target: what to search for.
     /// - by: what criteria to match on.
