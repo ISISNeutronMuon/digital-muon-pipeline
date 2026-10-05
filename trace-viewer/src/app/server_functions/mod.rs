@@ -3,7 +3,7 @@ mod errors;
 mod plotly;
 mod search;
 
-use crate::structs::{BrokerInfo, ClientSideData};
+use crate::structs::BrokerInfo;
 use cfg_if::cfg_if;
 use leptos::prelude::*;
 use tracing::instrument;
@@ -18,14 +18,6 @@ cfg_if! {
 
         pub(crate) use errors::{SessionError, ServerError};
     }
-}
-
-#[server]
-#[instrument(skip_all)]
-pub async fn get_client_side_data() -> Result<ClientSideData, ServerFnError> {
-    // The mutex should be in scope to apply a lock.
-    Ok(use_context::<ClientSideData>()
-        .expect("Client-side data should be provided, this should never fail."))
 }
 
 /// Server function which runs an ActionForm with inputs: integer-valued input with name `events_topic_index`,
