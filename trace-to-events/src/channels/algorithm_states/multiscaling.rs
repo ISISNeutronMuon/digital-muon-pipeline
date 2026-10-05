@@ -173,7 +173,8 @@ impl AlgorithmState for MultiscalingDetectorState {
         baseline: Real,
     ) -> (Vec<usize>, Vec<Intensity>) {
         self.cache.ensure_cache_lengths(trace.len());
-        self.cache.write_input_values(trace);
+        self.cache
+            .write_input_values(trace.map(|v| polarity_sign * (v as Real - baseline)));
 
         // Apply three stages of the pyramid algorithm.
         self.cache.pyramid.build(
@@ -192,25 +193,26 @@ impl AlgorithmState for MultiscalingDetectorState {
         // Pass the smoothed trace on to the method.
         let (index, mut intensity) = match &mut self.method_state {
             MultiscalingMethodAlgorithmState::FixedThreshold(state) => {
-                state.find_events(smoothed_trace, polarity_sign, baseline)
+                state.find_events(smoothed_trace, 1.0, 0.0)
             }
             MultiscalingMethodAlgorithmState::DifferentialThreshold(state) => {
-                state.find_events(smoothed_trace, polarity_sign, baseline)
+                state.find_events(smoothed_trace, 1.0, 0.0)
             }
             MultiscalingMethodAlgorithmState::Smoothing(state) => {
-                state.find_events(smoothed_trace, polarity_sign, baseline)
+                state.find_events(smoothed_trace, 1.0, 0.0)
             }
         };
         // Set the intensity to the trace value corresponding to the index.
         // The intensity output from the underlying method is potentially inaccurate
         // due to the enhance and muliply stages of the processessing phase.
         for (&index, val) in index.iter().zip(intensity.iter_mut()) {
-            *val = *self
+            let value = self
                 .cache
                 .input_values
                 .get(index)
-                .expect("Element should exist, this should never fail.")
-                as Intensity
+                .expect("Element should exist, this should never fail.");
+            // Reverse baseline transformation (Assume `polarity_sign`` is 1.0 or -1.0 to use `*` as equivalent to `/`).
+            *val = (value * polarity_sign + baseline) as Intensity;
         }
         (index, intensity)
     }

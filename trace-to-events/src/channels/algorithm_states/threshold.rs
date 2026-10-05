@@ -48,7 +48,9 @@ impl AlgorithmState for ThresholdDetectorState {
         let mut voltage = Vec::<Intensity>::new();
         for pulse in pulses {
             index.push(pulse.0);
-            voltage.push(pulse.1.pulse_height as Intensity);
+            // Reverse baseline transformation (Assume `polarity_sign`` is 1.0 or -1.0 to use `*` as equivalent to `/`).
+            let intensity = (pulse.1.pulse_height * polarity_sign + baseline) as Intensity;
+            voltage.push(intensity);
         }
         (index, voltage)
     }
