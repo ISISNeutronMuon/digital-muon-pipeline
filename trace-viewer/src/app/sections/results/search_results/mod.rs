@@ -19,6 +19,11 @@ use std::collections::BTreeMap;
 
 type TraceSummariesByTime = Vec<(String, Vec<TraceSummary>)>;
 
+/// Takes a list of `TraceSummaries` and sorts them by date and time, and groups them into summaries of the same date.
+/// Each group is tagged by its date, and each `TraceSummary` is stritagged by its time.
+///
+/// # Parameters
+/// - trace_summaries: collection of `TraceSummary` to sort and group.
 fn sort_trace_summaries(trace_summaries: Vec<TraceSummary>) -> Vec<(String, TraceSummariesByTime)> {
     let mut trace_by_date_and_time = BTreeMap::<String, BTreeMap<String, Vec<TraceSummary>>>::new();
 
@@ -42,12 +47,20 @@ fn sort_trace_summaries(trace_summaries: Vec<TraceSummary>) -> Vec<(String, Trac
 /// and select the desired field.
 #[derive(Clone)]
 struct SelectTraceLevelContext {
+    /// Indexed list of the eventlist topics to search on.
     eventlist_topic_indices: Vec<usize>,
+    /// The current search criteria.
     target: SearchTarget,
+    /// The maximum number of results to return.
     num_results: usize,
+    /// The currently selected trace index and channel (or `None` if none is selected).
     select_trace_index: RwSignal<Option<SelectedTraceIndex>>,
 }
 
+/// Shows the results of a search as a summary and allows the user to select a trace and eventlist pair to display.
+///
+/// # Parameters
+/// - search_summary: summary of the search results.
 #[component]
 pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView {
     provide_context(SelectTraceLevelContext {
@@ -73,22 +86,30 @@ pub(crate) fn SearchResultsPanel(search_summary: SearchSummary) -> impl IntoView
     }
 }
 
+/// Container summarising the results of a search.
 #[component]
 pub(crate) fn SearchSummary() -> impl IntoView {
     let eventlist_topics = use_context::<TopLevelContext>()
-        .expect("")
+        .expect("TopLevelContext should be provided, this should never fail.")
         .client_side_data
         .eventlist_topics;
+
     let SelectTraceLevelContext {
         eventlist_topic_indices,
         target,
         num_results,
         select_trace_index: _,
-    } = use_context::<SelectTraceLevelContext>().expect("");
+    } = use_context::<SelectTraceLevelContext>()
+        .expect("SelectTraceLevelContext should be provided, this should never fail.");
 
     let eventlist_topic_indices = eventlist_topic_indices
         .into_iter()
-        .map(|idx| eventlist_topics.get(idx).expect("").clone())
+        .map(|idx| {
+            eventlist_topics
+                .get(idx)
+                .expect("Element should exist, this should never fail.")
+                .clone()
+        })
         .collect::<Vec<_>>();
 
     view! {
@@ -130,6 +151,11 @@ pub(crate) fn SearchSummary() -> impl IntoView {
     }
 }
 
+/// Container grouping search results by date.
+///
+/// # Parameters
+/// - date: the date of the group.
+/// - trace_summaries_by_time: list of trace summaries, grouped and tagged by their time.
 #[component]
 fn SearchResultsByDate(
     date: String,
@@ -149,6 +175,13 @@ fn SearchResultsByDate(
     }
 }
 
+/// Container grouping search results by time (ignoring date).
+///
+/// Usage of this component assumes all traces have already been grouped by date.
+///
+/// # Parameters
+/// - time: the time of the group.
+/// - trace_summaries: list of trace summaries.
 #[component]
 fn SearchResultsByTime(time: String, mut trace_summaries: Vec<TraceSummary>) -> impl IntoView {
     trace_summaries.sort_by(|summary1, summary2| {

@@ -3,6 +3,7 @@ use leptos::{IntoView, component, either::EitherOf3, prelude::*, view};
 use std::str::FromStr;
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 
+/// Panel which allows the user to set search criteria.
 #[component]
 pub(crate) fn SearchSettings() -> impl IntoView {
     let search_level_context = use_context::<SearchLevelContext>()
@@ -71,6 +72,11 @@ pub(crate) fn SearchSettings() -> impl IntoView {
     }
 }
 
+/// Displays a list of checkboxes.
+///
+/// # Parameters
+/// - name: name of the fieldset encapsulating the checkboxes.
+/// - checkboxes: list of signals, tagged with the checkbox names, which capture the state of the checkboxes.
 #[component]
 pub(crate) fn CheckBoxList(
     name: &'static str,
@@ -101,10 +107,11 @@ pub(crate) enum SearchMode {
     Dragnet,
 }
 
+/// Panel displaying and controlling the `SearchMode` select box.
 #[component]
 pub(crate) fn SearchMode() -> impl IntoView {
     let search_level_context = use_context::<SearchLevelContext>()
-        .expect("search_broker_node_refs should be provided, this should never fail.");
+        .expect("SearchLevelContext should be provided, this should never fail.");
 
     let search_mode = search_level_context.search_mode;
 
@@ -140,10 +147,11 @@ pub(crate) enum SearchBy {
     ByDigitiserIds,
 }
 
+/// Panel displaying and controlling the `SearchBy` select box.
 #[component]
 pub(crate) fn MatchCriteria() -> impl IntoView {
     let search_level_context = use_context::<SearchLevelContext>()
-        .expect("search_broker_node_refs should be provided, this should never fail.");
+        .expect("SearchLevelContext should be provided, this should never fail.");
 
     let search_by = search_level_context.search_by;
 
@@ -170,10 +178,11 @@ pub(crate) fn MatchCriteria() -> impl IntoView {
     }
 }
 
+/// Panel displaying and controlling the search criteria controls.
 #[component]
 pub(crate) fn MatchBy() -> impl IntoView {
     let search_level_context = use_context::<SearchLevelContext>()
-        .expect("search_broker_node_refs should be provided, this should never fail.");
+        .expect("SearchLevelContext should be provided, this should never fail.");
 
     fn parse_to_list<T: ToString>(list: &[T]) -> String {
         list.iter()
@@ -199,7 +208,7 @@ pub(crate) fn MatchBy() -> impl IntoView {
                 "Channels:"
                 <input class = "panel-item" type = "text" id = "channels"
                     value = move ||parse_to_list(&search_level_context.channels.get())
-                    on:change = move |ev|search_level_context.channels.set(parse_from_list(event_target_value(&ev).parse().expect("msg")))
+                    on:change = move |ev|search_level_context.channels.set(parse_from_list(event_target_value(&ev).parse().expect("List of channels should parse, this should never fail.")))
                 />
             </label>
         }),
@@ -208,7 +217,7 @@ pub(crate) fn MatchBy() -> impl IntoView {
                 "Digitiser IDs:"
                 <input class = "panel-item" type = "text" id = "digitiser-ids"
                     value = move ||parse_to_list(&search_level_context.digitiser_ids.get())
-                    on:change = move |ev|search_level_context.digitiser_ids.set(parse_from_list(event_target_value(&ev).parse().expect("msg")))
+                    on:change = move |ev|search_level_context.digitiser_ids.set(parse_from_list(event_target_value(&ev).parse().expect("List of digitiser ids should parse, this should never fail.")))
                 />
             </label>
         }),

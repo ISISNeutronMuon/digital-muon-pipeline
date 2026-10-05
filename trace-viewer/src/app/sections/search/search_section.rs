@@ -14,6 +14,7 @@ use crate::{
 };
 use leptos::{IntoView, component, prelude::*, view};
 
+/// Top-level section component containing the `Section` which allows the user to set search criteria and control the searching.
 #[component]
 pub(crate) fn SearchSection() -> impl IntoView {
     let client_side_data = use_context::<TopLevelContext>()

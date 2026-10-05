@@ -2,6 +2,9 @@ use crate::app::components::Section;
 use leptos::{IntoView, component, prelude::*, view};
 
 /// This component displays any errors accrued, usually accrued from a call to a server function.
+///
+/// # Parameters
+/// - errors: errors passed to the `fallback` closure in an `<ErrorBoundary>` tag.
 #[component]
 pub(crate) fn DisplayErrors(errors: ArcRwSignal<Errors>) -> impl IntoView {
     view! {

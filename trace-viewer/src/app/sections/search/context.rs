@@ -11,19 +11,34 @@ use leptos::prelude::*;
 /// and select the desired field.
 #[derive(Clone)]
 pub(crate) struct SearchLevelContext {
+    /// Each flag determines whether the corresponding eventlist topic should be searched.
     pub(crate) eventlist_sources: Vec<RwSignal<bool>>,
+    /// The selected `SearchMode`.
     pub(crate) search_mode: RwSignal<SearchMode>,
+    /// The selected `SearchBy` mode.
     pub(crate) search_by: RwSignal<SearchBy>,
+    /// The date criteria search field.
     pub(crate) date: RwSignal<NaiveDate>,
+    /// The time criteria search field.
     pub(crate) time: RwSignal<NaiveTime>,
+    /// The selected channels to search for.
     pub(crate) channels: RwSignal<Vec<Channel>>,
+    /// The selected digitiser ids to search for.
     pub(crate) digitiser_ids: RwSignal<Vec<DigitizerId>>,
+    /// The maximum number of messages to return.
     pub(crate) number: RwSignal<usize>,
+    /// The backstep field (used in `SearchMode::Dragnet`).
     pub(crate) backstep: RwSignal<i64>,
+    /// The forward distance field (used in `SearchMode::Dragnet`).
     pub(crate) forward_distance: RwSignal<usize>,
 }
 
 impl SearchLevelContext {
+    /// Creates new context from the given `DefaultData` and the number of eventlist topics.
+    ///
+    /// # Parameters
+    /// - default_data:
+    /// - num_eventlist_topics
     pub(crate) fn new(default_data: &DefaultData, num_eventlist_topics: usize) -> Self {
         let default_timestamp = default_data.timestamp.unwrap_or_else(Utc::now);
         let default_date = default_timestamp.date_naive();
@@ -53,6 +68,7 @@ impl SearchLevelContext {
         }
     }
 
+    /// Generate timestamp from the date and time fields.
     pub(crate) fn get_timestamp_with_utc(&self) -> Timestamp {
         self.date.get().and_time(self.time.get()).and_utc()
     }

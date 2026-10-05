@@ -10,6 +10,11 @@ use crate::{
 };
 use leptos::{IntoView, component, ev::MouseEvent, prelude::*, view};
 
+/// Allows user to select a channel in a trace message, whose trace and eventlist to display.
+///
+/// # Parameters
+/// - index: the index in the stored traces this panel refers to.
+/// - channels: list of channels that can be selected from.
 #[component]
 pub(super) fn SelectChannels(index: usize, mut channels: Vec<u32>) -> impl IntoView {
     let result_level_context = use_context::<ResultsLevelContext>()
@@ -42,6 +47,10 @@ pub(super) fn SelectChannels(index: usize, mut channels: Vec<u32>) -> impl IntoV
     }
 }
 
+/// Button which selects a particular channel in a trace message.
+///
+/// # Parameters
+/// - this_index_and_channel: the index in the stored traces, and the channel this button refers to.
 #[component]
 fn Channel(this_index_and_channel: SelectedTraceIndex) -> impl IntoView {
     let main_context = use_context::<MainLevelContext>()

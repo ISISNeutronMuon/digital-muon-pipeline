@@ -4,6 +4,7 @@ use crate::{
 };
 use leptos::{IntoView, component, prelude::*, view};
 
+/// Panel which renders a `TracePlotly` if one is selected.
 #[component]
 pub(crate) fn DisplayTrace() -> impl IntoView {
     let create_and_fetch_plotly = use_context::<ResultsLevelContext>()
@@ -23,6 +24,10 @@ pub(crate) fn DisplayTrace() -> impl IntoView {
     }
 }
 
+/// Displays a `TracePlotly` object.
+///
+/// # Parameters
+/// - trace_plotly: the trace and eventlists to render.
 #[component]
 pub(crate) fn DisplayGraph(trace_plotly: TracePlotly) -> impl IntoView {
     let TracePlotly {

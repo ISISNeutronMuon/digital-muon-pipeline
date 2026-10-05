@@ -72,6 +72,9 @@ cfg_if! {
         /// Rust does not allow foreign traits to be implemented on foreign types.
         pub(crate) trait FromMessage<M> {
             /// Performs the same function as [From::from].
+            ///
+            /// # Parameters
+            /// - msg: the source message.
             fn from_message(msg: M) -> Self;
         }
 

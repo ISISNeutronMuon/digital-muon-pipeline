@@ -2,6 +2,7 @@
 use crate::app::TopLevelContext;
 use leptos::{IntoView, component, prelude::*, view};
 
+/// Control and title bar, located above [Main].
 #[component]
 pub(crate) fn TopBar() -> impl IntoView {
     let client_side_data = use_context::<TopLevelContext>()

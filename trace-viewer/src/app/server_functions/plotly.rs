@@ -3,6 +3,13 @@ use cfg_if::cfg_if;
 use leptos::prelude::*;
 use tracing::instrument;
 
+/// From a session specified by the uuid, creates a `TracePlotly` object
+/// from the given index and channel of the session.
+///
+/// # Parameters
+/// - uuid: the uuid of the session.
+/// - index_and_channel: specifies the index of the session's stored trace message,
+/// and the channel of that message to create the `TracePlotly` object.
 #[server]
 #[instrument(skip_all, err(level = "warn"))]
 pub async fn create_and_fetch_plotly(
@@ -63,6 +70,13 @@ cfg_if! {
         const COLOURS: [NamedColor; 6] = [NamedColor::IndianRed, NamedColor::DarkGreen, NamedColor::Indigo, NamedColor::MediumSpringGreen, NamedColor::HotPink, NamedColor::YellowGreen];
         const MARKERS: [MarkerSymbol; 5] = [MarkerSymbol::CircleOpen, MarkerSymbol::SquareOpen, MarkerSymbol::Cross, MarkerSymbol::DiamondOpen, MarkerSymbol::X];
 
+        /// Creates a `TracePlotly` object from the given parameters.
+        ///
+        /// # Parameters
+        /// - metadata: metadata from the trace's parent digitiser message.
+        /// - channel: the channel number of the trace.
+        /// - trace: the raw trace.
+        /// - eventlists: list of eventlists from the selected topics, tagged with the topic names.
         fn create_plotly<'a>(metadata: &DigitiserMetadata, channel: Channel, trace: &'a MuonTrace, eventlists: Vec<(String, &'a EventList)>) -> Result<TracePlotly, ServerFnError> {
             info!("create_plotly_on_server");
 

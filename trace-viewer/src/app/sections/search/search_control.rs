@@ -1,6 +1,7 @@
 use crate::app::{main_content::MainLevelContext, server_functions::CancelSearch};
 use leptos::{IntoView, component, either::Either, prelude::*, view};
 
+/// Panel which allows the user to initiate or cancel a search.
 #[component]
 pub(crate) fn SearchControl() -> impl IntoView {
     let main_context = use_context::<MainLevelContext>()

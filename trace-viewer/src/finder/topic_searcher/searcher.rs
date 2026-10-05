@@ -26,7 +26,7 @@ pub(crate) enum SearcherError {
     EndOfTopicReached,
     #[error("Broker Timed Out")]
     BrokerTimeout,
-    #[error("No valid message found")]
+    #[error("No valid message found: {0}")]
     NoMessageFound(#[from] BorrowedMessageError),
     #[error("Timestamp Conversion Error: {0}")]
     TimestampConversion(#[from] GpsTimeConversionError),
@@ -53,7 +53,6 @@ impl<'a, M> Searcher<'a, M, StreamConsumer> {
     /// - consumer: the broker's consumer to use.
     /// - topic: the topic to search on.
     /// - offset: the offset to search from.
-    /// - send_status: send channel, along which status messages should be sent.
     #[instrument(skip_all)]
     pub(crate) fn new(
         consumer: &'a StreamConsumer,
@@ -120,6 +119,7 @@ impl<'a, M> Searcher<'a, M, StreamConsumer> {
         self.offset
     }
 
+    /// Encapsulates a `StreamConsumer::recv` future in a timeout wrapper.
     #[instrument(skip_all)]
     pub(crate) async fn recv(&self) -> Option<BorrowedMessage<'a>> {
         const FORWARD_ITER_TIMEOUT: Duration = Duration::from_secs(2);
@@ -131,6 +131,7 @@ impl<'a, M> Searcher<'a, M, StreamConsumer> {
             .and_then(Result::ok)
     }
 
+    /// Gets the high and low watermarks of the searcher's topic.
     pub(crate) fn get_current_bounds(&self) -> (i64, i64) {
         const FETCH_WATERMARKS_TIMEOUT: Timeout = Timeout::After(Duration::from_secs(2));
 
@@ -152,6 +153,12 @@ impl<'a, M> Searcher<'a, M, StreamConsumer>
 where
     M: FBMessage<'a>,
 {
+    /// Seeks a message at a particular offset on the topic.
+    ///
+    /// Returns an error if the end of the topic is reacher or the request timesout.
+    ///
+    /// # Parameters
+    /// - offset: the particular offset to seek.
     #[instrument(skip_all, level = "trace", fields(offset=offset, timestamp))]
     pub(crate) async fn message(&mut self, offset: i64) -> Result<M, SearcherError> {
         const SEEK_TIMEOUT: Duration = Duration::from_millis(1);

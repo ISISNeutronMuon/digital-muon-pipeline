@@ -6,6 +6,8 @@ use leptos::prelude::*;
 /// and select the desired field.
 #[derive(Clone)]
 pub(super) struct ResultsLevelContext {
+    /// Server action creating a plotly image when from a given session, stored trace index, and channel.
     pub(super) create_and_fetch_plotly: ServerAction<CreateAndFetchPlotly>,
+    /// Specifies whether only the selected channels, or all channels in a message, should be shown.
     pub(super) selected_channels_only: RwSignal<bool>,
 }

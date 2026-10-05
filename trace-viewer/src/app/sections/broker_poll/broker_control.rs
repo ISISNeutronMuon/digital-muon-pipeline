@@ -1,6 +1,10 @@
 use crate::app::{TopLevelContext, server_functions::PollBroker};
 use leptos::{IntoView, component, html::Input, prelude::*, view};
 
+/// Component containing the controls to begin polling the broker for a summary of its contents.
+///
+/// # Parameters
+/// - poll_broker_action: server action which runs the action form.
 #[component]
 pub fn BrokerPoller(poll_broker_action: ServerAction<PollBroker>) -> impl IntoView {
     let client_side_data = use_context::<TopLevelContext>()
@@ -34,6 +38,12 @@ pub fn BrokerPoller(poll_broker_action: ServerAction<PollBroker>) -> impl IntoVi
     }
 }
 
+/// Generic component which creates a select box, in which each item's value takes its index value.
+///
+/// # Parameters
+/// - name: value of the `<select>` `name` field.
+/// - id: value of the `<select>` `id` field.
+/// - items: the text of each `<option>` given in the order is should appear.
 #[component]
 fn IndexedSelectList(name: String, id: String, items: Vec<String>) -> impl IntoView {
     let items = items.into_iter().enumerate().collect::<Vec<_>>();

@@ -25,6 +25,7 @@
         cargo-deny
 
         # Additional toolchain components for trace-viewer
+        wasm-bindgen-cli
         cargo-leptos
         binaryen
         dart-sass

@@ -13,5 +13,6 @@ pub(crate) use search_results::{Cache, SearchResults};
 /// Encapsulates all run-time settings which are only available to the server.
 #[derive(Default, Clone)]
 pub struct ServerSideData {
+    /// Controls the search sessions.
     pub session_engine: Arc<Mutex<SessionEngine>>,
 }

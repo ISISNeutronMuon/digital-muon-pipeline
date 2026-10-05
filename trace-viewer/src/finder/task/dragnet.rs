@@ -8,11 +8,23 @@ use crate::{
 };
 use rdkafka::consumer::StreamConsumer;
 use tracing::{info, instrument};
+
+/// Allows for the subtype `SearchTask<'a, Dragnet>`.
 pub(crate) struct Dragnet;
 impl TaskClass for Dragnet {}
 
 impl<'a> SearchTask<'a, Dragnet> {
-    /// Performs a binary tree search on a given topic, with generic filtering functions.
+    /// Performs a dragnet search, with generic filtering functions.
+    ///
+    /// This begins with a binary tree search followed by a search window focussed about the binary tree search result.
+    ///
+    /// # Parameters
+    /// - searcher: the topic-specific [Searcher].
+    /// - target: timestamp to search for initially.
+    /// - backstep: number of messages to jump back.
+    /// - forward_distance: how far forwards to search for matching messages.
+    /// - number: the maximum number of results to match.
+    /// - aquire_while: a generic filtering function.
     #[instrument(skip_all)]
     async fn search_topic<M, A>(
         &self,
@@ -33,6 +45,7 @@ impl<'a> SearchTask<'a, Dragnet> {
         if iter.empty() {
             return None;
         }
+
         info!("Beginning Binary Search.");
         loop {
             if iter
@@ -58,10 +71,16 @@ impl<'a> SearchTask<'a, Dragnet> {
         Some((results, timestamps, offset))
     }
 
-    /// Performs a binary tree search.
+    /// Performs a dragnet search.
+    ///
+    /// This begins with a binary tree search followed by a search window focussed about the binary tree search result.
+    ///
     /// # Parameters
-    /// - target: what to search for.
-    /// - by:
+    /// - target: timestamp to search for initially.
+    /// - backstep: number of messages to jump back.
+    /// - forward_distance: how far forwards to search for matching messages.
+    /// - search_by: what criteria to match on.
+    /// - number: the maximum number of results to match.
     #[instrument(skip_all)]
     pub(crate) async fn search(
         self,
