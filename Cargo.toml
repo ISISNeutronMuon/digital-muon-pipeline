@@ -73,4 +73,4 @@ tracing-subscriber = { version = "0.3.23", features = ["std", "fmt", "env-filter
 url = { version = "2.5.7", features = ["serde"] }
 uuid = { version = "1.23", features = ["v4"] }
 varpro = "0.14.0"
-wasm-bindgen = "=0.2.101"
+wasm-bindgen = "=0.2.106"
