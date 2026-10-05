@@ -12,6 +12,7 @@ use tracing::{info, instrument};
 /// Size of each backstep when a target timestamp has been found
 const BACKSTEP_SIZE: i64 = 32; // Todo: should this be a runtime settings?
 
+/// Allows for the subtype `SearchTask<'a, BinarySearchByTimestamp>`.
 pub(crate) struct BinarySearchByTimestamp;
 impl TaskClass for BinarySearchByTimestamp {}
 
@@ -41,6 +42,7 @@ impl<'a> SearchTask<'a, BinarySearchByTimestamp> {
         if iter.empty() {
             return None;
         }
+        
         info!("Beginning Binary Search.");
         loop {
             if iter

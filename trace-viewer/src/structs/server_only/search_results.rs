@@ -53,6 +53,9 @@ impl Cache {
     }
 
     /// Push a trace message to the cache.
+    /// 
+    /// # Parameters
+    /// - msg: the digitiser trace message to push.
     #[tracing::instrument(skip_all)]
     pub(crate) fn push_trace(
         &mut self,
@@ -85,11 +88,16 @@ impl Cache {
         Ok(())
     }
 
+    /// Obtains iterator to the cached traces.
     pub(crate) fn iter(&self) -> btree_map::Iter<'_, DigitiserMetadata, DigitiserTrace> {
         self.traces.iter()
     }
 
     /// Push an event list to the cache, along with the eventlist topic index it belongs to.
+    /// 
+    /// # Parameters
+    /// - topic_index: the index in the known eventlist topic list the message belongs to.
+    /// - msg: the digitiser eventlist message to push.
     #[tracing::instrument(skip_all)]
     pub(crate) fn push_events(
         &mut self,

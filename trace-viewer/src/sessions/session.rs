@@ -16,6 +16,7 @@ pub struct SessionSearchBody {
     pub(crate) cancel_recv: oneshot::Receiver<()>,
 }
 
+/// Encapsulates a session which exists whilst a search is in progress.
 pub struct Session {
     /// Search criteria.
     target: SearchTarget,
@@ -34,7 +35,7 @@ pub struct Session {
 }
 
 impl Session {
-    /// Defaukt time, in minutes, afterwhich the session should expire.
+    /// Default time, in minutes, afterwhich the session should expire.
     const EXPIRE_TIME_MIN: i64 = 10;
 
     /// Create a new search session.

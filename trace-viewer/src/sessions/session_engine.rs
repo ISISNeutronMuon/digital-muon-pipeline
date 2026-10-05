@@ -54,7 +54,7 @@ impl SessionEngine {
     /// 
     /// # Parameters
     /// - target: search criteria.
-    /// - events_topic_indices: list of eventlist topics to search on.
+    /// - events_topic_indices: list of indices specifying the subset of eventlist topics to search on.
     pub fn create_new_search(
         &mut self,
         target: SearchTarget,

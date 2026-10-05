@@ -132,13 +132,19 @@ impl<'a> FBMessage<'a> for TraceMessage<'a> {
 
 /// Wraps a [BorrowedMessage] which is known to resolve to a [DigitizerEventListMessage].
 pub(crate) struct EventListMessage<'a> {
+    /// The underlying borrowed message.
     message: BorrowedMessage<'a>,
+    /// The timestamp of the message.
     timestamp: Timestamp,
+    /// The digitiser id of the message.
     digitiser_id: DigitizerId,
 }
 
 impl<'a> EventListMessage<'a> {
     /// Determine whether this trace message has digitiser id equal to any of the given list.
+    /// 
+    /// # Parameters
+    /// - digitiser_ids: (unordered) slice of possible digitiser ids.
     pub(crate) fn filter_by_digitiser_id(&self, digitiser_ids: &[DigitizerId]) -> bool {
         digitiser_ids.iter().any(|&d: &u8| self.digitiser_id() == d)
     }

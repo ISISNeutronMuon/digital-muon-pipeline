@@ -26,18 +26,26 @@ pub(crate) enum SearchEngineError {
     Kafka(#[from] KafkaError),
 }
 
+/// Controls a single search of the broker, either to poll for a summary of contents
+/// or to find trace and eventlists.
 pub struct SearchEngine {
-    /// The Kafka consumer object, the engine uses to poll for messages.
-    ///
-    /// The object takes temporary ownership of the consumer object,
-    /// if another instance of SearchEngine wants to use it,
-    /// it must be passed to it.
+    /// The Kafka consumer object the engine uses to poll for messages.
     consumer: StreamConsumer,
+    /// The known topics.
     topics: Topics,
+    /// Indices specifying the subset of eventlist topics the engine should search.
     events_topic_indices: Vec<usize>,
 }
 
 impl SearchEngine {
+    /// Creates new search engine.
+    /// 
+    /// There should only be one engine per search session or poll broker call.
+    /// 
+    /// # Parameters
+    /// - consumer: the Kafka consumer object the engine uses to consume messages.
+    /// - topics: Lists of all known topics.
+    /// - events_topic_indices: list of indices specifying the subset of eventlist topics to search on.
     pub fn new(
         consumer: StreamConsumer,
         topics: &Topics,
@@ -50,6 +58,12 @@ impl SearchEngine {
         }
     }
 
+    /// Gets the summary for the given topic.
+    /// 
+    /// # Parameters
+    /// - consumer: the Kafka consumer object the engine uses to consume messages.
+    /// - topic: topic to summarise.
+    /// - poll_broker_timeout_ms: duration in milliseconds, in which the request should be timed out.
     async fn poll_broker_topic_info<'a, M: FBMessage<'a>>(
         consumer: &'a StreamConsumer,
         topic: &str,
@@ -79,6 +93,11 @@ impl SearchEngine {
         }
     }
 
+    /// Execute a poll broker request to obtain a summary of the trace topic and a single eventlist topic.
+    /// 
+    /// # Parameters
+    /// - poll_broker_timeout_ms: duration in milliseconds, in which the request should be timed out.
+    /// - events_topic_index: index of the eventlist topics to summarise.
     #[instrument(skip_all)]
     pub(crate) async fn poll_broker(
         &self,
@@ -111,6 +130,10 @@ impl SearchEngine {
         })
     }
 
+    /// Execute a search of the broker using the given target.
+    /// 
+    /// # Parameters
+    /// - target: the search criteria and settings.
     #[instrument(skip_all)]
     pub(crate) async fn search(
         &mut self,

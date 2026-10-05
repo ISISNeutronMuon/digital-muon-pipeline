@@ -8,6 +8,8 @@ use crate::{
 };
 use rdkafka::consumer::StreamConsumer;
 use tracing::{info, instrument};
+
+/// Allows for the subtype `SearchTask<'a, Dragnet>`.
 pub(crate) struct Dragnet;
 impl TaskClass for Dragnet {}
 
@@ -43,6 +45,7 @@ impl<'a> SearchTask<'a, Dragnet> {
         if iter.empty() {
             return None;
         }
+        
         info!("Beginning Binary Search.");
         loop {
             if iter
