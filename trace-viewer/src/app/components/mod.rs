@@ -15,7 +15,7 @@ pub(crate) use section::Section;
 ///
 /// # Example
 /// `toggle_closed` is used in the following way.
-/// ```rust
+/// ```ignore
 /// view!{
 ///     <div class = "closable-container">
 ///         <div class = "closable-control" on:click:target = move |e| toggle_closed(e.target().parent_element())>

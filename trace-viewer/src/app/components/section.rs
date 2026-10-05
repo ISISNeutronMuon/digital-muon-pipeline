@@ -8,7 +8,7 @@ use leptos::{IntoView, component, prelude::*, view};
 ///
 /// # Example
 /// A section is a structure composed of nested div elements as follows:
-/// ```rust
+/// ```ignore
 /// view!{
 ///     <div class = "section closable-container">
 ///         <div class = "name closable-control" on:click:target = move |..| ..>
