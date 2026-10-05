@@ -1,4 +1,5 @@
 mod daq_trace;
+mod digitiser_ids;
 mod flatbuffer_decode;
 mod kafka_tail;
 
@@ -30,6 +31,10 @@ enum Commands {
     #[clap(name = "kafka-tail")]
     KafkaTail(CommonOpts),
 
+    /// Collect and report unique digitiser IDs, their Kafka message keys, and partitions.
+    #[clap(name = "digitiser-ids", visible_aliases = ["digitisers", "digitizer-ids", "digitizers"])]
+    DigitiserIds(DigitiserIdsOpts),
+
     /// Decode a flatbuffer encoded message.
     ///
     /// Shows a basic summary of the following message types:
@@ -42,7 +47,7 @@ enum Commands {
 }
 
 #[derive(Debug, Args)]
-struct CommonOpts {
+pub(crate) struct CommonOpts {
     #[clap(flatten)]
     common_kafka_options: CommonKafkaOpts,
 
@@ -56,13 +61,27 @@ struct CommonOpts {
 }
 
 #[derive(Debug, Args)]
-struct DaqTraceOpts {
+pub(crate) struct DaqTraceOpts {
     /// The interval at which the message rate is calculated in seconds.
     #[clap(long, default_value_t = 5)]
     message_rate_interval: u64,
 
     #[clap(flatten)]
     common: CommonOpts,
+}
+
+#[derive(Debug, Args)]
+pub(crate) struct DigitiserIdsOpts {
+    /// Consume from the beginning of the topic (earliest offset) rather than the latest
+    #[clap(long)]
+    pub(crate) from_beginning: bool,
+
+    /// Optional periodic interval in seconds to print summary reports while running
+    #[clap(long)]
+    pub(crate) report_interval: Option<u64>,
+
+    #[clap(flatten)]
+    pub(crate) common: CommonOpts,
 }
 
 #[tokio::main]
@@ -72,6 +91,7 @@ async fn main() -> miette::Result<()> {
         Commands::DaqTrace(args) => daq_trace::run(args).await,
         Commands::KafkaTail(args) => kafka_tail::run(args).await,
         Commands::FlatbufferDecode => flatbuffer_decode::run().await,
+        Commands::DigitiserIds(args) => digitiser_ids::run(args).await,
     }
 }
 
