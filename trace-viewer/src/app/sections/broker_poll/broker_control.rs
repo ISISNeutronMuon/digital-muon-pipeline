@@ -2,7 +2,7 @@ use crate::app::{TopLevelContext, server_functions::PollBroker};
 use leptos::{IntoView, component, html::Input, prelude::*, view};
 
 /// Component containing the controls to begin polling the broker for a summary of its contents.
-/// 
+///
 /// # Parameters
 /// - poll_broker_action: server action which runs the action form.
 #[component]
@@ -39,7 +39,7 @@ pub fn BrokerPoller(poll_broker_action: ServerAction<PollBroker>) -> impl IntoVi
 }
 
 /// Generic component which creates a select box, in which each item's value takes its index value.
-/// 
+///
 /// # Parameters
 /// - name: value of the `<select>` `name` field.
 /// - id: value of the `<select>` `id` field.

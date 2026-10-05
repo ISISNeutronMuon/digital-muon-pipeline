@@ -25,7 +25,7 @@ pub(crate) fn DisplayTrace() -> impl IntoView {
 }
 
 /// Displays a `TracePlotly` object.
-/// 
+///
 /// # Parameters
 /// - trace_plotly: the trace and eventlists to render.
 #[component]

@@ -10,7 +10,7 @@ use crate::{
 use leptos::{IntoView, component, prelude::*, view};
 
 /// Displays the summary of a particular digitiser message, and allows the user to select a channel to display.
-/// 
+///
 /// # Parameters
 /// - trace_summary: summary of a particular digitiser message result.
 #[component]
@@ -40,7 +40,7 @@ pub(super) fn DigitiserMessage(trace_summary: TraceSummary) -> impl IntoView {
 }
 
 /// Displays the metadata of a particular digitiser message.
-/// 
+///
 /// # Parameters
 /// - trace_summary: summary of a particular digitiser message result.
 #[component]

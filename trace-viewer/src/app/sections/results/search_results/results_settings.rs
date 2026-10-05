@@ -23,7 +23,7 @@ pub(crate) fn ResultsSettingsPanel() -> impl IntoView {
 /// Checkbox allowing the user to show only those channels specified in the selection criteria,
 /// or all channels in the digitiser messages. This will only display if the search mode is
 /// set to `SearchTargetBy::ByChannels`.
-/// 
+///
 /// # Parameters
 /// - by: the current search mode.
 #[component]

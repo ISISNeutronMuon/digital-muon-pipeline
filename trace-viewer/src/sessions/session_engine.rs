@@ -51,7 +51,7 @@ impl SessionEngine {
     }
 
     /// Create a new search session.
-    /// 
+    ///
     /// # Parameters
     /// - target: search criteria.
     /// - events_topic_indices: list of indices specifying the subset of eventlist topics to search on.
@@ -79,7 +79,7 @@ impl SessionEngine {
     }
 
     /// Get a reference to the session with the corresponding uuid.
-    /// 
+    ///
     /// # Parameters
     /// - uuid: the uuid of the desired session.
     pub fn session(&self, uuid: &str) -> Result<&Session, SessionError> {
@@ -92,7 +92,7 @@ impl SessionEngine {
     }
 
     /// Get a mutable reference to the session with the corresponding uuid.
-    /// 
+    ///
     /// # Parameters
     /// - uuid: the uuid of the desired session.
     pub fn session_mut(&mut self, uuid: &str) -> Result<&mut Session, SessionError> {
@@ -120,7 +120,7 @@ impl SessionEngine {
 
     /// Create a thread that owns a copy of an `Arc<Mut<_>>` of the engine, and periodically calls [Self::purge_expired]
     /// to remove old search sessions.
-    /// 
+    ///
     /// # Parameters
     /// - session_engine: `Arc<Mut<_>>` of the engine to purge.
     /// - purge_session_interval_sec: how often to run the purge.
@@ -139,9 +139,8 @@ impl SessionEngine {
         })
     }
 
-
     /// Poll the broker for a summary of its contents, on both the trace topic and a specified eventlist topic.
-    /// 
+    ///
     /// # Parameters
     /// - poll_broker_timeout_ms: duration in milliseconds at which the request should timeout.
     /// - events_topic_index: eventlist topic to poll.

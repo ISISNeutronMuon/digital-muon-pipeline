@@ -1,12 +1,12 @@
 //! Structs which encapsulate the state of the broker's trace and eventlist topics.
-//! 
+//!
 //! In particular, these capture the offsets and status packet timestamps of
 //! the first and last message on each topic.
 use crate::Timestamp;
 use serde::{Deserialize, Serialize};
 
 /// Encapsulates the state of a topic in the broker.
-/// 
+///
 /// Currently operates on partition 0 only
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BrokerTopicInfo {

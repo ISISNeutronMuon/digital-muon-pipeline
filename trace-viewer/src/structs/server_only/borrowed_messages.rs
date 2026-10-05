@@ -59,7 +59,7 @@ pub(crate) struct TraceMessage<'a> {
 
 impl<'a> TraceMessage<'a> {
     /// Determine whether this trace message contains the given channel.
-    /// 
+    ///
     /// Returns `false` if the channels field is missing from the message.
     pub(crate) fn has_channel(&self, channel: Channel) -> bool {
         self.try_unpacked_message()
@@ -129,7 +129,6 @@ impl<'a> FBMessage<'a> for TraceMessage<'a> {
     }
 }
 
-
 /// Wraps a [BorrowedMessage] which is known to resolve to a [DigitizerEventListMessage].
 pub(crate) struct EventListMessage<'a> {
     /// The underlying borrowed message.
@@ -142,7 +141,7 @@ pub(crate) struct EventListMessage<'a> {
 
 impl<'a> EventListMessage<'a> {
     /// Determine whether this trace message has digitiser id equal to any of the given list.
-    /// 
+    ///
     /// # Parameters
     /// - digitiser_ids: (unordered) slice of possible digitiser ids.
     pub(crate) fn filter_by_digitiser_id(&self, digitiser_ids: &[DigitizerId]) -> bool {

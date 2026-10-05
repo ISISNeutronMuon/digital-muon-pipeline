@@ -9,7 +9,7 @@ pub(crate) use section::Section;
 
 /// Toggles a closable `div` structure, that is turns a `div` into a button which hides or shows another `div`.
 /// It does this by toggling the class `closed`, in the parent `div` (which should be passed as `element`).
-/// 
+///
 /// # Parameters
 /// - element: the parent `div`, containing both the button `div`, and the `div` to hide/show.
 ///

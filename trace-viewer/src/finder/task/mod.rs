@@ -33,7 +33,7 @@ pub(crate) struct SearchTask<'a, C: TaskClass> {
 
 impl<'a, C: TaskClass> SearchTask<'a, C> {
     /// Create a new task.
-    /// 
+    ///
     /// # Parameters
     /// - consumer: the Kafka consumer object the engine uses to consume messages.
     /// - topics: lists of all known topics.
@@ -52,7 +52,7 @@ impl<'a, C: TaskClass> SearchTask<'a, C> {
     }
 
     /// Extracts a sorted, deduplicated vector of Digitiser Ids from a slice of trace messages.
-    /// 
+    ///
     /// # Parameters
     /// - traces: slice of the messages to extract the digitiser ids from.
     fn get_digitiser_ids_from_traces(traces: &[TraceMessage]) -> Vec<DigitizerId> {

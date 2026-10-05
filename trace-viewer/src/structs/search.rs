@@ -13,9 +13,7 @@ pub struct SearchTarget {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum SearchTargetMode {
     /// Search for messages at or after a particular timestamp.
-    Timestamp {
-        timestamp: Timestamp,
-    },
+    Timestamp { timestamp: Timestamp },
     /// Collect messages within a particular window about the given timestamp.
     Dragnet {
         /// Timestamp to search for initially.

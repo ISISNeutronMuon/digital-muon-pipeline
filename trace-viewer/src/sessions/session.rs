@@ -10,7 +10,7 @@ use chrono::{TimeDelta, Utc};
 use tokio::{sync::oneshot, task::JoinHandle};
 use tracing::instrument;
 
-/// Contains a handle to the thread conducting the search, as well as the 
+/// Contains a handle to the thread conducting the search, as well as the
 pub struct SessionSearchBody {
     pub(crate) handle: JoinHandle<Result<SearchResults, SessionError>>,
     pub(crate) cancel_recv: oneshot::Receiver<()>,
@@ -27,7 +27,7 @@ pub struct Session {
     /// One-shot channel whose use cancels the search currently in progress.
     cancel_send: Option<oneshot::Sender<()>>,
     /// Time at which the session expires.
-    /// 
+    ///
     /// This is set at creation, but can be refreshed by calling [Self::refresh].
     expiration: Timestamp,
     /// TTL for the session.
@@ -39,7 +39,7 @@ impl Session {
     const EXPIRE_TIME_MIN: i64 = 10;
 
     /// Create a new search session.
-    /// 
+    ///
     /// # Parameters
     /// - searcher: engine to use for the search.
     /// - target: search criteria.
@@ -71,7 +71,7 @@ impl Session {
     }
 
     /// Cancel search in progress.
-    /// 
+    ///
     /// This should only be called once per session, calling this on an already cancelled session
     /// results in `SessionError::AttemptedToCancelTwice`.
     #[instrument(skip_all)]
@@ -136,7 +136,7 @@ impl Session {
     }
 
     /// Gets a reference to the digitiser message stored at the given index.
-    /// 
+    ///
     /// # Parameters
     /// - index: index of the stored digitiser message to obtain.
     pub(crate) fn get_selected_trace(

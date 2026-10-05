@@ -73,7 +73,7 @@ pub(crate) fn SearchSettings() -> impl IntoView {
 }
 
 /// Displays a list of checkboxes.
-/// 
+///
 /// # Parameters
 /// - name: name of the fieldset encapsulating the checkboxes.
 /// - checkboxes: list of signals, tagged with the checkbox names, which capture the state of the checkboxes.

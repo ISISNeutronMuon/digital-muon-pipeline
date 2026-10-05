@@ -21,7 +21,7 @@ type TraceSummariesByTime = Vec<(String, Vec<TraceSummary>)>;
 
 /// Takes a list of `TraceSummaries` and sorts them by date and time, and groups them into summaries of the same date.
 /// Each group is tagged by its date, and each `TraceSummary` is stritagged by its time.
-/// 
+///
 /// # Parameters
 /// - trace_summaries: collection of `TraceSummary` to sort and group.
 fn sort_trace_summaries(trace_summaries: Vec<TraceSummary>) -> Vec<(String, TraceSummariesByTime)> {
@@ -58,7 +58,7 @@ struct SelectTraceLevelContext {
 }
 
 /// Shows the results of a search as a summary and allows the user to select a trace and eventlist pair to display.
-/// 
+///
 /// # Parameters
 /// - search_summary: summary of the search results.
 #[component]
@@ -93,7 +93,7 @@ pub(crate) fn SearchSummary() -> impl IntoView {
         .expect("TopLevelContext should be provided, this should never fail.")
         .client_side_data
         .eventlist_topics;
-    
+
     let SelectTraceLevelContext {
         eventlist_topic_indices,
         target,
@@ -104,7 +104,12 @@ pub(crate) fn SearchSummary() -> impl IntoView {
 
     let eventlist_topic_indices = eventlist_topic_indices
         .into_iter()
-        .map(|idx| eventlist_topics.get(idx).expect("Element should exist, this should never fail.").clone())
+        .map(|idx| {
+            eventlist_topics
+                .get(idx)
+                .expect("Element should exist, this should never fail.")
+                .clone()
+        })
         .collect::<Vec<_>>();
 
     view! {
@@ -147,7 +152,7 @@ pub(crate) fn SearchSummary() -> impl IntoView {
 }
 
 /// Container grouping search results by date.
-/// 
+///
 /// # Parameters
 /// - date: the date of the group.
 /// - trace_summaries_by_time: list of trace summaries, grouped and tagged by their time.
@@ -171,9 +176,9 @@ fn SearchResultsByDate(
 }
 
 /// Container grouping search results by time (ignoring date).
-/// 
+///
 /// Usage of this component assumes all traces have already been grouped by date.
-/// 
+///
 /// # Parameters
 /// - time: the time of the group.
 /// - trace_summaries: list of trace summaries.

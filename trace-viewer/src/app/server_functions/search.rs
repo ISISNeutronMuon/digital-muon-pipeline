@@ -11,7 +11,7 @@ cfg_if! {
 }
 
 /// Creates a new search session and returns the [Uuid].
-/// 
+///
 /// # Parameters
 /// - target: the search criteria and settings.
 /// - events_topic_indices: list of indices specifying the subset of eventlist topics to search on.
@@ -39,7 +39,7 @@ pub async fn create_new_search(
 
 /// Sends the one-shop cancel message to the [Session] with the given [Uuid].
 /// Returns an error if no such session exists.
-/// 
+///
 /// # Parameters
 /// - uuid: uuid of the search session to cancel.
 #[server]
@@ -59,7 +59,7 @@ pub async fn cancel_search(uuid: String) -> Result<(), ServerFnError> {
 /// and waits for it's [JoinHandle] field to complete, or is cancelled.
 /// If it completes then it registers the results with the original [Session].
 /// Returns an error if no such session exists.
-/// 
+///
 /// # Parameters
 /// - uuid: uuid of the search session to await.
 #[server]
@@ -113,7 +113,7 @@ pub async fn await_search(uuid: String) -> Result<String, ServerFnError> {
 
 /// Fetches the list of summaries of messages in the cache of the session with the given [Uuid].
 /// Returns an error if no such session exists.
-/// 
+///
 /// # Parameters
 /// - uuid: uuid of the search session to fetch from.
 #[server]

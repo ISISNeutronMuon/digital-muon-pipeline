@@ -5,7 +5,7 @@ use leptos::{IntoView, component, prelude::*, view};
 /// Closable top-level container which should only contain functionally self-contained components,
 /// i.e. components within each `Section` should not depend on components inside another `Section`,
 /// although multiple sections can depend on items from a shared context object.
-/// 
+///
 /// # Example
 /// A section is a structure composed of nested div elements as follows:
 /// ```rust
@@ -20,7 +20,7 @@ use leptos::{IntoView, component, prelude::*, view};
 ///     </div>
 /// }
 /// ```
-/// 
+///
 /// # Parameters
 /// - id: id field of the "content"-classed div.
 /// - text: text to appear in the "name"-classed div.

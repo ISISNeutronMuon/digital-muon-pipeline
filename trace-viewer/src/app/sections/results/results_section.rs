@@ -39,7 +39,7 @@ pub(crate) fn ResultsSection() -> impl IntoView {
 }
 
 /// Component containing the search results panel, alongside the panel displaying the selected trace (if one is selected).
-/// 
+///
 /// # Parameters
 /// - search_summary: summary of the search results.
 #[component]

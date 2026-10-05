@@ -39,9 +39,9 @@ pub struct SearchEngine {
 
 impl SearchEngine {
     /// Creates new search engine.
-    /// 
+    ///
     /// There should only be one engine per search session or poll broker call.
-    /// 
+    ///
     /// # Parameters
     /// - consumer: the Kafka consumer object the engine uses to consume messages.
     /// - topics: Lists of all known topics.
@@ -59,7 +59,7 @@ impl SearchEngine {
     }
 
     /// Gets the summary for the given topic.
-    /// 
+    ///
     /// # Parameters
     /// - consumer: the Kafka consumer object the engine uses to consume messages.
     /// - topic: topic to summarise.
@@ -94,7 +94,7 @@ impl SearchEngine {
     }
 
     /// Execute a poll broker request to obtain a summary of the trace topic and a single eventlist topic.
-    /// 
+    ///
     /// # Parameters
     /// - poll_broker_timeout_ms: duration in milliseconds, in which the request should be timed out.
     /// - events_topic_index: index of the eventlist topics to summarise.
@@ -131,7 +131,7 @@ impl SearchEngine {
     }
 
     /// Execute a search of the broker using the given target.
-    /// 
+    ///
     /// # Parameters
     /// - target: the search criteria and settings.
     #[instrument(skip_all)]

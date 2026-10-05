@@ -154,9 +154,9 @@ where
     M: FBMessage<'a>,
 {
     /// Seeks a message at a particular offset on the topic.
-    /// 
+    ///
     /// Returns an error if the end of the topic is reacher or the request timesout.
-    /// 
+    ///
     /// # Parameters
     /// - offset: the particular offset to seek.
     #[instrument(skip_all, level = "trace", fields(offset=offset, timestamp))]

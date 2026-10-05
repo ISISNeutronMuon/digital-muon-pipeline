@@ -30,7 +30,7 @@ pub(crate) struct TopLevelContext {
 }
 
 /// Creates outermost html tags, the header and body containing the [App] component.
-/// 
+///
 /// # Parameters
 /// - leptos_options: options utilised in some of Leptos's helper tags.
 pub fn shell(leptos_options: LeptosOptions) -> impl IntoView + 'static {

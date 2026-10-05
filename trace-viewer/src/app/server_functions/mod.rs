@@ -22,7 +22,7 @@ cfg_if! {
 
 /// Server function which runs an ActionForm with inputs: integer-valued input with name `events_topic_index`,
 /// integer-valued input with name `poll_broker_timeout_ms`.
-/// 
+///
 /// # Parameters
 /// - poll_broker_timeout_ms: duration in milliseconds, in which the request should be timed out.
 /// - events_topic_index: index of the eventlist topics to summarise.
@@ -47,7 +47,7 @@ pub async fn poll_broker(
 }
 
 /// Refreshes the expiration of the session with the given uuid.
-/// 
+///
 /// # Parameters
 /// - uuid: uuid of the search session to fetch from.
 #[server]

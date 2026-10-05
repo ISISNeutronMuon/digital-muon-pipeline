@@ -5,7 +5,7 @@ use tracing::instrument;
 
 /// From a session specified by the uuid, creates a `TracePlotly` object
 /// from the given index and channel of the session.
-/// 
+///
 /// # Parameters
 /// - uuid: the uuid of the session.
 /// - index_and_channel: specifies the index of the session's stored trace message,
@@ -71,7 +71,7 @@ cfg_if! {
         const MARKERS: [MarkerSymbol; 5] = [MarkerSymbol::CircleOpen, MarkerSymbol::SquareOpen, MarkerSymbol::Cross, MarkerSymbol::DiamondOpen, MarkerSymbol::X];
 
         /// Creates a `TracePlotly` object from the given parameters.
-        /// 
+        ///
         /// # Parameters
         /// - metadata: metadata from the trace's parent digitiser message.
         /// - channel: the channel number of the trace.

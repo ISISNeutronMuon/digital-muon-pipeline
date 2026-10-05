@@ -35,7 +35,7 @@ pub(crate) struct SearchLevelContext {
 
 impl SearchLevelContext {
     /// Creates new context from the given `DefaultData` and the number of eventlist topics.
-    /// 
+    ///
     /// # Parameters
     /// - default_data:
     /// - num_eventlist_topics
