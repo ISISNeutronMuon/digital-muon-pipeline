@@ -1,6 +1,14 @@
 # diagnostics
 
-A debugging tool for reporting diagnostics. This tool can be run in one of two modes: DAQ Trace (`daq-trace`) or Message Debug (`message-debug`).
+A general debugging tool.
+If there is some functionality that might be useful that is not part of the actual data pipeline, it'll probably be here.
+
+This tool can be run in one of several modes:
+
+- DAQ Trace (`daq-trace`): show detailed information about digitiser trace messages
+- Digitiser IDs (`digitiser-ids`): report digitiser IDs that have been observed
+- Message Debug (`kafka-tail`): decode known flatbuffer messages and output them to stdout
+- Decode (`decode`): decodes a known flatbuffer message and outputs a summary to stdout
 
 ## DAQ Trace Mode
 
@@ -50,7 +58,3 @@ podman run --rm -it \
     --topic daq-traces-in  \
     --group vis-3
 ```
-
-## Message Debug Mode
-
-Simple message dumping tool which parses kafka messages and logs the result.
