@@ -269,11 +269,13 @@ fn process_kafka_message(
             match spanned_root_as_digitizer_analog_trace_message(payload) {
                 Ok(trace_message) => {
                     let kafka_timestamp_ms = message.timestamp().to_millis().unwrap_or(-1);
+                    let kafka_key = message.key_view::<str>().and_then(Result::ok);
                     process_digitiser_trace_message(
                         tracer,
                         kafka_timestamp_ms,
                         sender_parameters,
                         message_processor,
+                        kafka_key,
                         trace_message,
                     )?
                 }
@@ -326,6 +328,7 @@ fn process_digitiser_trace_message(
     kafka_timestamp_ms: i64,
     sender_parameters: &SenderParameters,
     message_processor: &mut DigitiserMessageProcessor,
+    kafka_key: Option<&str>,
     message: DigitizerAnalogTraceMessage,
 ) -> Result<(), TrySendDigitiserEventListError> {
     let did = format!("{}", message.digitizer_id());
@@ -386,10 +389,12 @@ fn process_digitiser_trace_message(
         sender_parameters.sender.capacity(),
     );
 
-    let future_record = FutureRecord::to(sender_parameters.event_topic)
+    let mut future_record = FutureRecord::to(sender_parameters.event_topic)
         .payload(fbb.finished_data())
-        .conditional_inject_current_span_into_headers(tracer.use_otel())
-        .key("Digitiser Events List");
+        .conditional_inject_current_span_into_headers(tracer.use_otel());
+    if let Some(kafka_key) = kafka_key {
+        future_record = future_record.key(kafka_key);
+    }
 
     let future = sender_parameters
         .producer
