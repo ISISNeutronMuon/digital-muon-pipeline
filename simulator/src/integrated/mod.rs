@@ -16,13 +16,21 @@ use thiserror::Error;
 use tokio::task::JoinSet;
 use tracing::{error, trace};
 
+/// References to topics that various messages should produce to.
 pub(crate) struct Topics<'a> {
+    /// Topic where trace messages are produced to.
     pub(crate) traces: &'a str,
+    /// Topic where digitiser eventlist messages are produced to.
     pub(crate) events: &'a str,
+    /// Topic where frame eventlist messages are produced to.
     pub(crate) frame_events: &'a str,
+    /// Topic where run start/stop messages are produced to.
     pub(crate) run_controls: &'a str,
+    /// Topic where runlog messages are produced to.
     pub(crate) runlog: &'a str,
+    /// Topic where sample environment messages are produced to.
     pub(crate) selog: &'a str,
+    /// Topic where alarm messages are produced to.
     pub(crate) alarm: &'a str,
 }
 
@@ -38,6 +46,12 @@ pub(crate) enum ConfiguredError {
     IO(#[from] std::io::Error),
 }
 
+/// Create and run a simulation specified by a [Defined] object.
+/// 
+/// # Parameters
+/// - use_otel: should OTel be used for tracing.
+/// - producer: the Kafka Producer to send the message.
+/// - defined: the cli arguments to produce the simulation.
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) async fn run_configured_simulation(
     use_otel: bool,

@@ -33,6 +33,11 @@ pub(crate) enum BuildError {
     Cache(#[from] CacheError),
 }
 
+/// Builds the metadata args object in a flatbuffer message.
+/// 
+/// # Parameters
+/// - timestamp: the timestamp to include in the message.
+/// - metadata: the metadata to include in the message.
 fn create_v2_metadata_args<'a>(
     timestamp: &'a GpsTime,
     metadata: &FrameMetadata,
@@ -47,6 +52,14 @@ fn create_v2_metadata_args<'a>(
     }
 }
 
+/// Builds an digitiser trace message whose contents are selected from the trace cache.
+/// 
+/// # Parameters
+/// - fbb: the flat buffer builder which builds the message.
+/// - cache: the trace cache from which the contents of the message to be built are selected.
+/// - metadata: the metadata to include in the message.
+/// - channels: slice containing the list of channels to include in the message.
+/// - source_options: determines how the eventlist are selected from the cache.
 pub(crate) fn build_trace_message(
     fbb: &mut FlatBufferBuilder<'_>,
     sample_rate: u64,
@@ -89,6 +102,14 @@ pub(crate) fn build_trace_message(
     Ok(())
 }
 
+/// Builds an digitiser event list message whose contents are selected from the eventlist cache.
+/// 
+/// # Parameters
+/// - fbb: the flat buffer builder which builds the message.
+/// - cache: the eventlist cache from which the contents of the message to be built is selected.
+/// - metadata: the metadata to include in the message.
+/// - channels: slice containing the list of channels to include in the message.
+/// - source_options: determines how the eventlist are selected from the cache.
 pub(crate) fn build_digitiser_event_list_message(
     fbb: &mut FlatBufferBuilder<'_>,
     cache: &mut VecDeque<EventList<'_>>,
@@ -135,6 +156,14 @@ pub(crate) fn build_digitiser_event_list_message(
     Ok(())
 }
 
+/// Builds an aggregated event list message whose contents are selected from the eventlist cache.
+/// 
+/// # Parameters
+/// - fbb: the flat buffer builder which builds the message.
+/// - cache: the eventlist cache from which the contents of the message to be built is selected.
+/// - metadata: the metadata to include in the message.
+/// - channels: slice containing the list of channels to include in the message.
+/// - source_options: determines how the eventlist are selected from the cache.
 pub(crate) fn build_aggregated_event_list_message(
     fbb: &mut FlatBufferBuilder<'_>,
     cache: &mut VecDeque<EventList<'_>>,

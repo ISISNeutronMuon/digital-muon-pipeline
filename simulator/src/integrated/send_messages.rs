@@ -55,16 +55,31 @@ pub(crate) enum SendError {
     JsonValue(#[from] JsonValueError),
 }
 
+/// Encapsulates the parameters of the [send_message] function.
 struct SendMessageArgs<'a> {
+    /// Should OTel be used for tracing.
     use_otel: bool,
+    /// The Kafka Producer to send the message.
     producer: FutureProducer,
+    /// The FlatBuffer builder object containing the message.
     fbb: FlatBufferBuilder<'a>,
+    /// The destination topic.
     topic: String,
+    /// Span encasing this execution path.
     span: Span,
+    /// The key to attach to the message.
     key: &'static str,
 }
 
 impl<'a> SendMessageArgs<'a> {
+    /// Creates a new instance of the arguments.
+    /// 
+    /// # Parameters
+    /// - use_otel: should OTel be used for tracing,
+    /// - fbb: the FlatBuffer builder object containing the message.
+    /// - producer: the Kafka Producer to send the message.
+    /// - topic: the destination topic,
+    /// - key: key to attach to the message,
     fn new(
         use_otel: bool,
         fbb: FlatBufferBuilder<'a>,
@@ -83,6 +98,10 @@ impl<'a> SendMessageArgs<'a> {
     }
 }
 
+/// Produces the message encapsulated by [SendMessageArgs] to the respective topic therein.
+/// 
+/// # Parameters
+/// - args: arguments encapsulating the message and its destination.
 #[tracing::instrument(skip_all)]
 async fn send_message(args: SendMessageArgs<'_>) {
     let span = debug_span!(parent: &args.span, "Send Message Thread");
@@ -104,16 +123,29 @@ async fn send_message(args: SendMessageArgs<'_>) {
     };
 }
 
+/// Returns the number of milliseconds since epoch for the given timestamp.
+/// 
+/// # Parameters
+/// - timestamp: source timestamp.
 fn get_time_since_epoch_ms(timestamp: &DateTime<Utc>) -> Result<u64, SendError> {
     Ok(timestamp.timestamp_millis().try_into()?)
 }
 
+/// Returns the number of nanoseconds since epoch for the given timestamp.
+/// 
+/// # Parameters
+/// - timestamp: source timestamp.
 fn get_time_since_epoch_ns(timestamp: &DateTime<Utc>) -> Result<i64, SendError> {
     timestamp
         .timestamp_nanos_opt()
         .ok_or(SendError::TimestampToNanos(*timestamp))
 }
 
+/// 
+/// # Parameters
+/// - externals:
+/// - status:
+/// - timestamp:
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) fn send_run_start_command(
     externals: &mut SimulationEngineExternals,
@@ -144,6 +176,11 @@ pub(crate) fn send_run_start_command(
     Ok(())
 }
 
+/// 
+/// # Parameters
+/// - externals:
+/// - status:
+/// - timestamp:
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) fn send_run_stop_command(
     externals: &mut SimulationEngineExternals,
@@ -172,6 +209,11 @@ pub(crate) fn send_run_stop_command(
     Ok(())
 }
 
+/// 
+/// # Parameters
+/// - externals:
+/// - timestamp:
+/// - status:
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) fn send_run_log_command(
     externals: &mut SimulationEngineExternals,
@@ -203,6 +245,11 @@ pub(crate) fn send_run_log_command(
     Ok(())
 }
 
+/// 
+/// # Parameters
+/// - externals:
+/// - timestamp:
+/// - sample_env:
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) fn send_se_log_command(
     externals: &mut SimulationEngineExternals,
@@ -266,6 +313,10 @@ pub(crate) fn send_se_log_command(
     Ok(())
 }
 
+/// 
+/// # Parameters
+/// - externals:
+/// - alarm:
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) fn send_alarm_command(
     externals: &mut SimulationEngineExternals,
@@ -296,6 +347,9 @@ pub(crate) fn send_alarm_command(
     Ok(())
 }
 
+/// 
+/// # Parameters
+/// - externals:
 #[tracing::instrument(skip_all, fields(digitizer_id = digitizer_id))]
 pub(crate) fn send_digitiser_trace_message(
     externals: &mut SimulationEngineExternals,
@@ -332,6 +386,9 @@ pub(crate) fn send_digitiser_trace_message(
     Ok(())
 }
 
+/// 
+/// # Parameters
+/// - externals:
 #[tracing::instrument(skip_all, fields(digitizer_id = digitizer_id))]
 pub(crate) fn send_digitiser_event_list_message(
     externals: &mut SimulationEngineExternals,
@@ -366,6 +423,9 @@ pub(crate) fn send_digitiser_event_list_message(
     Ok(())
 }
 
+/// 
+/// # Parameters
+/// - externals:
 #[tracing::instrument(skip_all)]
 pub(crate) fn send_aggregated_frame_event_list_message(
     externals: &mut SimulationEngineExternals,
