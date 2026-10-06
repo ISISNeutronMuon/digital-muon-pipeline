@@ -64,9 +64,14 @@ type TrySendDigitiserEventListError = TrySendError<InstrumentedDeliveryFuture>;
 
 const EVENTS_FOUND_METRIC: &str = concatcp!(METRIC_NAME_PREFIX, "events_found");
 
+/// Encapsulates parameters related to message producing used by
+/// the `process_digitiser_trace_message` function.
 struct SenderParameters<'a> {
+    /// Topic to which eventlists should be produced.
     event_topic: &'a str,
+    /// Send channel which takes [DeliveryFuture] objects to dispatch.
     sender: &'a DigitiserEventListToBufferSender,
+    /// The Kafka producer which dispatches event lists to the broker.
     producer: &'a FutureProducer,
 }
 
@@ -242,10 +247,9 @@ fn spanned_root_as_digitizer_analog_trace_message(
 /// Extracts the payload of a Kafka message and passes it to [process_digitiser_trace_message]
 /// # Parameters
 /// - tracer: the tracer object, this is used to call the [TracerEngine::user_otel()] method, this could be replaced by a [bool].
-/// - args: the user-specified Cli arguments.
-/// - sender: send channel which takes [DeliveryFuture] objects to dispatch.
-/// - producer: the Kafka producer which dispatches event lists to the broker.
-/// - m: the message.
+/// - sender_parameters: parameters specific to message producing.
+/// - message_processor: the processor's persistant state object.
+/// - message: the message to process.
 ///
 /// [Span]: tracing::Span
 #[instrument(skip_all, level = "info", err(level = "warn"))]
