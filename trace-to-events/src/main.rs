@@ -64,9 +64,14 @@ type TrySendDigitiserEventListError = TrySendError<InstrumentedDeliveryFuture>;
 
 const EVENTS_FOUND_METRIC: &str = concatcp!(METRIC_NAME_PREFIX, "events_found");
 
+/// Encapsulates parameters related to message producing used by
+/// the `process_digitiser_trace_message` function.
 struct SenderParameters<'a> {
+    /// Topic to which eventlists should be produced.
     event_topic: &'a str,
+    /// Send channel which takes [DeliveryFuture] objects to dispatch.
     sender: &'a DigitiserEventListToBufferSender,
+    /// The Kafka producer which dispatches event lists to the broker.
     producer: &'a FutureProducer,
 }
 
@@ -242,10 +247,9 @@ fn spanned_root_as_digitizer_analog_trace_message(
 /// Extracts the payload of a Kafka message and passes it to [process_digitiser_trace_message]
 /// # Parameters
 /// - tracer: the tracer object, this is used to call the [TracerEngine::user_otel()] method, this could be replaced by a [bool].
-/// - args: the user-specified Cli arguments.
-/// - sender: send channel which takes [DeliveryFuture] objects to dispatch.
-/// - producer: the Kafka producer which dispatches event lists to the broker.
-/// - m: the message.
+/// - sender_parameters: parameters specific to message producing.
+/// - message_processor: the processor's persistant state object.
+/// - message: the message to process.
 ///
 /// [Span]: tracing::Span
 #[instrument(skip_all, level = "info", err(level = "warn"))]
@@ -269,11 +273,13 @@ fn process_kafka_message(
             match spanned_root_as_digitizer_analog_trace_message(payload) {
                 Ok(trace_message) => {
                     let kafka_timestamp_ms = message.timestamp().to_millis().unwrap_or(-1);
+                    let kafka_key = message.key_view::<str>().and_then(Result::ok);
                     process_digitiser_trace_message(
                         tracer,
                         kafka_timestamp_ms,
                         sender_parameters,
                         message_processor,
+                        kafka_key,
                         trace_message,
                     )?
                 }
@@ -326,6 +332,7 @@ fn process_digitiser_trace_message(
     kafka_timestamp_ms: i64,
     sender_parameters: &SenderParameters,
     message_processor: &mut DigitiserMessageProcessor,
+    kafka_key: Option<&str>,
     message: DigitizerAnalogTraceMessage,
 ) -> Result<(), TrySendDigitiserEventListError> {
     let did = format!("{}", message.digitizer_id());
@@ -386,10 +393,12 @@ fn process_digitiser_trace_message(
         sender_parameters.sender.capacity(),
     );
 
-    let future_record = FutureRecord::to(sender_parameters.event_topic)
+    let mut future_record = FutureRecord::to(sender_parameters.event_topic)
         .payload(fbb.finished_data())
-        .conditional_inject_current_span_into_headers(tracer.use_otel())
-        .key("Digitiser Events List");
+        .conditional_inject_current_span_into_headers(tracer.use_otel());
+    if let Some(kafka_key) = kafka_key {
+        future_record = future_record.key(kafka_key);
+    }
 
     let future = sender_parameters
         .producer
