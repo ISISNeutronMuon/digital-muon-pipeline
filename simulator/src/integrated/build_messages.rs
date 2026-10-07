@@ -59,7 +59,7 @@ fn create_v2_metadata_args<'a>(
 /// - cache: the trace cache from which the contents of the message to be built are selected.
 /// - metadata: the metadata to include in the message.
 /// - channels: slice containing the list of channels to include in the message.
-/// - source_options: determines how the eventlist are selected from the cache.
+/// - selection_mode: determines how the traces are selected from the cache.
 pub(crate) fn build_trace_message(
     fbb: &mut FlatBufferBuilder<'_>,
     sample_rate: u64,
@@ -109,7 +109,7 @@ pub(crate) fn build_trace_message(
 /// - cache: the eventlist cache from which the contents of the message to be built is selected.
 /// - metadata: the metadata to include in the message.
 /// - channels: slice containing the list of channels to include in the message.
-/// - source_options: determines how the eventlist are selected from the cache.
+/// - source_options: determines how the eventlists are selected from the cache.
 pub(crate) fn build_digitiser_event_list_message(
     fbb: &mut FlatBufferBuilder<'_>,
     cache: &mut VecDeque<EventList<'_>>,
@@ -163,7 +163,7 @@ pub(crate) fn build_digitiser_event_list_message(
 /// - cache: the eventlist cache from which the contents of the message to be built is selected.
 /// - metadata: the metadata to include in the message.
 /// - channels: slice containing the list of channels to include in the message.
-/// - source_options: determines how the eventlist are selected from the cache.
+/// - source_options: determines how the eventlists are selected from the cache.
 pub(crate) fn build_aggregated_event_list_message(
     fbb: &mut FlatBufferBuilder<'_>,
     cache: &mut VecDeque<EventList<'_>>,

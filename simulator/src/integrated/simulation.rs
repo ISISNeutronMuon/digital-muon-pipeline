@@ -27,15 +27,19 @@ use tracing::instrument;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Simulation {
-    // Is applied to all voltages when traces are created
+    /// Is applied to all voltages when traces are created
     pub(crate) voltage_transformation: Transformation<f64>,
-    //  The length of each trace
+    /// The length of each trace
     pub(crate) time_bins: NumConstant<Time>,
-    //  Number of samples (time_bins) per second
+    /// Number of samples (time_bins) per second
     pub(crate) sample_rate: NumConstant<u64>,
+    /// Defines the digitisers.
     pub(crate) digitiser_config: DigitiserConfig,
+    /// Templates of all eventlists.
     pub(crate) event_lists: Vec<EventListTemplate>,
+    /// Templates of all pulses.
     pub(crate) pulses: Vec<PulseTemplate>,
+    /// Ordered sequence of actions to be simulated.
     pub(crate) schedule: Vec<Action>,
 }
 
