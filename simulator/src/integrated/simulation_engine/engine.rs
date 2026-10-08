@@ -24,10 +24,14 @@ use thiserror::Error;
 use tokio::task::JoinSet;
 use tracing::{debug, info, instrument};
 
+/// Stores the state of the simulation.
 #[derive(Clone, Debug)]
 pub(crate) struct SimulationEngineState {
+    /// The metadata to be used in any sent messages.
     pub(super) metadata: FrameMetadata,
+    /// The current digitiser index. These refer to digitiser ids in [DigitiserConfig].
     pub(super) digitiser_index: usize,
+    /// Measures the delay when the `EnsureDelayMs` action is called.
     pub(super) delay_from: DateTime<Utc>,
 }
 
@@ -48,8 +52,11 @@ impl Default for SimulationEngineState {
     }
 }
 
+/// Configuration for a digitiser.
 pub(crate) struct SimulationEngineDigitiser {
+    /// The id of the digitiser.
     pub(crate) id: DigitizerId,
+    /// The indices of the digitiser's channels. These index into [SimulationEngine::channels].
     pub(crate) channel_indices: Vec<usize>,
 }
 
@@ -63,6 +70,7 @@ impl SimulationEngineDigitiser {
     }
 }
 
+/// Contains references and settings from outside the object.
 pub(crate) struct SimulationEngineExternals<'a> {
     pub(crate) use_otel: bool,
     pub(crate) producer: &'a FutureProducer,
@@ -87,16 +95,28 @@ pub(crate) enum SimulationEngineError {
 }
 
 pub(crate) struct SimulationEngine<'a> {
+    /// Contains state and settings from outside the object.
     externals: SimulationEngineExternals<'a>,
+    /// Persistant state throughout the simulation.
     state: SimulationEngineState,
+    /// Contains traces that can be used by `SendDigitiserTrace` actions.
     trace_cache: VecDeque<Trace>,
+    /// Contains traces that can be used by `SendDigitiserEventList` and `SendAggregatedFrameEventList` actions.
     event_list_cache: VecDeque<EventList<'a>>,
+    /// The simulation, derived from a json file.
     simulation: &'a Simulation,
+    /// The unique ids of each channel in the simulation.
     channels: Vec<Channel>,
+    /// The digitiser configuration of each digitiser in the simulation.
     digitiser_ids: Vec<SimulationEngineDigitiser>,
 }
 
 impl<'a> SimulationEngine<'a> {
+    /// Creates new engine.
+    /// 
+    /// # Parameters
+    /// - externals: state and settings from the caller.
+    /// - simulation: simulation, derived from a json file.
     pub(crate) fn new(
         externals: SimulationEngineExternals<'a>,
         simulation: &'a Simulation,
@@ -113,6 +133,11 @@ impl<'a> SimulationEngine<'a> {
     }
 }
 
+/// Sets the timestamp of the metadata.
+/// 
+/// # Parameters
+/// - engine: the engine to use.
+/// - timestamp: the timestamp value to use.
 #[instrument(skip_all, level = "debug", err(level = "error"))]
 fn set_timestamp(
     engine: &mut SimulationEngine,
@@ -141,11 +166,21 @@ fn set_timestamp(
     Ok(())
 }
 
+/// Waits for the given time.
+/// 
+/// # Parameters
+/// - ms: time to pause in milliseconds.
 #[instrument(skip_all, level = "debug")]
 fn wait_ms(ms: usize) {
     sleep(Duration::from_millis(ms as u64));
 }
 
+
+/// Waits for the given time, if that duration has not already ellapsed.
+/// 
+/// # Parameters
+/// - ms: time to pause in milliseconds.
+/// - delay_from: time to measure the pause from.
 #[instrument(skip_all, level = "debug")]
 fn ensure_delay_ms(ms: usize, delay_from: &mut DateTime<Utc>) {
     let duration = TimeDelta::milliseconds(ms as i64);
@@ -155,6 +190,11 @@ fn ensure_delay_ms(ms: usize, delay_from: &mut DateTime<Utc>) {
     *delay_from = Utc::now();
 }
 
+/// Generate traces and push them to the cache.
+/// 
+/// # Parameters
+/// - engine: the engine to use.
+/// - generate_trace: the details of the traces.
 #[instrument(skip_all, level = "debug", err(level = "error"))]
 fn generate_trace_push_to_cache(
     engine: &mut SimulationEngine,
@@ -172,6 +212,11 @@ fn generate_trace_push_to_cache(
     Ok(())
 }
 
+/// Generate eventlists and push them to the cache.
+/// 
+/// # Parameters
+/// - engine: the engine to use.
+/// - generate_event: the details of the eventlists.
 #[instrument(skip_all, level = "debug", err(level = "error"))]
 fn generate_event_lists_push_to_cache(
     engine: &mut SimulationEngine,
@@ -186,6 +231,11 @@ fn generate_event_lists_push_to_cache(
     Ok(())
 }
 
+/// Generate eventlists and corresponding traces and push them to their respective caches.
+/// 
+/// # Parameters
+/// - engine: the engine to use.
+/// - generate_event: the details of the eventlists.
 #[instrument(skip_all, level = "debug", err(level = "error"))]
 fn generate_event_lists_and_traces_push_to_cache(
     engine: &mut SimulationEngine,
@@ -204,6 +254,10 @@ fn generate_event_lists_and_traces_push_to_cache(
     Ok(())
 }
 
+/// Emit a tracing event.
+/// 
+/// # Parameters
+/// - event: the tracing event to emit.
 #[instrument(skip_all, level = "debug")]
 fn tracing_event(event: &TracingEvent) {
     match event.level {
@@ -212,6 +266,10 @@ fn tracing_event(event: &TracingEvent) {
     }
 }
 
+/// Runs through toplevel actions.
+/// 
+/// # Parameters
+/// - engine: the engine to use.
 #[tracing::instrument(skip_all, level = "debug", fields(num_actions = engine.simulation.schedule.len()), err(level = "error"))]
 pub(crate) fn run_schedule(engine: &mut SimulationEngine) -> Result<(), SimulationEngineError> {
     for action in engine.simulation.schedule.iter() {
@@ -285,6 +343,11 @@ pub(crate) fn run_schedule(engine: &mut SimulationEngine) -> Result<(), Simulati
     Ok(())
 }
 
+/// Runs through frame actions.
+/// 
+/// # Parameters
+/// - engine: the engine to use.
+/// - frame_actions: sequence of frame actions to run through.
 #[tracing::instrument(
     skip_all, level = "debug"
     fields(
@@ -338,6 +401,11 @@ fn run_frame(
     Ok(())
 }
 
+/// Runs through digitiser actions.
+/// 
+/// # Parameters
+/// - engine: the engine to use.
+/// - digitiser_actions: sequence of digitiser actions to run through.
 #[tracing::instrument(skip_all, level = "debug"
     fields(
         frame_number = engine.state.metadata.frame_number,
@@ -419,6 +487,11 @@ pub(crate) fn run_digitiser(
     Ok(())
 }
 
+/// Runs through log actions.
+/// 
+/// # Parameters
+/// - engine: the engine to use.
+/// - log_actions: sequence of log actions to run through.
 #[tracing::instrument(skip_all, level = "debug"
     fields(
         index = engine.state.metadata.frame_number,
