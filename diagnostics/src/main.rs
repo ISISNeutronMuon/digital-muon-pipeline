@@ -1,5 +1,6 @@
 mod daq_trace;
 mod digitiser_ids;
+mod duplicate_detector;
 mod flatbuffer_decode;
 mod kafka_tail;
 
@@ -34,6 +35,13 @@ enum Commands {
     /// Collect and report unique digitiser IDs, their Kafka message keys, and partitions.
     #[clap(name = "digitiser-ids", visible_aliases = ["digitisers", "digitizer-ids", "digitizers"])]
     DigitiserIds(DigitiserIdsOpts),
+
+    /// Report instances where multiple of the same digitiser ID appear for the same frame.
+    #[clap(
+        name = "duplicate-digitisers",
+        visible_aliases = ["duplicate-frames", "digitiser-duplicates", "duplicate-digitizers", "duplicates"]
+    )]
+    DuplicateDigitisers(DuplicateDigitisersOpts),
 
     /// Decode a flatbuffer encoded message.
     ///
@@ -84,6 +92,24 @@ pub(crate) struct DigitiserIdsOpts {
     pub(crate) common: CommonOpts,
 }
 
+#[derive(Debug, Args)]
+pub(crate) struct DuplicateDigitisersOpts {
+    /// Consume from the beginning of the topic (earliest offset) rather than the latest
+    #[clap(long)]
+    pub(crate) from_beginning: bool,
+
+    /// Optional periodic interval in seconds to print summary reports while running
+    #[clap(long)]
+    pub(crate) report_interval: Option<u64>,
+
+    /// Maximum number of active frames to retain in cache for duplicate detection (0 for unlimited)
+    #[clap(long, default_value_t = 10000)]
+    pub(crate) max_frames: usize,
+
+    #[clap(flatten)]
+    pub(crate) common: CommonOpts,
+}
+
 #[tokio::main]
 async fn main() -> miette::Result<()> {
     let cli = Cli::parse();
@@ -92,6 +118,7 @@ async fn main() -> miette::Result<()> {
         Commands::KafkaTail(args) => kafka_tail::run(args).await,
         Commands::FlatbufferDecode => flatbuffer_decode::run().await,
         Commands::DigitiserIds(args) => digitiser_ids::run(args).await,
+        Commands::DuplicateDigitisers(args) => duplicate_detector::run(args).await,
     }
 }
 
