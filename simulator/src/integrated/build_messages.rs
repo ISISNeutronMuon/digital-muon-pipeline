@@ -34,7 +34,7 @@ pub(crate) enum BuildError {
 }
 
 /// Builds the metadata args object in a flatbuffer message.
-/// 
+///
 /// # Parameters
 /// - timestamp: the timestamp to include in the message.
 /// - metadata: the metadata to include in the message.
@@ -53,7 +53,7 @@ fn create_v2_metadata_args<'a>(
 }
 
 /// Builds an digitiser trace message whose contents are selected from the trace cache.
-/// 
+///
 /// # Parameters
 /// - fbb: the flat buffer builder which builds the message.
 /// - cache: the trace cache from which the contents of the message to be built are selected.
@@ -103,7 +103,7 @@ pub(crate) fn build_trace_message(
 }
 
 /// Builds an digitiser event list message whose contents are selected from the eventlist cache.
-/// 
+///
 /// # Parameters
 /// - fbb: the flat buffer builder which builds the message.
 /// - cache: the eventlist cache from which the contents of the message to be built is selected.
@@ -157,7 +157,7 @@ pub(crate) fn build_digitiser_event_list_message(
 }
 
 /// Builds an aggregated event list message whose contents are selected from the eventlist cache.
-/// 
+///
 /// # Parameters
 /// - fbb: the flat buffer builder which builds the message.
 /// - cache: the eventlist cache from which the contents of the message to be built is selected.

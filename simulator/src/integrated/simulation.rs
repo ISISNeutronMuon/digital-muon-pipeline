@@ -21,9 +21,9 @@ use serde::Deserialize;
 use thiserror::Error;
 use tracing::instrument;
 
+/// Defines the
 ///
-/// This struct is created from the configuration JSON file.
-///
+/// Should only be created via JSON deserialisation.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Simulation {

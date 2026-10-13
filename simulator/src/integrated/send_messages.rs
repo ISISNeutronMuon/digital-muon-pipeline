@@ -73,7 +73,7 @@ struct SendMessageArgs<'a> {
 
 impl<'a> SendMessageArgs<'a> {
     /// Creates a new instance of the arguments.
-    /// 
+    ///
     /// # Parameters
     /// - use_otel: should OTel be used for tracing,
     /// - fbb: the FlatBuffer builder object containing the message.
@@ -99,7 +99,7 @@ impl<'a> SendMessageArgs<'a> {
 }
 
 /// Produces the message encapsulated by [SendMessageArgs] to the respective topic therein.
-/// 
+///
 /// # Parameters
 /// - args: arguments encapsulating the message and its destination.
 #[tracing::instrument(skip_all)]
@@ -124,7 +124,7 @@ async fn send_message(args: SendMessageArgs<'_>) {
 }
 
 /// Returns the number of milliseconds since epoch for the given timestamp.
-/// 
+///
 /// # Parameters
 /// - timestamp: source timestamp.
 fn get_time_since_epoch_ms(timestamp: &DateTime<Utc>) -> Result<u64, SendError> {
@@ -132,7 +132,7 @@ fn get_time_since_epoch_ms(timestamp: &DateTime<Utc>) -> Result<u64, SendError> 
 }
 
 /// Returns the number of nanoseconds since epoch for the given timestamp.
-/// 
+///
 /// # Parameters
 /// - timestamp: source timestamp.
 fn get_time_since_epoch_ns(timestamp: &DateTime<Utc>) -> Result<i64, SendError> {
@@ -142,7 +142,7 @@ fn get_time_since_epoch_ns(timestamp: &DateTime<Utc>) -> Result<i64, SendError> 
 }
 
 /// Produces a run start message to the run control topic.
-/// 
+///
 /// # Parameters
 /// - externals: encapsulates state external to simulation.
 /// - status: the run start message.
@@ -178,7 +178,7 @@ pub(crate) fn send_run_start_command(
 }
 
 /// Produces a run stop message to the run control topic.
-/// 
+///
 /// # Parameters
 /// - externals: encapsulates state external to simulation.
 /// - status: the run stop message.
@@ -212,7 +212,7 @@ pub(crate) fn send_run_stop_command(
 }
 
 /// Produces a runlog message to the runlog topic.
-/// 
+///
 /// # Parameters
 /// - externals: encapsulates state external to simulation.
 /// - timestamp: the timestamp to attach.
@@ -249,7 +249,7 @@ pub(crate) fn send_run_log_command(
 }
 
 /// Produces a sample environment message to the selog topic.
-/// 
+///
 /// # Parameters
 /// - externals: encapsulates state external to simulation.
 /// - timestamp: the timestamp to attach.
@@ -318,7 +318,7 @@ pub(crate) fn send_se_log_command(
 }
 
 /// Produces an alarm message to the alarm topic.
-/// 
+///
 /// # Parameters
 /// - externals: encapsulates state external to simulation.
 /// - timestamp: the timestamp to attach.
@@ -354,7 +354,7 @@ pub(crate) fn send_alarm_command(
 }
 
 /// Produces a digitiser trace to the trace topic.
-/// 
+///
 /// # Parameters
 /// - externals: encapsulates state external to simulation.
 /// - sample_rate: the sample rate to attach to the message.
@@ -400,7 +400,7 @@ pub(crate) fn send_digitiser_trace_message(
 }
 
 /// Produces a digitiser eventlist to the trace topic.
-/// 
+///
 /// # Parameters
 /// - externals: encapsulates state external to simulation.
 /// - cache: the eventlist cache from which the contents of the message to be built are selected.
@@ -443,7 +443,7 @@ pub(crate) fn send_digitiser_event_list_message(
 }
 
 /// Produces a frame eventlist to the trace topic.
-/// 
+///
 /// # Parameters
 /// - externals: encapsulates state external to simulation.
 /// - cache: the eventlist cache from which the contents of the message to be built are selected.

@@ -17,16 +17,16 @@ pub(crate) trait SimulationEngineCache: Default + Extend<Self::Item> {
     type Item;
 
     /// Extract a single element from the cache.
-    /// 
+    ///
     /// # Parameters
     /// - selection_mode: determines how the trace is selected from the cache.
     fn extract_one(
         &mut self,
         selection_mode: SelectionModeOptions,
     ) -> Result<&Self::Item, CacheError>;
-    
+
     /// Extract a multiple elements from the cache.
-    /// 
+    ///
     /// # Parameters
     /// - selection_mode: determines how the traces are selected from the cache.
     /// - amount: the number of traces to extract.
@@ -37,13 +37,13 @@ pub(crate) trait SimulationEngineCache: Default + Extend<Self::Item> {
     ) -> Result<Vec<&Self::Item>, CacheError>;
 
     /// Should be called after [SimulationEngineCache::extract_one].
-    /// 
+    ///
     /// # Parameters
     /// - selection_mode: determines how the trace is selected from the cache.
     fn finish_one(&mut self, selection_mode: SelectionModeOptions) -> Result<(), CacheError>;
-    
+
     /// Should be called after [SimulationEngineCache::extract].
-    /// 
+    ///
     /// # Parameters
     /// - selection_mode: determines how the traces are selected from the cache.
     fn finish(

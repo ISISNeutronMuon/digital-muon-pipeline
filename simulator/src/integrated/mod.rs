@@ -47,7 +47,7 @@ pub(crate) enum ConfiguredError {
 }
 
 /// Create and run a simulation specified by a [Defined] object.
-/// 
+///
 /// # Parameters
 /// - use_otel: should OTel be used for tracing.
 /// - producer: the Kafka Producer to send the message.

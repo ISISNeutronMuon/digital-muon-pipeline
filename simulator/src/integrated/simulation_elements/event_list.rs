@@ -16,12 +16,23 @@ use rand::distr::weighted::WeightedIndex;
 use serde::Deserialize;
 use tracing::instrument;
 
+/// Trace generated from an [EventList] and stored in the trace cache.
 pub(crate) struct Trace {
+    /// Span that can be propagated in Open Telemetry.
     span: SpanOnce,
+    /// Raw trace values.
     intensities: Vec<Intensity>,
 }
 
 impl Trace {
+    /// Creates new trace from an [EventList].
+    ///
+    /// # Parameters
+    /// - simulation: simulation this eventlist belongs to.
+    /// - frame_number: current frame, for quantities depending on [Transformation].
+    /// - event_list: underlying eventlist to derive trace from.
+    ///
+    /// [Transformation]: super::Transformation
     #[instrument(
         skip_all,
         level = "debug",
@@ -64,6 +75,7 @@ impl Trace {
         })
     }
 
+    /// Get intensity values.
     pub(crate) fn get_intensities(&self) -> &[Intensity] {
         &self.intensities
     }
@@ -75,25 +87,44 @@ impl Spanned for Trace {
     }
 }
 
+/// A weighted reference to a [PulseTemplate].
+///
+/// Should only be created via JSON deserialisation.
+///
+/// [PulseTemplate]: super::pulses::PulseTemplate
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "pulse-type")]
 pub(crate) struct EventPulseTemplate {
+    /// Probability weight applied to this pulse.
     pub(crate) weight: f64,
+    /// Indexes into [Simulation::pulses], referencing a [PulseTemplate].
+    ///
+    /// [PulseTemplate]: super::pulses::PulseTemplate
     pub(crate) pulse_index: usize,
 }
 
+/// Defines an event list schema from which concete [EventList]s are derived.
+///
+/// Should only be created via JSON deserialisation.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct EventListTemplate {
+    /// List of event pulse templates that are used to generate the concrete event pulses, along with probability weights.
     pub(crate) pulses: Vec<EventPulseTemplate>,
+    /// List of noise sources that are used when generating a trace.
     pub(crate) noises: Vec<NoiseSource>,
+    /// Number of pulses event lists should have.
     pub(crate) num_pulses: IntRandomDistribution<i32>,
 }
 
+/// EventList generated from an [EventListTemplate] and stored in the trace cache.
 #[derive(Default)]
 pub(crate) struct EventList<'a> {
+    /// Span that can be propagated in Open Telemetry.
     pub(crate) span: SpanOnce,
+    /// List of pulse events.
     pub(crate) pulses: Vec<PulseEvent>,
+    /// List of noise sources that overlay the pulse events.
     pub(crate) noises: &'a [NoiseSource],
 }
 
@@ -108,6 +139,14 @@ impl<'a> Clone for EventList<'a> {
 }
 
 impl<'a> EventList<'a> {
+    /// Creates new eventlist from an [EventListTemplate].
+    ///
+    /// # Parameters
+    /// - simulation: simulation this eventlist belongs to.
+    /// - frame_number: current frame, for quantities depending on [Transformation].
+    /// - source: template to realise.
+    ///
+    /// [Transformation]: super::Transformation
     #[instrument(skip_all, level = "debug", "New Event List", err(level = "error"))]
     pub(crate) fn new(
         simulator: &Simulation,

@@ -52,7 +52,7 @@ impl Default for SimulationEngineState {
     }
 }
 
-/// Configuration for a digitiser.
+/// Configuration for a digitiser, derived from [DigitiserConfig].
 pub(crate) struct SimulationEngineDigitiser {
     /// The id of the digitiser.
     pub(crate) id: DigitizerId,
@@ -113,7 +113,7 @@ pub(crate) struct SimulationEngine<'a> {
 
 impl<'a> SimulationEngine<'a> {
     /// Creates new engine.
-    /// 
+    ///
     /// # Parameters
     /// - externals: state and settings from the caller.
     /// - simulation: simulation, derived from a json file.
@@ -134,7 +134,7 @@ impl<'a> SimulationEngine<'a> {
 }
 
 /// Sets the timestamp of the metadata.
-/// 
+///
 /// # Parameters
 /// - engine: the engine to use.
 /// - timestamp: the timestamp value to use.
@@ -167,7 +167,7 @@ fn set_timestamp(
 }
 
 /// Waits for the given time.
-/// 
+///
 /// # Parameters
 /// - ms: time to pause in milliseconds.
 #[instrument(skip_all, level = "debug")]
@@ -175,9 +175,8 @@ fn wait_ms(ms: usize) {
     sleep(Duration::from_millis(ms as u64));
 }
 
-
 /// Waits for the given time, if that duration has not already ellapsed.
-/// 
+///
 /// # Parameters
 /// - ms: time to pause in milliseconds.
 /// - delay_from: time to measure the pause from.
@@ -191,7 +190,7 @@ fn ensure_delay_ms(ms: usize, delay_from: &mut DateTime<Utc>) {
 }
 
 /// Generate traces and push them to the cache.
-/// 
+///
 /// # Parameters
 /// - engine: the engine to use.
 /// - generate_trace: the details of the traces.
@@ -213,7 +212,7 @@ fn generate_trace_push_to_cache(
 }
 
 /// Generate eventlists and push them to the cache.
-/// 
+///
 /// # Parameters
 /// - engine: the engine to use.
 /// - generate_event: the details of the eventlists.
@@ -232,7 +231,7 @@ fn generate_event_lists_push_to_cache(
 }
 
 /// Generate eventlists and corresponding traces and push them to their respective caches.
-/// 
+///
 /// # Parameters
 /// - engine: the engine to use.
 /// - generate_event: the details of the eventlists.
@@ -255,7 +254,7 @@ fn generate_event_lists_and_traces_push_to_cache(
 }
 
 /// Emit a tracing event.
-/// 
+///
 /// # Parameters
 /// - event: the tracing event to emit.
 #[instrument(skip_all, level = "debug")]
@@ -267,7 +266,7 @@ fn tracing_event(event: &TracingEvent) {
 }
 
 /// Runs through toplevel actions.
-/// 
+///
 /// # Parameters
 /// - engine: the engine to use.
 #[tracing::instrument(skip_all, level = "debug", fields(num_actions = engine.simulation.schedule.len()), err(level = "error"))]
@@ -344,7 +343,7 @@ pub(crate) fn run_schedule(engine: &mut SimulationEngine) -> Result<(), Simulati
 }
 
 /// Runs through frame actions.
-/// 
+///
 /// # Parameters
 /// - engine: the engine to use.
 /// - frame_actions: sequence of frame actions to run through.
@@ -402,7 +401,7 @@ fn run_frame(
 }
 
 /// Runs through digitiser actions.
-/// 
+///
 /// # Parameters
 /// - engine: the engine to use.
 /// - digitiser_actions: sequence of digitiser actions to run through.
@@ -488,7 +487,7 @@ pub(crate) fn run_digitiser(
 }
 
 /// Runs through log actions.
-/// 
+///
 /// # Parameters
 /// - engine: the engine to use.
 /// - log_actions: sequence of log actions to run through.

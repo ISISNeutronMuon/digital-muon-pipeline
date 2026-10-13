@@ -33,7 +33,7 @@ pub(crate) struct SendAggregatedEventListOptions {
     /// Determine how to select the eventlists.
     pub(crate) source_options: SourceOptions,
     /// Include the following range of channels.
-    /// 
+    ///
     /// These are indices into the channel list of the [SimulationEngine].
     pub(crate) channel_indices: Interval<usize>,
 }
@@ -137,7 +137,7 @@ pub(crate) enum Action {
     /// Send an alarm message.
     SendAlarm(SendAlarm),
     /// Loop the given frame actions over the the given frame bounds.
-    /// 
+    ///
     /// This action sets the framenumber metadata located in [SimulationEngineState::metadata].
     FrameLoop(Loop<FrameAction>),
     /// Loop the given log actions over the the given bounds.
@@ -173,7 +173,7 @@ pub(crate) enum FrameAction {
     /// Sends a frame eventlist message.
     SendAggregatedFrameEventList(SendAggregatedEventListOptions),
     /// Loop the given digitiser actions over the the given digitiser index bounds.
-    /// 
+    ///
     /// This action sets the field [SimulationEngineState::digitiser_index], these indices
     /// correspond to digitiser ids in [DigitiserConfig].
     DigitiserLoop(Loop<DigitiserAction>),
