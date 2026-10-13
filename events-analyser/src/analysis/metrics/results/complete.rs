@@ -1,12 +1,6 @@
 use crate::{
     analysis::metrics::{
-        MetricOutput, MetricResultError,
-        event_counts::CompletedEventCount,
-        false_counts::CompletedFalseCount,
-        muon_lifetime::CompletedMuonLifetime,
-        output::MetricOutputSeries,
-        pulse_height_spectra::CompletedPulseHeightSpectra,
-        results::{MetricResultByBucket, PartialMetricResultBucket},
+        MetricOutput, MetricResultError, event_counts::CompletedEventCount, false_counts::CompletedFalseCount, muon_lifetime::CompletedMuonLifetime, output::MetricOutputSeries, pulse_height_spectra::CompletedPulseHeightSpectra, pulse_pair_differences::CompletedPulsePairDifferences, results::{MetricResultByBucket, PartialMetricResultBucket}
     },
     engine::PropertyOfMetric,
 };
@@ -56,6 +50,7 @@ pub(crate) enum CompletedMetricResult {
     FalseCount(MetricResultByBucket<CompletedFalseCount>),
     MuonLifetime(MetricResultByBucket<CompletedMuonLifetime>),
     PulseHeightSpectra(MetricResultByBucket<CompletedPulseHeightSpectra>),
+    PulsePairDifferences(MetricResultByBucket<CompletedPulsePairDifferences>),
 }
 
 impl CompletedMetricResult {
