@@ -7,6 +7,7 @@ This tool can be run in one of several modes:
 
 - DAQ Trace (`daq-trace`): show detailed information about digitiser trace messages
 - Digitiser IDs (`digitiser-ids`): report digitiser IDs that have been observed
+- Duplicate Digitisers (`duplicate-digitisers`): report instances where multiple of the same digitiser ID appear for the same frame
 - Message Debug (`kafka-tail`): decode known flatbuffer messages and output them to stdout
 - Decode (`decode`): decodes a known flatbuffer message and outputs a summary to stdout
 
