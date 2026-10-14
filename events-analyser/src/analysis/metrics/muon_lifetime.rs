@@ -61,10 +61,7 @@ impl PartialMetricResultBucket for PartialMuonLifetime {
             self.histogram
                 .entry(channel)
                 .or_insert_with(|| {
-                    Histogram::new(
-                        self.source.histogram.num_bins,
-                        &self.source.histogram.interval,
-                    )
+                    Histogram::new(&self.source.histogram)
                 })
                 .push(*time as f64);
         }
@@ -239,7 +236,7 @@ mod tests {
             min: 0.0,
             max: 30000.0,
         };
-        let mut histogram = Histogram::new(10, &interval);
+        let mut histogram = Histogram::new(&MetricTypeHistogram { num_bins: 10, interval: interval.clone() });
         histogram.set(histogram_counts.to_vec());
 
         let source = PartialMuonLifetime {
@@ -274,7 +271,7 @@ mod tests {
             min: 0.0,
             max: 30000.0,
         };
-        let mut histogram = Histogram::new(10, &interval);
+        let mut histogram = Histogram::new(&MetricTypeHistogram { num_bins: 10, interval: interval.clone() });
         histogram.set(histogram_counts.to_vec());
 
         let source = PartialMuonLifetime {
