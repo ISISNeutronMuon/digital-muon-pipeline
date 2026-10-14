@@ -15,7 +15,9 @@ pub(crate) struct Histogram {
 impl Histogram {
     pub(crate) fn generate_bin_labels(histogram: &MetricTypeHistogram) -> Vec<f64> {
         let coef = (histogram.interval.max - histogram.interval.min) / histogram.num_bins as f64;
-        (0..histogram.num_bins).map(|i| i as f64 * coef + histogram.interval.min).collect()
+        (0..histogram.num_bins)
+            .map(|i| i as f64 * coef + histogram.interval.min)
+            .collect()
     }
     pub(crate) fn new(histogram: &MetricTypeHistogram) -> Self {
         let bins = vec![Default::default(); histogram.num_bins];

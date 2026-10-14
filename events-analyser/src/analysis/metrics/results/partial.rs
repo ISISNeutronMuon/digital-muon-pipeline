@@ -2,10 +2,15 @@ use crate::{
     analysis::{
         BucketIndex,
         metrics::{
-            event_counts::PartialEventCount, false_counts::PartialFalseCount, muon_lifetime::PartialMuonLifetime, pulse_height_spectra::PartialPulseHeightSpectra, pulse_pair_differences::PartialPulsePairDifferences, results::{
+            event_counts::PartialEventCount,
+            false_counts::PartialFalseCount,
+            muon_lifetime::PartialMuonLifetime,
+            pulse_height_spectra::PartialPulseHeightSpectra,
+            pulse_pair_differences::PartialPulsePairDifferences,
+            results::{
                 CompleteMetricResultBucket, MetricResultBucketWrapper, MetricResultByBucket,
                 MetricResultError, complete::CompletedMetricResult,
-            }
+            },
         },
     },
     engine::{FlatAlgorithm, FlatBucket, FlatMetricType, FlatWaveform},
@@ -175,7 +180,6 @@ pub(crate) enum PartialMetricResult {
     PulseHeightSpectra(MetricResultByBucket<PartialPulseHeightSpectra>),
     /// Descriptive statistics on the pulse-pair differences estimated from the data.
     PulsePairDifferences(MetricResultByBucket<PartialPulsePairDifferences>),
-    
 }
 
 impl PartialMetricResult {
@@ -266,7 +270,9 @@ impl PartialMetricResult {
                 CompletedMetricResult::PulseHeightSpectra(patrial_metric_result_store.aggregate()?)
             }
             Self::PulsePairDifferences(patrial_metric_result_store) => {
-                CompletedMetricResult::PulsePairDifferences(patrial_metric_result_store.aggregate()?)
+                CompletedMetricResult::PulsePairDifferences(
+                    patrial_metric_result_store.aggregate()?,
+                )
             }
         })
     }
@@ -276,8 +282,12 @@ impl PartialMetricResult {
             (Self::EventCount(store), Self::EventCount(source)) => store.load_data(source),
             (Self::FalseCount(store), Self::FalseCount(source)) => store.load_data(source),
             (Self::MuonLifetime(store), Self::MuonLifetime(source)) => store.load_data(source),
-            (Self::PulseHeightSpectra(store), Self::PulseHeightSpectra(source)) => store.load_data(source),
-            (Self::PulsePairDifferences(store), Self::PulsePairDifferences(source)) => store.load_data(source),
+            (Self::PulseHeightSpectra(store), Self::PulseHeightSpectra(source)) => {
+                store.load_data(source)
+            }
+            (Self::PulsePairDifferences(store), Self::PulsePairDifferences(source)) => {
+                store.load_data(source)
+            }
             _ => return Err(MetricResultError::LoadingDataWrongMetrics),
         }
         Ok(())

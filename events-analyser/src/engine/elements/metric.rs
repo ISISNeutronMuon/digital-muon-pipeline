@@ -236,7 +236,7 @@ pub(crate) enum FlatMetricType {
     FalseCount(FlatMetricFalseCount),
     MuonLifetime(FlatMetricMuonLifetime),
     PulseHeightSpectra(FlatMetricPulseHeightSpectra),
-    PulsePairDifferences(FlatMetricPulsePairDifferences)
+    PulsePairDifferences(FlatMetricPulsePairDifferences),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

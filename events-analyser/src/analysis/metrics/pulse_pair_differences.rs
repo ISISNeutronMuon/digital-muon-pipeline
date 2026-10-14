@@ -6,7 +6,7 @@ use crate::{
         utils::{Histogram, SumWithSumOfSqrs},
     },
     engine::{
-        FlatAlgorithm, FlatMetricPulsePairDifferences, FlatWaveform, PulsePairDifferencesProperty, MetricTypePulsePairDifferences
+        FlatAlgorithm, FlatMetricPulsePairDifferences, FlatWaveform, PulsePairDifferencesProperty,
     },
     eventlists::ChannelDataByTopic,
 };
@@ -54,28 +54,29 @@ impl PartialMetricResultBucket for PartialPulsePairDifferences {
             .expect("This should never fail.")
             .get_time_intensity()
             .into_iter()
-            .filter_map(|(time,intensity)| self.source
-                .settings
-                .intensity_filter
-                .range_inclusive()
-                .contains(intensity)
-                .then_some(*time)
-            )
+            .filter_map(|(time, intensity)| {
+                self.source
+                    .settings
+                    .intensity_filter
+                    .range_inclusive()
+                    .contains(intensity)
+                    .then_some(*time)
+            })
             .collect::<Vec<_>>();
-        
+
         // Calculate all temporal differences between each pair of events.
-        let time_diffs = times.iter()
-            .permutations(2)
-            .map(|vec| {
-            let [first,last] = vec.try_into()
+        let time_diffs = times.iter().permutations(2).map(|vec| {
+            let [first, last] = vec
+                .try_into()
                 .expect("Vector should have length 2, this should never fail.");
             Time::abs_diff(*first, *last)
         });
 
         // Obtain the channel's histogram.
-        let histogram = self.histogram
+        let histogram = self
+            .histogram
             .entry(channel)
-            .or_insert_with(||Histogram::new(&self.source.settings.histogram));
+            .or_insert_with(|| Histogram::new(&self.source.settings.histogram));
 
         // Enter the time differences into the histogram.
         for time_diff in time_diffs {
@@ -111,8 +112,8 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
             .histogram
             .values()
             .next()
-            .map(|hist|hist.get_bin_labels().to_vec())
-            .unwrap_or_else(||Histogram::generate_bin_labels(&source.source.settings.histogram));
+            .map(|hist| hist.get_bin_labels().to_vec())
+            .unwrap_or_else(|| Histogram::generate_bin_labels(&source.source.settings.histogram));
         let mut sum = vec![0.0; labels.len()];
         let mut mean = vec![0.0; labels.len()];
         let mut sd = vec![0.0; labels.len()];
