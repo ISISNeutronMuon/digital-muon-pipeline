@@ -16,12 +16,9 @@ pub(crate) use {
     criteria::CriteriaTemplate,
     metric::{
         EventCountProperty, FalseCountProperty, FlatMetric, FlatMetricEventCount,
-        FlatMetricFalseCount, FlatMetricMuonLifetime, FlatMetricPulseHeightSpectra, FlatMetricType, FlatMetricPulsePairDifferences,
-        Metric, MuonLifetimeProperty, PropertyOfMetric, PulseHeightSpectraProperty, PairPulseDifferenceProperty,
+        FlatMetricFalseCount, FlatMetricMuonLifetime, FlatMetricPulseHeightSpectra, FlatMetricType, FlatMetricPulsePairDifferences, MetricTypeHistogram,
+        Metric, MuonLifetimeProperty, PropertyOfMetric, PulseHeightSpectraProperty, PulsePairDifferencesProperty, MetricTypePulsePairDifferences
     },
     series::{FlatSeries, SeriesType},
     waveform::{FlatWaveform, Waveform, WaveformProperties},
 };
-
-#[cfg(test)]
-pub(crate) use metric::MetricTypeHistogram;

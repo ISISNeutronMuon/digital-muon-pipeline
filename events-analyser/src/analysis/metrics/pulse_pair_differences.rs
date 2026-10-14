@@ -6,7 +6,7 @@ use crate::{
         utils::{Histogram, SumWithSumOfSqrs},
     },
     engine::{
-        FlatAlgorithm, FlatMetricPulsePairDifferences, FlatWaveform, PairPulseDifferenceProperty
+        FlatAlgorithm, FlatMetricPulsePairDifferences, FlatWaveform, PulsePairDifferencesProperty, MetricTypePulsePairDifferences
     },
     eventlists::ChannelDataByTopic,
 };
@@ -48,27 +48,38 @@ impl PartialMetricResultBucket for PartialPulsePairDifferences {
         channel: Channel,
         by_topic: &ChannelDataByTopic,
     ) {
+        // Filter the list of event times by event intensity.
         let times = by_topic
             .get(self.source.topic)
             .expect("This should never fail.")
             .get_time_intensity()
             .into_iter()
-            .filter_map(|(times,intensity)| self.source
+            .filter_map(|(time,intensity)| self.source
+                .settings
                 .intensity_filter
                 .range_inclusive()
                 .contains(intensity)
-                .then_some(*times)
+                .then_some(*time)
             )
             .collect::<Vec<_>>();
         
-        for time_diff in times.iter().permutations(2).map(|vec|{
-            let [first,last] = vec.try_into().expect("Vector should have length 2, this should never fail.");
+        // Calculate all temporal differences between each pair of events.
+        let time_diffs = times.iter()
+            .permutations(2)
+            .map(|vec| {
+            let [first,last] = vec.try_into()
+                .expect("Vector should have length 2, this should never fail.");
             Time::abs_diff(*first, *last)
-        }) {
-            self.histogram
-                .entry(channel)
-                .or_insert_with(||Histogram::new(self.source.histogram.num_bins, &self.source.histogram.interval))
-                .push(time_diff as f64);
+        });
+
+        // Obtain the channel's histogram.
+        let histogram = self.histogram
+            .entry(channel)
+            .or_insert_with(||Histogram::new(&self.source.settings.histogram));
+
+        // Enter the time differences into the histogram.
+        for time_diff in time_diffs {
+            histogram.push(time_diff as f64);
         }
     }
 }
@@ -93,16 +104,15 @@ pub(crate) struct CompletedPulsePairDifferences {
 impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
     type Partial = PartialPulsePairDifferences;
     type Error = MetricResultError;
-    type Property = PairPulseDifferenceProperty;
+    type Property = PulsePairDifferencesProperty;
 
     fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error> {
         let labels = source
             .histogram
             .values()
             .next()
-            .expect("No histogram values, this should never happen.") // FIXME: This might happen.
-            .get_bin_labels()
-            .to_vec();
+            .map(|hist|hist.get_bin_labels().to_vec())
+            .unwrap_or_else(||Histogram::generate_bin_labels(&source.source.settings.histogram));
         let mut sum = vec![0.0; labels.len()];
         let mut mean = vec![0.0; labels.len()];
         let mut sd = vec![0.0; labels.len()];
@@ -154,17 +164,17 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
 
     fn get_property(&self, property: Self::Property) -> Result<MetricOutput, Self::Error> {
         let histogram = match property {
-            PairPulseDifferenceProperty::Sum => HistogramWithBands {
+            PulsePairDifferencesProperty::Sum => HistogramWithBands {
                 labels: self.labels.clone(),
                 central: self.sum.clone(),
                 bands: None,
             },
-            PairPulseDifferenceProperty::Mean => HistogramWithBands {
+            PulsePairDifferencesProperty::Mean => HistogramWithBands {
                 labels: self.labels.clone(),
                 central: self.mean.clone(),
                 bands: None,
             },
-            PairPulseDifferenceProperty::MeanSd => HistogramWithBands {
+            PulsePairDifferencesProperty::MeanSd => HistogramWithBands {
                 labels: self.labels.clone(),
                 central: self.sum.clone(),
                 bands: Some((
@@ -180,7 +190,7 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
                         .collect(),
                 )),
             },
-            PairPulseDifferenceProperty::MeanBounds => HistogramWithBands {
+            PulsePairDifferencesProperty::MeanBounds => HistogramWithBands {
                 labels: self.labels.clone(),
                 central: self.sum.clone(),
                 bands: Some((self.upper.clone(), self.lower.clone())),

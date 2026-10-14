@@ -276,9 +276,8 @@ impl PartialMetricResult {
             (Self::EventCount(store), Self::EventCount(source)) => store.load_data(source),
             (Self::FalseCount(store), Self::FalseCount(source)) => store.load_data(source),
             (Self::MuonLifetime(store), Self::MuonLifetime(source)) => store.load_data(source),
-            (Self::PulseHeightSpectra(store), Self::PulseHeightSpectra(source)) => {
-                store.load_data(source)
-            }
+            (Self::PulseHeightSpectra(store), Self::PulseHeightSpectra(source)) => store.load_data(source),
+            (Self::PulsePairDifferences(store), Self::PulsePairDifferences(source)) => store.load_data(source),
             _ => return Err(MetricResultError::LoadingDataWrongMetrics),
         }
         Ok(())

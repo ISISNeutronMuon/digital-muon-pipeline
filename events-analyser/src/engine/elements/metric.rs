@@ -31,6 +31,16 @@ pub(crate) struct MetricTypeHistogram {
     pub(crate) interval: Interval<f64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct MetricTypePulsePairDifferences {
+    /// Only include events with this range of intensities.
+    pub(crate) intensity_filter: Interval<Intensity>,
+    /// Encapsulates how the histogram is constructed.
+    #[serde(flatten)]
+    pub(crate) histogram: MetricTypeHistogram,
+}
+
 ///
 /// This struct is created from the configuration JSON file.
 ///
@@ -62,11 +72,9 @@ pub(crate) enum MetricType {
     PulsePairDifferences {
         /// The topic to listen for eventlist messages.
         topic: String,
-        /// Only include events with this range of intensities.
-        intensity_filter: Interval<Intensity>,
-        /// Encapsulates how the histogram is constructed.
+        /// Encapsulates how the pulse pair differences metric is constructed.
         #[serde(flatten)]
-        histogram: MetricTypeHistogram,
+        settings: MetricTypePulsePairDifferences,
     },
 }
 
@@ -77,6 +85,7 @@ pub(crate) enum PropertyOfMetric {
     FalseCount(FalseCountProperty),
     MuonLifetime(MuonLifetimeProperty),
     PulseHeightSpectra(PulseHeightSpectraProperty),
+    PulsePairDifferences(PulsePairDifferencesProperty),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,7 +136,7 @@ pub(crate) enum PulseHeightSpectraProperty {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum PairPulseDifferenceProperty {
+pub(crate) enum PulsePairDifferencesProperty {
     /// Display histogram whose counts are the sums of the per-channel counts.
     Sum,
     /// Display histogram whose counts are the mean of the per-channel counts.
@@ -186,15 +195,14 @@ impl Flattenable<&[String]> for Metric {
                     histogram: histogram.clone(),
                 })
             }
-            MetricType::PulsePairDifferences { topic, intensity_filter, histogram } => {
+            MetricType::PulsePairDifferences { topic, settings } => {
                 FlatMetricType::PulsePairDifferences(FlatMetricPulsePairDifferences {
                     topic: library
                         .iter()
                         .enumerate()
                         .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
                         .expect("This should never fail."),
-                    intensity_filter: intensity_filter.clone(),
-                    histogram: histogram.clone(),
+                    settings: settings.clone(),
                 })
             }
         };
@@ -270,9 +278,6 @@ pub(crate) struct FlatMetricPulseHeightSpectra {
 pub(crate) struct FlatMetricPulsePairDifferences {
     /// The topic to listen for eventlist messages.
     pub(crate) topic: usize,
-    /// Only include events with this range of intensities.
-    pub(crate) intensity_filter: Interval<Intensity>,
-    /// Encapsulates how the histogram is constructed.
-    #[serde(flatten)]
-    pub(crate) histogram: MetricTypeHistogram,
+    /// Encapsulates how the pulse pair differences metric is constructed.
+    pub(crate) settings: MetricTypePulsePairDifferences,
 }

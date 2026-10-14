@@ -73,6 +73,10 @@ impl CompletedMetricResult {
                 Self::PulseHeightSpectra(completed),
                 PropertyOfMetric::PulseHeightSpectra(property),
             ) => completed.get_property(block, property)?,
+            (
+                Self::PulsePairDifferences(completed),
+                PropertyOfMetric::PulsePairDifferences(property),
+            ) => completed.get_property(block, property)?,
             _ => {
                 error!("{:?}, {:?}", self, property.clone());
                 unreachable!()

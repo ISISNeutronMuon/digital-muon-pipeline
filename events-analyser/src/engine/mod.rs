@@ -5,17 +5,14 @@ mod values;
 pub(crate) use crate::engine::{
     elements::{
         Chart, EventCountProperty, FalseCountProperty, FlatAlgorithm, FlatBucket, FlatBucketBlock,
-        FlatChart, FlatMetric, FlatMetricEventCount, FlatMetricFalseCount, FlatMetricMuonLifetime, FlatMetricPulsePairDifferences,
+        FlatChart, FlatMetric, FlatMetricEventCount, FlatMetricFalseCount, FlatMetricMuonLifetime, FlatMetricPulsePairDifferences, MetricTypePulsePairDifferences, MetricTypeHistogram,
         FlatMetricPulseHeightSpectra, FlatMetricType, FlatSeries, FlatWaveform, Metric,
         MuonLifetimeProperty, PropertyOfMetric, PulseHeightSpectraProperty, SeriesType,
-        PairPulseDifferenceProperty,
+        PulsePairDifferencesProperty,
     },
     settings::{AnalysisSettings, Array, Templates},
     values::Interval,
 };
-
-#[cfg(test)]
-pub(crate) use elements::MetricTypeHistogram;
 
 /// Provides methods for flattening dependencies.
 pub(crate) trait Flattenable<Lib> {
