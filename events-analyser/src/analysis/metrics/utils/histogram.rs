@@ -1,4 +1,4 @@
-use crate::engine::Interval;
+use crate::engine::{Interval, MetricTypeHistogram};
 use serde::{Deserialize, Serialize};
 use std::ops::AddAssign;
 
@@ -13,15 +13,20 @@ pub(crate) struct Histogram {
 }
 
 impl Histogram {
-    pub(crate) fn new(num: usize, interval: &Interval<f64>) -> Self {
-        let bins = vec![Default::default(); num];
-        let coef = (interval.max - interval.min) / num as f64;
-        let bin_labels = (0..num).map(|i| i as f64 * coef + interval.min).collect();
+    pub(crate) fn generate_bin_labels(histogram: &MetricTypeHistogram) -> Vec<f64> {
+        let coef = (histogram.interval.max - histogram.interval.min) / histogram.num_bins as f64;
+        (0..histogram.num_bins)
+            .map(|i| i as f64 * coef + histogram.interval.min)
+            .collect()
+    }
+    pub(crate) fn new(histogram: &MetricTypeHistogram) -> Self {
+        let bins = vec![Default::default(); histogram.num_bins];
+        let bin_labels = Self::generate_bin_labels(histogram);
         Self {
             num_values: Default::default(),
             bin_labels,
             bins,
-            interval: interval.clone(),
+            interval: histogram.interval.clone(),
             num_too_small: Default::default(),
             num_too_big: Default::default(),
         }

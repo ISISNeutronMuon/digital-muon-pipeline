@@ -54,10 +54,7 @@ impl PartialMetricResultBucket for PartialPulseHeightSpectra {
         {
             self.histogram
                 .entry(channel)
-                .or_insert(Histogram::new(
-                    self.source.histogram.num_bins,
-                    &self.source.histogram.interval,
-                ))
+                .or_insert(Histogram::new(&self.source.histogram))
                 .push(*intensity as f64);
         }
     }
