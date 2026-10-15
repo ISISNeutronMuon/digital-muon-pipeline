@@ -53,7 +53,7 @@ impl PartialMetricResultBucket for PartialPulsePairDifferences {
             .get(self.source.topic)
             .expect("This should never fail.")
             .get_time_intensity()
-            .into_iter()
+            .iter()
             .filter_map(|(time, intensity)| {
                 self.source
                     .settings
