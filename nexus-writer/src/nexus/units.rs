@@ -8,46 +8,46 @@ use hdf5::Dataset;
 #[derive(strum::Display)]
 pub(crate) enum NexusUnits {
     /// Measures frequency (equal to Seconds^-1).
-    #[strum(to_string = "Hz")]
+    #[strum(to_string = "hertz")]
     Hertz,
     /// Time.
     #[strum(to_string = "second")]
     Seconds,
     /// Time (equal to 0.001 Seconds).
-    #[strum(to_string = "ms")]
+    #[strum(to_string = "milli.second")]
     Milliseconds,
     /// Time (equal to 0.000001 Milliseconds).
-    #[strum(to_string = "ns")]
+    #[strum(to_string = "nano.second")]
     Nanoseconds,
     /// Energy
-    #[strum(to_string = "eV")]
+    #[strum(to_string = "electronvolt")]
     ElectronVolts,
     /// Energy (equal to 1,000,000 eV)
-    #[strum(to_string = "MeV")]
+    #[strum(to_string = "mega.electronvolt")]
     MegaElectronVolts,
     /// Momentum
-    #[strum(to_string = "MeVc^-1")]
+    #[strum(to_string = "mega.electronvolt.c^-1")]
     MegaElectronVoltsOverC,
     /// Current
-    #[strum(to_string = "uA")]
+    #[strum(to_string = "micro.amp")]
     MicroAmps,
     /// Charge
-    #[strum(to_string = "uAh")]
+    #[strum(to_string = "micro.amp.hour")]
     MicroAmpHours,
     /// Length
-    #[strum(to_string = "mm")]
+    #[strum(to_string = "milli.metre")]
     Millimeters,
     /// Mass
-    #[strum(to_string = "mg")]
+    #[strum(to_string = "milli.gram")]
     Milligrams,
     /// Density
-    #[strum(to_string = "mgcm^-3")]
+    #[strum(to_string = "milli.gram.centimetre-3")]
     MilligramsPerCm3,
     /// Temperature
-    #[strum(to_string = "K")]
+    #[strum(to_string = "kelvin")]
     Kelvin,
     /// Magnetic Field
-    #[strum(to_string = "G")]
+    #[strum(to_string = "gauss")]
     Gauss,
 }
 

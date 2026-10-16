@@ -10,12 +10,14 @@ use hdf5::{Dataset, Group};
 
 /// Field names for [Geometry].
 mod labels {
+    pub(super) const NAME: &str = "name";
     pub(super) const DESCRIPTION: &str = "description";
     pub(super) const COMPONENT_INDEX: &str = "component_index";
 }
 
 /// Contains details about the physical attributes of the sample being probed.
 pub(crate) struct Geometry {
+    _name: Dataset,
     _description: Dataset,
     _component_index: Dataset,
 }
@@ -26,6 +28,7 @@ impl NexusSchematic for Geometry {
 
     fn build_group_structure(group: &Group, _settings: &Self::Settings) -> NexusHDF5Result<Self> {
         Ok(Self {
+            _name: group.create_string_dataset(labels::NAME)?,
             _description: group.create_string_dataset(labels::DESCRIPTION)?,
             _component_index: group.create_scalar_dataset::<i32>(labels::COMPONENT_INDEX)?,
         })
@@ -33,6 +36,7 @@ impl NexusSchematic for Geometry {
 
     fn populate_group_structure(group: &Group) -> NexusHDF5Result<Self> {
         Ok(Self {
+            _name: group.get_dataset(labels::NAME)?,
             _description: group.get_dataset(labels::DESCRIPTION)?,
             _component_index: group.get_dataset(labels::COMPONENT_INDEX)?,
         })

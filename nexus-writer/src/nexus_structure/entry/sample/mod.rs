@@ -3,7 +3,7 @@
 mod geometry;
 
 use crate::{
-    hdf5_handlers::{GroupExt, NexusHDF5Result},
+    hdf5_handlers::{GroupExt, HasAttributesExt, NexusHDF5Result},
     nexus::{DatasetUnitExt, NexusClass, NexusGroup, NexusUnits},
     nexus_structure::NexusSchematic,
     run_engine::ChunkSizeSettings,
@@ -21,8 +21,22 @@ mod labels {
     pub(super) const MASS: &str = "mass";
     pub(super) const DENSITY: &str = "density";
     pub(super) const TEMPERATURE: &str = "temperature";
+    pub(super) const TEMPERATURE_ROLE: &str = "role";
+    pub(super) const TEMPERATURE_VALUE: &str = "value";
     pub(super) const MAGNETIC_FIELD: &str = "magnetic_field";
+    pub(super) const MAGNETIC_FIELD_ROLE: &str = "role";
+    pub(super) const MAGNETIC_FIELD_DIRECTION: &str = "direction";
 }
+
+// Values of Nexus Constants
+/// FIXME: This is a placeholder until we find out where this should come from.
+const TEMPERATURE_ROLE: &str = "sample";
+/// FIXME: This is a placeholder until we find out where this should come from.
+const TEMPERATURE_VALUE: &str = "nominal";
+/// FIXME: This is a placeholder until we find out where this should come from.
+const MAGNETIC_FIELD_ROLE: &str = "inactive";
+/// FIXME: This is a placeholder until we find out where this should come from.
+const MAGNETIC_FIELD_DIRECTION: &str = "x";
 
 /// Contains details about the sample being probed.
 pub(crate) struct Sample {
@@ -58,10 +72,14 @@ impl NexusSchematic for Sample {
                 .with_units(NexusUnits::MilligramsPerCm3)?,
             _temperature: group
                 .create_scalar_dataset::<f32>(labels::TEMPERATURE)?
-                .with_units(NexusUnits::Kelvin)?,
+                .with_units(NexusUnits::Kelvin)?
+                .with_constant_string_attribute(labels::TEMPERATURE_ROLE, TEMPERATURE_ROLE)?
+                .with_constant_string_attribute(labels::TEMPERATURE_VALUE, TEMPERATURE_VALUE)?,
             _magnetic_field: group
                 .create_scalar_dataset::<f32>(labels::MAGNETIC_FIELD)?
-                .with_units(NexusUnits::Gauss)?,
+                .with_units(NexusUnits::Gauss)?
+                .with_constant_string_attribute(labels::MAGNETIC_FIELD_ROLE, MAGNETIC_FIELD_ROLE)?
+                .with_constant_string_attribute(labels::MAGNETIC_FIELD_DIRECTION, MAGNETIC_FIELD_DIRECTION)?,
         })
     }
 

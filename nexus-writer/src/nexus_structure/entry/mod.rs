@@ -56,7 +56,7 @@ mod labels {
 /// The instrument definition file version, currently "2".
 const IDF_VERSION: u32 = 2;
 /// The template (DTD name) on which this entry is based, ‘muonTD’ (muon, time differential).
-const DEFINITION: &str = "muonTD";
+const DEFINITION: &str = "muonTDh";
 /// This may be changed to something more widely agreed upon. Possibly statically scraped from elsewhere.
 const PROGRAM_NAME: &str = "SuperMuSR Data Pipeline Nexus Writer";
 /// This should probably be taken statically from "cargo.toml" or something.
@@ -155,7 +155,7 @@ impl NexusSchematic for Entry {
             end_time: group.create_string_dataset(labels::END_TIME)?,
             name: group.create_constant_string_dataset(labels::NAME, "")?,
             title: group.create_constant_string_dataset(labels::TITLE, "")?,
-            instrument: Instrument::build_new_group(group, labels::INSTRUMENT, &())?,
+            instrument: Instrument::build_new_group(group, labels::INSTRUMENT, settings)?,
             run_logs: RunLog::build_new_group(group, labels::RUNLOGS, &())?,
             periods: Period::build_new_group(group, labels::PERIODS, &settings.period)?,
             selogs: SELog::build_new_group(group, labels::SELOGS, &())?,

@@ -18,6 +18,9 @@ pub(crate) enum NexusClass {
     /// The nexus class for the `Geometry` group structure.
     #[strum(to_string = "NXgeometry")]
     Geometry,
+    /// The nexus class for the `Detector` group structure.
+    #[strum(to_string = "NXdetector")]
+    Detector,
     /// The nexus class for the `Instrument` group structure.
     #[strum(to_string = "NXinstrument")]
     Instrument,
