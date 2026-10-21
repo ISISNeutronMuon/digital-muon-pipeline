@@ -16,6 +16,9 @@ pub(crate) enum NexusUnits {
     /// Time (equal to 0.001 Seconds).
     #[strum(to_string = "milli.second")]
     Milliseconds,
+    /// Time (equal to 0.000001 Seconds).
+    #[strum(to_string = "micro.second")]
+    MicroSeconds,
     /// Time (equal to 0.000001 Milliseconds).
     #[strum(to_string = "ns")]
     Nanoseconds,

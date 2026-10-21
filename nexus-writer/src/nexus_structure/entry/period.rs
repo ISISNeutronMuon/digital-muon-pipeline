@@ -13,6 +13,10 @@ mod labels {
     pub(super) const PERIOD_TYPE: &str = "type";
     pub(super) const LABELS: &str = "labels";
     pub(super) const LABELS_SEPARATOR: &str = "separator";
+    pub(super) const RAW_FRAMES: &str = "raw_frames";
+    pub(super) const GOOD_FRAMES: &str = "good_frames";
+    pub(super) const SEQUENCES: &str = "sequences";
+    pub(super) const OUTPUT: &str = "output";
     pub(super) const FRAMES_REQUESTED: &str = "frames_requested";
     pub(super) const FRAMES_REQUESTED_FRAME_TYPE: &str = "frame_type";
 }
@@ -37,6 +41,18 @@ pub(crate) struct Period {
 
     /// Vector of the number of frames (per period) before switching (0 indicates unlimited).
     _frames_requested: Dataset,
+
+    /// Vector of the number of raw frames (per period).
+    _raw_frames: Dataset,
+
+    /// Vector of the number of good frames (per period).
+    _good_frames: Dataset,
+
+    /// Vector of the sequences (per period).
+    _sequences: Dataset,
+
+    /// Output bit pattern on period card.
+    _output: Dataset,
 }
 
 impl Period {
@@ -72,18 +88,25 @@ impl NexusSchematic for Period {
 
     fn build_group_structure(group: &Group, settings: &Self::Settings) -> NexusHDF5Result<Self> {
         Ok(Self {
-            number: group.create_scalar_dataset::<u32>(labels::NUMBER)?,
+            number: group.create_scalar_dataset::<i32>(labels::NUMBER)?,
             period_type: group
-                .create_resizable_empty_dataset::<u32>(labels::PERIOD_TYPE, *settings)?,
+                .create_resizable_empty_dataset::<i32>(labels::PERIOD_TYPE, *settings)?,
             labels: group
                 .create_string_dataset(labels::LABELS)?
                 .with_constant_string_attribute(labels::LABELS_SEPARATOR, LABELS_SEPARATOR)?,
             _frames_requested: group
-                .create_resizable_empty_dataset::<u32>(labels::FRAMES_REQUESTED, *settings)?
+                .create_resizable_empty_dataset::<i32>(labels::FRAMES_REQUESTED, *settings)?
                 .with_constant_string_attribute(
                     labels::FRAMES_REQUESTED_FRAME_TYPE,
                     FRAMES_REQUESTED_FRAME_TYPE,
                 )?,
+            _raw_frames: group
+                .create_resizable_empty_dataset::<i32>(labels::RAW_FRAMES, *settings)?,
+            _good_frames: group
+                .create_resizable_empty_dataset::<i32>(labels::GOOD_FRAMES, *settings)?,
+            _sequences: group
+                .create_resizable_empty_dataset::<i32>(labels::SEQUENCES, *settings)?,
+            _output: group.create_scalar_dataset::<i32>(labels::OUTPUT)?,
         })
     }
 
@@ -92,7 +115,11 @@ impl NexusSchematic for Period {
             number: group.get_dataset(labels::NUMBER)?,
             period_type: group.get_dataset(labels::PERIOD_TYPE)?,
             labels: group.get_dataset(labels::LABELS)?,
-            _frames_requested: group.get_dataset(labels::FRAMES_REQUESTED_FRAME_TYPE)?,
+            _frames_requested: group.get_dataset(labels::FRAMES_REQUESTED)?,
+            _raw_frames: group.get_dataset(labels::RAW_FRAMES)?,
+            _good_frames: group.get_dataset(labels::GOOD_FRAMES)?,
+            _sequences: group.get_dataset(labels::SEQUENCES)?,
+            _output: group.get_dataset(labels::OUTPUT)?,
         })
     }
 }
