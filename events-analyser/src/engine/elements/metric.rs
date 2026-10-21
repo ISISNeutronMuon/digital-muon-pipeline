@@ -2,6 +2,7 @@ use crate::engine::{
     Flattenable, HasName,
     values::{Interval, ValueError},
 };
+use digital_muon_common::Intensity;
 use serde::{Deserialize, Serialize};
 
 ///
@@ -28,6 +29,16 @@ impl HasName for Metric {
 pub(crate) struct MetricTypeHistogram {
     pub(crate) num_bins: usize,
     pub(crate) interval: Interval<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct MetricTypePulsePairDifferences {
+    /// Only include events with this range of intensities.
+    pub(crate) intensity_filter: Interval<Intensity>,
+    /// Encapsulates how the histogram is constructed.
+    #[serde(flatten)]
+    pub(crate) histogram: MetricTypeHistogram,
 }
 
 ///
@@ -57,6 +68,14 @@ pub(crate) enum MetricType {
         #[serde(flatten)]
         histogram: MetricTypeHistogram,
     },
+    #[serde(rename_all = "kebab-case")]
+    PulsePairDifferences {
+        /// The topic to listen for eventlist messages.
+        topic: String,
+        /// Encapsulates how the pulse pair differences metric is constructed.
+        #[serde(flatten)]
+        settings: MetricTypePulsePairDifferences,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,6 +85,7 @@ pub(crate) enum PropertyOfMetric {
     FalseCount(FalseCountProperty),
     MuonLifetime(MuonLifetimeProperty),
     PulseHeightSpectra(PulseHeightSpectraProperty),
+    PulsePairDifferences(PulsePairDifferencesProperty),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,6 +124,19 @@ pub(crate) enum MuonLifetimeProperty {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum PulseHeightSpectraProperty {
+    /// Display histogram whose counts are the sums of the per-channel counts.
+    Sum,
+    /// Display histogram whose counts are the mean of the per-channel counts.
+    Mean,
+    /// Display histogram whose counts are the mean of the per-channel counts, along with the standard deviation bands.
+    MeanSd,
+    /// Display histogram whose counts are the mean of the per-channel counts, along with the minimum and maximum count bands.
+    MeanBounds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum PulsePairDifferencesProperty {
     /// Display histogram whose counts are the sums of the per-channel counts.
     Sum,
     /// Display histogram whose counts are the mean of the per-channel counts.
@@ -162,6 +195,16 @@ impl Flattenable<&[String]> for Metric {
                     histogram: histogram.clone(),
                 })
             }
+            MetricType::PulsePairDifferences { topic, settings } => {
+                FlatMetricType::PulsePairDifferences(FlatMetricPulsePairDifferences {
+                    topic: library
+                        .iter()
+                        .enumerate()
+                        .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
+                        .expect("This should never fail."),
+                    settings: settings.clone(),
+                })
+            }
         };
         Ok(FlatMetric {
             name: self.get_name().to_string(),
@@ -193,6 +236,7 @@ pub(crate) enum FlatMetricType {
     FalseCount(FlatMetricFalseCount),
     MuonLifetime(FlatMetricMuonLifetime),
     PulseHeightSpectra(FlatMetricPulseHeightSpectra),
+    PulsePairDifferences(FlatMetricPulsePairDifferences),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -225,4 +269,15 @@ pub(crate) struct FlatMetricPulseHeightSpectra {
     /// Encapsulates how the histogram is constructed.
     #[serde(flatten)]
     pub(crate) histogram: MetricTypeHistogram,
+}
+
+/// Encapsulates the flattened pulse height spectra metric,
+/// that is with all dependencies in the unflattened struct resolved.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct FlatMetricPulsePairDifferences {
+    /// The topic to listen for eventlist messages.
+    pub(crate) topic: usize,
+    /// Encapsulates how the pulse pair differences metric is constructed.
+    pub(crate) settings: MetricTypePulsePairDifferences,
 }

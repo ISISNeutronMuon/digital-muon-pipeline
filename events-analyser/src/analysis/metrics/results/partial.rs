@@ -6,6 +6,7 @@ use crate::{
             false_counts::PartialFalseCount,
             muon_lifetime::PartialMuonLifetime,
             pulse_height_spectra::PartialPulseHeightSpectra,
+            pulse_pair_differences::PartialPulsePairDifferences,
             results::{
                 CompleteMetricResultBucket, MetricResultBucketWrapper, MetricResultByBucket,
                 MetricResultError, complete::CompletedMetricResult,
@@ -175,8 +176,10 @@ pub(crate) enum PartialMetricResult {
     FalseCount(MetricResultByBucket<PartialFalseCount>),
     /// Descriptive statistics on the muon-lifetime estimated from the data.
     MuonLifetime(MetricResultByBucket<PartialMuonLifetime>),
-    /// Descriptive statistics on the muon-lifetime estimated from the data.
+    /// Descriptive statistics on the pulse height spectra estimated from the data.
     PulseHeightSpectra(MetricResultByBucket<PartialPulseHeightSpectra>),
+    /// Descriptive statistics on the pulse-pair differences estimated from the data.
+    PulsePairDifferences(MetricResultByBucket<PartialPulsePairDifferences>),
 }
 
 impl PartialMetricResult {
@@ -197,6 +200,12 @@ impl PartialMetricResult {
                     bucket_block_sizes,
                 ))
             }
+            FlatMetricType::PulsePairDifferences(flat_metric_pulse_pair_differences) => {
+                Self::PulsePairDifferences(MetricResultByBucket::new(
+                    flat_metric_pulse_pair_differences,
+                    bucket_block_sizes,
+                ))
+            }
         }
     }
 
@@ -212,6 +221,9 @@ impl PartialMetricResult {
                 patrial_metric_result_class.are_buckets_full_enough(block, min)
             }
             Self::PulseHeightSpectra(patrial_metric_result_class) => {
+                patrial_metric_result_class.are_buckets_full_enough(block, min)
+            }
+            Self::PulsePairDifferences(patrial_metric_result_class) => {
                 patrial_metric_result_class.are_buckets_full_enough(block, min)
             }
         }
@@ -237,6 +249,9 @@ impl PartialMetricResult {
             Self::PulseHeightSpectra(patrial_metric_result_store) => {
                 patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
             }
+            Self::PulsePairDifferences(patrial_metric_result_store) => {
+                patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
+            }
         }
     }
 
@@ -254,6 +269,11 @@ impl PartialMetricResult {
             Self::PulseHeightSpectra(patrial_metric_result_store) => {
                 CompletedMetricResult::PulseHeightSpectra(patrial_metric_result_store.aggregate()?)
             }
+            Self::PulsePairDifferences(patrial_metric_result_store) => {
+                CompletedMetricResult::PulsePairDifferences(
+                    patrial_metric_result_store.aggregate()?,
+                )
+            }
         })
     }
 
@@ -263,6 +283,9 @@ impl PartialMetricResult {
             (Self::FalseCount(store), Self::FalseCount(source)) => store.load_data(source),
             (Self::MuonLifetime(store), Self::MuonLifetime(source)) => store.load_data(source),
             (Self::PulseHeightSpectra(store), Self::PulseHeightSpectra(source)) => {
+                store.load_data(source)
+            }
+            (Self::PulsePairDifferences(store), Self::PulsePairDifferences(source)) => {
                 store.load_data(source)
             }
             _ => return Err(MetricResultError::LoadingDataWrongMetrics),

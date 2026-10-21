@@ -6,15 +6,13 @@ pub(crate) use crate::engine::{
     elements::{
         Chart, EventCountProperty, FalseCountProperty, FlatAlgorithm, FlatBucket, FlatBucketBlock,
         FlatChart, FlatMetric, FlatMetricEventCount, FlatMetricFalseCount, FlatMetricMuonLifetime,
-        FlatMetricPulseHeightSpectra, FlatMetricType, FlatSeries, FlatWaveform, Metric,
-        MuonLifetimeProperty, PropertyOfMetric, PulseHeightSpectraProperty, SeriesType,
+        FlatMetricPulseHeightSpectra, FlatMetricPulsePairDifferences, FlatMetricType, FlatSeries,
+        FlatWaveform, Metric, MetricTypeHistogram, MuonLifetimeProperty, PropertyOfMetric,
+        PulseHeightSpectraProperty, PulsePairDifferencesProperty, SeriesType,
     },
     settings::{AnalysisSettings, Array, Templates},
     values::Interval,
 };
-
-#[cfg(test)]
-pub(crate) use elements::MetricTypeHistogram;
 
 /// Provides methods for flattening dependencies.
 pub(crate) trait Flattenable<Lib> {

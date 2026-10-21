@@ -6,6 +6,7 @@ use crate::{
         muon_lifetime::CompletedMuonLifetime,
         output::MetricOutputSeries,
         pulse_height_spectra::CompletedPulseHeightSpectra,
+        pulse_pair_differences::CompletedPulsePairDifferences,
         results::{MetricResultByBucket, PartialMetricResultBucket},
     },
     engine::PropertyOfMetric,
@@ -56,6 +57,7 @@ pub(crate) enum CompletedMetricResult {
     FalseCount(MetricResultByBucket<CompletedFalseCount>),
     MuonLifetime(MetricResultByBucket<CompletedMuonLifetime>),
     PulseHeightSpectra(MetricResultByBucket<CompletedPulseHeightSpectra>),
+    PulsePairDifferences(MetricResultByBucket<CompletedPulsePairDifferences>),
 }
 
 impl CompletedMetricResult {
@@ -77,6 +79,10 @@ impl CompletedMetricResult {
             (
                 Self::PulseHeightSpectra(completed),
                 PropertyOfMetric::PulseHeightSpectra(property),
+            ) => completed.get_property(block, property)?,
+            (
+                Self::PulsePairDifferences(completed),
+                PropertyOfMetric::PulsePairDifferences(property),
             ) => completed.get_property(block, property)?,
             _ => {
                 error!("{:?}, {:?}", self, property.clone());
