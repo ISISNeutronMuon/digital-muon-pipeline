@@ -8,7 +8,10 @@ use crate::{
     error::FlatBufferMissingError,
     hdf5_handlers::{DatasetExt, GroupExt, NexusHDF5Result},
     nexus::NexusClass,
-    nexus_structure::{NexusGroup, NexusMessageHandler, NexusSchematic, entry::instrument::{dae::Dae, detector::Detector}},
+    nexus_structure::{
+        NexusGroup, NexusMessageHandler, NexusSchematic,
+        entry::instrument::{dae::Dae, detector::Detector},
+    },
     run_engine::{ChunkSizeSettings, run_messages::PushRunStart},
 };
 use hdf5::{Dataset, Group};

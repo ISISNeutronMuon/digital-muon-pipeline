@@ -79,7 +79,10 @@ impl NexusSchematic for Sample {
                 .create_scalar_dataset::<f32>(labels::MAGNETIC_FIELD)?
                 .with_units(NexusUnits::Gauss)?
                 .with_constant_string_attribute(labels::MAGNETIC_FIELD_ROLE, MAGNETIC_FIELD_ROLE)?
-                .with_constant_string_attribute(labels::MAGNETIC_FIELD_DIRECTION, MAGNETIC_FIELD_DIRECTION)?,
+                .with_constant_string_attribute(
+                    labels::MAGNETIC_FIELD_DIRECTION,
+                    MAGNETIC_FIELD_DIRECTION,
+                )?,
         })
     }
 

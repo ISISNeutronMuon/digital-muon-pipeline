@@ -24,13 +24,14 @@ impl NexusSchematic for Detector {
 
     fn build_group_structure(group: &Group, settings: &Self::Settings) -> NexusHDF5Result<Self> {
         Ok(Self {
-            _grouping: group.create_resizable_empty_dataset::<usize>(labels::GROUPING, settings.period)?
+            _grouping: group
+                .create_resizable_empty_dataset::<usize>(labels::GROUPING, settings.period)?,
         })
     }
 
     fn populate_group_structure(group: &Group) -> NexusHDF5Result<Self> {
         Ok(Self {
-            _grouping: group.get_dataset(labels::GROUPING)?
+            _grouping: group.get_dataset(labels::GROUPING)?,
         })
     }
 }
