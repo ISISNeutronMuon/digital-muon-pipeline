@@ -5,19 +5,18 @@ mod period;
 mod runlog;
 mod sample;
 mod selog;
+mod user;
 
 use super::{NexusGroup, NexusMessageHandler, NexusSchematic};
 use crate::{
-    hdf5_handlers::{DatasetExt, GroupExt, HasAttributesExt, NexusHDF5Result},
-    nexus::{DATETIME_FORMAT, DatasetUnitExt, NexusClass, NexusUnits},
-    run_engine::{
+    hdf5_handlers::{DatasetExt, GroupExt, HasAttributesExt, NexusHDF5Result}, nexus::{DATETIME_FORMAT, DatasetUnitExt, NexusClass, NexusUnits}, nexus_structure::entry::user::User, run_engine::{
         ChunkSizeSettings, RunParameters, RunStopParameters,
         run_messages::{
             InitialiseNewNexusRun, InitialiseNewNexusStructure, PushAlarm, PushFrameEventList,
             PushInternallyGeneratedLogWarning, PushRunLog, PushRunStart, PushSampleEnvironmentLog,
             SetEndTime, UpdatePeriodList,
         },
-    },
+    }
 };
 use chrono::Utc;
 use event_data::EventData;
@@ -49,6 +48,7 @@ mod labels {
     pub(super) const PERIODS: &str = "periods";
     pub(super) const SELOGS: &str = "selog";
     pub(super) const SAMPLE: &str = "sample";
+    pub(super) const USER_1: &str = "user_1";
     pub(super) const DETECTOR_1: &str = "detector_1_events";
 }
 
@@ -99,6 +99,9 @@ pub(crate) struct Entry {
 
     /// Container for log(s) of sample environment parameters, that may be specific to each experiment.
     selogs: NexusGroup<SELog>,
+
+    /// Container for log(s) of sample environment parameters, that may be specific to each experiment.
+    _user_1: NexusGroup<User>,
 
     /// The data collected.
     detector_1: NexusGroup<EventData>,
@@ -160,6 +163,7 @@ impl NexusSchematic for Entry {
             periods: Period::build_new_group(group, labels::PERIODS, &settings.period)?,
             selogs: SELog::build_new_group(group, labels::SELOGS, &())?,
             _sample: Sample::build_new_group(group, labels::SAMPLE, settings)?,
+            _user_1: User::build_new_group(group, labels::USER_1, &())?,
             detector_1: EventData::build_new_group(
                 group,
                 labels::DETECTOR_1,
@@ -189,6 +193,7 @@ impl NexusSchematic for Entry {
 
         let run_logs = RunLog::open_group(group, labels::RUNLOGS)?;
         let selogs = SELog::open_group(group, labels::SELOGS)?;
+        let _user_1 = User::open_group(group, labels::USER_1)?;
 
         let detector_1 = EventData::open_group(group, labels::DETECTOR_1)?;
 
@@ -209,6 +214,7 @@ impl NexusSchematic for Entry {
             _sample,
             instrument,
             periods,
+            _user_1,
             detector_1,
         })
     }
