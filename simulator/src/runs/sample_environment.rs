@@ -13,6 +13,8 @@ use isis_streaming_data_types::flatbuffers_generated::data_se00::{
 use serde::Deserialize;
 use std::str::FromStr;
 
+/// Duplicate type of [ValueUnion] that can be deserialized,
+/// then converted into it.
 #[derive(Clone, Debug, Deserialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum ValuesType {
@@ -45,6 +47,8 @@ impl From<ValuesType> for ValueUnion {
     }
 }
 
+/// Duplicate type of [Location] that can be deserialized,
+/// then converted into it.
 #[derive(Clone, Debug, Deserialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum LocationType {
@@ -65,6 +69,11 @@ impl From<LocationType> for Location {
     }
 }
 
+/// Package the given value into a FlatBuffers vector.
+///
+/// # Parameters
+/// - fbb: the builder to use.
+/// - value: the slice of strings to package.
 fn to_args<'a, 'fbb: 'a, I: FromStr + Push>(
     fbb: &mut FlatBufferBuilder<'fbb>,
     value: &[String],
@@ -101,6 +110,12 @@ pub(crate) fn generate_value(
         .collect::<Result<Vec<_>, _>>()
 }
 
+/// Package the given value into a FlatBuffers caller-specified type.
+///
+/// # Parameters
+/// - fbb: the builder to use.
+/// - value_type: convert the value to this type.
+/// - value: the slice of strings to package.
 pub(crate) fn make_value(
     fbb: &mut FlatBufferBuilder,
     value_type: ValueUnion,

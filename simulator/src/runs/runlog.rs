@@ -1,3 +1,4 @@
+use super::RunCommandError;
 use clap::ValueEnum;
 use digital_muon_streaming_types::flatbuffers::{
     FlatBufferBuilder, Push, UnionWIPOffset, Vector, WIPOffset,
@@ -12,8 +13,8 @@ use isis_streaming_data_types::flatbuffers_generated::logdata_f144::{
 use serde::Deserialize;
 use std::str::FromStr;
 
-use super::RunCommandError;
-
+/// Duplicate type of [Value] that can be deserialized,
+/// then converted into it.
 #[derive(Clone, Debug, Deserialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum ValueType {
@@ -68,6 +69,11 @@ impl From<ValueType> for Value {
 
 type GenericFBVector<'a, I> = WIPOffset<Vector<'a, <I as Push>::Output>>;
 
+/// Package the given slice into a FlatBuffers vector.
+///
+/// # Parameters
+/// - fbb: the builder to use.
+/// - value: the slice of strings to package.
 fn to_array<'a, 'fbb: 'a, I: FromStr + Push>(
     fbb: &mut FlatBufferBuilder<'fbb>,
     value: &[String],
@@ -86,6 +92,12 @@ where
     ))
 }
 
+/// Package the given value into a FlatBuffers caller-specified type.
+///
+/// # Parameters
+/// - fbb: the builder to use.
+/// - type: convert the value to this type.
+/// - value: a non-empty slice whose first entry is the value to convert and package.
 pub(crate) fn make_value(
     fbb: &mut FlatBufferBuilder,
     value_type: Value,

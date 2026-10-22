@@ -1,3 +1,4 @@
+///! Consists of the commands to generate run command, and log messages without using a JSON file.
 use super::{
     AlarmData, RunCommandError, RunLogData, SampleEnvData, SampleEnvTimestamp, Start, Stop, runlog,
     sample_environment,
@@ -22,6 +23,12 @@ use rdkafka::{
 use std::time::Duration;
 use tracing::{debug, error};
 
+/// Creates a run start message.
+///
+/// # Parameters
+/// - use_otel: whether to inject otel span into the message.
+/// - producer: the Kafka producer to use.
+/// - status: the attributes of the start message.
 #[tracing::instrument(skip_all)]
 pub(crate) async fn create_run_start_command(
     use_otel: bool,
@@ -56,6 +63,12 @@ pub(crate) async fn create_run_start_command(
     Ok(())
 }
 
+/// Creates a run stop message.
+///
+/// # Parameters
+/// - use_otel: whether to inject otel span into the message.
+/// - producer: the Kafka producer to use.
+/// - stop: the attributes of the stop message.
 #[tracing::instrument(skip_all)]
 pub(crate) async fn create_run_stop_command(
     use_otel: bool,
@@ -89,6 +102,12 @@ pub(crate) async fn create_run_stop_command(
     Ok(())
 }
 
+/// Creates a runlog message.
+///
+/// # Parameters
+/// - use_otel: whether to inject otel span into the message.
+/// - producer: the Kafka producer to use.
+/// - runlog: the attributes of the runlog message.
 #[tracing::instrument(skip_all)]
 pub(crate) async fn create_runlog_command(
     use_otel: bool,
@@ -124,6 +143,12 @@ pub(crate) async fn create_runlog_command(
     Ok(())
 }
 
+/// Creates a selog message.
+///
+/// # Parameters
+/// - use_otel: whether to inject otel span into the message.
+/// - producer: the Kafka producer to use.
+/// - sample_env: the attributes of the selog message.
 #[tracing::instrument(skip_all)]
 pub(crate) async fn create_sample_environment_command(
     use_otel: bool,
@@ -184,6 +209,12 @@ pub(crate) async fn create_sample_environment_command(
     Ok(())
 }
 
+/// Creates a alarm message.
+///
+/// # Parameters
+/// - use_otel: whether to inject otel span into the message.
+/// - producer: the Kafka producer to use.
+/// - alarm: the attributes of the alarm message.
 #[tracing::instrument(skip_all)]
 pub(crate) async fn create_alarm_command(
     use_otel: bool,
