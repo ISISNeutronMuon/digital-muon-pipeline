@@ -13,11 +13,20 @@ mod labels {
     pub(super) const PERIOD_TYPE: &str = "type";
     pub(super) const LABELS: &str = "labels";
     pub(super) const LABELS_SEPARATOR: &str = "separator";
+    pub(super) const RAW_FRAMES: &str = "raw_frames";
+    pub(super) const GOOD_FRAMES: &str = "good_frames";
+    pub(super) const SEQUENCES: &str = "sequences";
+    pub(super) const OUTPUT: &str = "output";
+    pub(super) const FRAMES_REQUESTED: &str = "frames_requested";
+    pub(super) const FRAMES_REQUESTED_FRAME_TYPE: &str = "frame_type";
 }
 
 // Values of Nexus Constant
 /// The character used to separate the period labels.
 const LABELS_SEPARATOR: &str = ",";
+
+/// A default constant. FIXME: This should be modifiable.
+const FRAMES_REQUESTED_FRAME_TYPE: &str = "good";
 
 /// Handles all period data.
 pub(crate) struct Period {
@@ -25,10 +34,25 @@ pub(crate) struct Period {
     number: Dataset,
 
     /// Vector of period types.
-    peroid_type: Dataset,
+    period_type: Dataset,
 
     /// String of [LABELS_SEPARATOR]-separated values listing all period values.
     labels: Dataset,
+
+    /// Vector of the number of frames (per period) before switching (0 indicates unlimited).
+    _frames_requested: Dataset,
+
+    /// Vector of the number of raw frames (per period).
+    _raw_frames: Dataset,
+
+    /// Vector of the number of good frames (per period).
+    _good_frames: Dataset,
+
+    /// Vector of the sequences (per period).
+    _sequences: Dataset,
+
+    /// Output bit pattern on period card.
+    _output: Dataset,
 }
 
 impl Period {
@@ -64,20 +88,38 @@ impl NexusSchematic for Period {
 
     fn build_group_structure(group: &Group, settings: &Self::Settings) -> NexusHDF5Result<Self> {
         Ok(Self {
-            number: group.create_scalar_dataset::<u32>(labels::NUMBER)?,
-            peroid_type: group
-                .create_resizable_empty_dataset::<u32>(labels::PERIOD_TYPE, *settings)?,
+            number: group.create_scalar_dataset::<i32>(labels::NUMBER)?,
+            period_type: group
+                .create_resizable_empty_dataset::<i32>(labels::PERIOD_TYPE, *settings)?,
             labels: group
                 .create_string_dataset(labels::LABELS)?
                 .with_constant_string_attribute(labels::LABELS_SEPARATOR, LABELS_SEPARATOR)?,
+            _frames_requested: group
+                .create_resizable_empty_dataset::<i32>(labels::FRAMES_REQUESTED, *settings)?
+                .with_constant_string_attribute(
+                    labels::FRAMES_REQUESTED_FRAME_TYPE,
+                    FRAMES_REQUESTED_FRAME_TYPE,
+                )?,
+            _raw_frames: group
+                .create_resizable_empty_dataset::<i32>(labels::RAW_FRAMES, *settings)?,
+            _good_frames: group
+                .create_resizable_empty_dataset::<i32>(labels::GOOD_FRAMES, *settings)?,
+            _sequences: group
+                .create_resizable_empty_dataset::<i32>(labels::SEQUENCES, *settings)?,
+            _output: group.create_scalar_dataset::<i32>(labels::OUTPUT)?,
         })
     }
 
     fn populate_group_structure(group: &Group) -> NexusHDF5Result<Self> {
         Ok(Self {
             number: group.get_dataset(labels::NUMBER)?,
-            peroid_type: group.get_dataset(labels::PERIOD_TYPE)?,
+            period_type: group.get_dataset(labels::PERIOD_TYPE)?,
             labels: group.get_dataset(labels::LABELS)?,
+            _frames_requested: group.get_dataset(labels::FRAMES_REQUESTED)?,
+            _raw_frames: group.get_dataset(labels::RAW_FRAMES)?,
+            _good_frames: group.get_dataset(labels::GOOD_FRAMES)?,
+            _sequences: group.get_dataset(labels::SEQUENCES)?,
+            _output: group.get_dataset(labels::OUTPUT)?,
         })
     }
 }
@@ -89,9 +131,9 @@ impl NexusMessageHandler<UpdatePeriodList<'_>> for Period {
         UpdatePeriodList { periods }: &UpdatePeriodList<'_>,
     ) -> NexusHDF5Result<()> {
         self.number.set_scalar(&periods.len())?;
-        let mut peroid_type = Vec::new();
-        peroid_type.resize(periods.len(), 1);
-        self.peroid_type.set_slice(&peroid_type)?;
+        let mut period_type = Vec::new();
+        period_type.resize(periods.len(), 1);
+        self.period_type.set_slice(&period_type)?;
         let separator = self
             .labels
             .get_attribute(labels::LABELS_SEPARATOR)?
