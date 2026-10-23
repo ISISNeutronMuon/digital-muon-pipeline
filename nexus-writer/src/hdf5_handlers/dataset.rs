@@ -14,7 +14,11 @@ impl HasAttributesExt for Dataset {
         Ok(attr)
     }
 
-    fn add_constant_attribute<T: H5Type>(&self, attr: &str, value: &T) -> NexusHDF5Result<Attribute> {
+    fn add_constant_attribute<T: H5Type>(
+        &self,
+        attr: &str,
+        value: &T,
+    ) -> NexusHDF5Result<Attribute> {
         let attr = self.add_attribute::<T>(attr)?;
         attr.write_scalar(value).err_dataset(self)?;
         Ok(attr)

@@ -29,7 +29,11 @@ pub(crate) trait HasAttributesExt: Sized {
     ///  - value: content of the attribute to add.
     /// # Error
     /// Any errors are tagged with the relevant hdf5 path.
-    fn add_constant_attribute<T: H5Type>(&self, attr: &str, value: &T) -> NexusHDF5Result<Attribute>;
+    fn add_constant_attribute<T: H5Type>(
+        &self,
+        attr: &str,
+        value: &T,
+    ) -> NexusHDF5Result<Attribute>;
 
     /// Creates a new string-typed attribute, with name and contents as specified.
     /// # Parameters

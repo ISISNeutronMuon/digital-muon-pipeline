@@ -9,14 +9,17 @@ mod user;
 
 use super::{NexusGroup, NexusMessageHandler, NexusSchematic};
 use crate::{
-    hdf5_handlers::{DatasetExt, GroupExt, HasAttributesExt, NexusHDF5Result}, nexus::{DATETIME_FORMAT, DatasetUnitExt, NexusClass, NexusUnits}, nexus_structure::entry::user::User, run_engine::{
+    hdf5_handlers::{DatasetExt, GroupExt, HasAttributesExt, NexusHDF5Result},
+    nexus::{DATETIME_FORMAT, DatasetUnitExt, NexusClass, NexusUnits},
+    nexus_structure::entry::user::User,
+    run_engine::{
         ChunkSizeSettings, RunParameters, RunStopParameters,
         run_messages::{
             InitialiseNewNexusRun, InitialiseNewNexusStructure, PushAlarm, PushFrameEventList,
             PushInternallyGeneratedLogWarning, PushRunLog, PushRunStart, PushSampleEnvironmentLog,
             SetEndTime, UpdatePeriodList,
         },
-    }
+    },
 };
 use chrono::Utc;
 use event_data::EventData;
