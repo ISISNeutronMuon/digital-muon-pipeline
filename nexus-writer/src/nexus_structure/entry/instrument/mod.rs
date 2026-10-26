@@ -1,6 +1,5 @@
 //! Defines [Instrument] group structure which contains details about the instrument used to probe the sample.
 //! Currently unknown where this data is obtained from.
-mod dae;
 mod detector;
 mod source;
 
@@ -9,8 +8,7 @@ use crate::{
     hdf5_handlers::{DatasetExt, GroupExt, NexusHDF5Result},
     nexus::NexusClass,
     nexus_structure::{
-        NexusGroup, NexusMessageHandler, NexusSchematic,
-        entry::instrument::{dae::Dae, detector::Detector},
+        NexusGroup, NexusMessageHandler, NexusSchematic, entry::instrument::detector::Detector,
     },
     run_engine::{ChunkSizeSettings, run_messages::PushRunStart},
 };
@@ -22,7 +20,6 @@ mod labels {
     pub(super) const NAME: &str = "name";
     pub(super) const SOURCE: &str = "source";
     pub(super) const DETECTOR_1: &str = "detector_1";
-    pub(super) const DAE: &str = "dae";
 }
 
 /// Contains details about the instrument used to probe the sample.
@@ -31,10 +28,8 @@ pub(crate) struct Instrument {
     name: Dataset,
     /// The particle beam source used to probe the sample.
     _source: NexusGroup<Source>,
-    /// The particle beam source used to probe the sample.
+    /// The detector data.
     _detector_1: NexusGroup<Detector>,
-    /// The particle beam source used to probe the sample.
-    _dae: NexusGroup<Dae>,
 }
 
 impl NexusSchematic for Instrument {
@@ -46,7 +41,6 @@ impl NexusSchematic for Instrument {
             name: group.create_string_dataset(labels::NAME)?,
             _source: Source::build_new_group(group, labels::SOURCE, &())?,
             _detector_1: Detector::build_new_group(group, labels::DETECTOR_1, settings)?,
-            _dae: Dae::build_new_group(group, labels::DAE, &())?,
         })
     }
 
@@ -55,7 +49,6 @@ impl NexusSchematic for Instrument {
             name: group.get_dataset(labels::NAME)?,
             _source: Source::open_group(group, labels::SOURCE)?,
             _detector_1: Detector::open_group(group, labels::DETECTOR_1)?,
-            _dae: Dae::open_group(group, labels::DAE)?,
         })
     }
 }
