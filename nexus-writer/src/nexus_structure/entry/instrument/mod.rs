@@ -1,13 +1,16 @@
 //! Defines [Instrument] group structure which contains details about the instrument used to probe the sample.
 //! Currently unknown where this data is obtained from.
+mod detector;
 mod source;
 
 use crate::{
     error::FlatBufferMissingError,
     hdf5_handlers::{DatasetExt, GroupExt, NexusHDF5Result},
     nexus::NexusClass,
-    nexus_structure::{NexusGroup, NexusMessageHandler, NexusSchematic},
-    run_engine::run_messages::PushRunStart,
+    nexus_structure::{
+        NexusGroup, NexusMessageHandler, NexusSchematic, entry::instrument::detector::Detector,
+    },
+    run_engine::{ChunkSizeSettings, run_messages::PushRunStart},
 };
 use hdf5::{Dataset, Group};
 use source::Source;
@@ -16,6 +19,7 @@ use source::Source;
 mod labels {
     pub(super) const NAME: &str = "name";
     pub(super) const SOURCE: &str = "source";
+    pub(super) const DETECTOR_1: &str = "detector_1";
 }
 
 /// Contains details about the instrument used to probe the sample.
@@ -24,16 +28,19 @@ pub(crate) struct Instrument {
     name: Dataset,
     /// The particle beam source used to probe the sample.
     _source: NexusGroup<Source>,
+    /// The detector data.
+    _detector_1: NexusGroup<Detector>,
 }
 
 impl NexusSchematic for Instrument {
     const CLASS: NexusClass = NexusClass::Instrument;
-    type Settings = ();
+    type Settings = ChunkSizeSettings;
 
-    fn build_group_structure(group: &Group, _: &Self::Settings) -> NexusHDF5Result<Self> {
+    fn build_group_structure(group: &Group, settings: &Self::Settings) -> NexusHDF5Result<Self> {
         Ok(Self {
-            name: group.create_string_dataset("name")?,
-            _source: Source::build_new_group(group, "source", &())?,
+            name: group.create_string_dataset(labels::NAME)?,
+            _source: Source::build_new_group(group, labels::SOURCE, &())?,
+            _detector_1: Detector::build_new_group(group, labels::DETECTOR_1, settings)?,
         })
     }
 
@@ -41,6 +48,7 @@ impl NexusSchematic for Instrument {
         Ok(Self {
             name: group.get_dataset(labels::NAME)?,
             _source: Source::open_group(group, labels::SOURCE)?,
+            _detector_1: Detector::open_group(group, labels::DETECTOR_1)?,
         })
     }
 }

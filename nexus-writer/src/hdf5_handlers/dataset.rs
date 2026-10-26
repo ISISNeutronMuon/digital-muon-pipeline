@@ -14,6 +14,16 @@ impl HasAttributesExt for Dataset {
         Ok(attr)
     }
 
+    fn add_constant_attribute<T: H5Type>(
+        &self,
+        attr: &str,
+        value: &T,
+    ) -> NexusHDF5Result<Attribute> {
+        let attr = self.add_attribute::<T>(attr)?;
+        attr.write_scalar(value).err_dataset(self)?;
+        Ok(attr)
+    }
+
     /// This should be a provided method.
     fn add_string_attribute(&self, attr: &str) -> NexusHDF5Result<Attribute> {
         self.add_attribute::<VarLenUnicode>(attr)
