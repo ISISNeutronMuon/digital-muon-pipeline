@@ -1,4 +1,4 @@
-///! Consists of the commands to generate run command, and log messages without using a JSON file.
+//! Consists of the commands to generate run command, and log messages without using a JSON file.
 use super::{
     AlarmData, RunCommandError, RunLogData, SampleEnvData, SampleEnvTimestamp, Start, Stop, runlog,
     sample_environment,

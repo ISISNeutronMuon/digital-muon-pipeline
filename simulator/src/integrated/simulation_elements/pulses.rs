@@ -87,13 +87,13 @@ pub(crate) enum PulseEvent {
         falling: f64,
         /// Coefficient of rising exponential.
         rising: f64,
-        ///
+        /// Intermediate value, memoised and used in computing pulse values.
         normalising_factor: f64,
-        ///
+        /// Intermediate value, memoised and used in computing pulse values.
         rising_spread: f64,
-        ///
+        /// Intermediate value, memoised and used in computing pulse values.
         falling_spread: f64,
-        ///
+        /// Intermediate value, memoised and used in computing pulse values.
         frac_1_sqrt_2_spread: f64,
     },
 }
