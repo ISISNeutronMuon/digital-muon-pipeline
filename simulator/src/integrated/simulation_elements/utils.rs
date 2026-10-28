@@ -120,19 +120,29 @@ where
 #[serde(rename_all = "kebab-case", tag = "random-type")]
 pub(crate) enum FloatRandomDistribution<T> {
     /// A non-random value.
-    ConstantFloat { value: NumExpression<T> },
-    /// A uniformly random value.
+    ConstantFloat {
+        /// Value of the constant.
+        value: NumExpression<T>,
+    },
+    /// A uniformly random value, taking values on an interval.
     UniformFloat {
+        /// Lower value of the interval.
         min: NumExpression<T>,
+        /// Upper value of the interval.
         max: NumExpression<T>,
     },
     /// A random normally distributed value.
     Normal {
+        /// Mean of the normal distribution.
         mean: NumExpression<T>,
+        /// Standard deviation of the the normal distribution.
         sd: NumExpression<T>,
     },
     /// A random exponentially distributed value.
-    Exponential { lifetime: NumExpression<T> },
+    Exponential {
+        /// Lifetime parameter of the exponential distribution.
+        lifetime: NumExpression<T>,
+    },
 }
 
 impl<T> FloatRandomDistribution<T>
@@ -182,10 +192,15 @@ where
 #[serde(rename_all = "kebab-case", tag = "random-type")]
 pub(crate) enum IntRandomDistribution<T> {
     /// A non-random value.
-    ConstantInt { value: NumExpression<T> },
-    /// A uniformly random value.
+    ConstantInt {
+        /// Value of the constant.
+        value: NumExpression<T>,
+    },
+    /// A uniformly random value, taking values on an interval.
     UniformInt {
+        /// Lower value of the interval.
         min: NumExpression<T>,
+        /// Upper value of the interval.
         max: NumExpression<T>,
     },
 }
@@ -211,7 +226,7 @@ where
     }
 }
 
-/// Represents a interval of values.
+/// Represents an interval of values.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Interval<T>
