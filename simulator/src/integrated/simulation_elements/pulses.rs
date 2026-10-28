@@ -4,25 +4,32 @@ use super::{FloatRandomDistribution, utils::JsonValueError};
 use digital_muon_common::{Intensity, Time};
 use serde::Deserialize;
 
+/// Defines a template for a pulse that can be realised into [PulseEvent].
+///
+/// Should only be created via JSON deserialisation.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case", tag = "pulse-type")]
 pub(crate) enum PulseTemplate {
+    /// Flat waveform.
     Flat {
         start: FloatRandomDistribution<f64>,
         width: FloatRandomDistribution<f64>,
         height: FloatRandomDistribution<f64>,
     },
+    /// Triangular waveform.
     Triangular {
         start: FloatRandomDistribution<f64>,
         peak_time: FloatRandomDistribution<f64>,
         width: FloatRandomDistribution<f64>,
         height: FloatRandomDistribution<f64>,
     },
+    /// Gaussian waveform.
     Gaussian {
         height: FloatRandomDistribution<f64>,
         peak_time: FloatRandomDistribution<f64>,
         sd: FloatRandomDistribution<f64>,
     },
+    /// Back-to-Back Exponential waveform.
     BackToBackExp {
         peak_height: FloatRandomDistribution<f64>,
         peak_time: FloatRandomDistribution<f64>,
@@ -32,40 +39,71 @@ pub(crate) enum PulseTemplate {
     },
 }
 
+/// A concrete instance of a pulse, appearing in [EventList].
 #[derive(Debug, Clone)]
 pub(crate) enum PulseEvent {
+    /// Flat waveform.
     Flat {
+        /// First nonzero time-bin.
         start: f64,
+        /// Last nonzero time-bin.
         stop: f64,
+        /// Size of waveform.
         amplitude: f64,
     },
+    /// Triangular waveform.
     Triangular {
+        /// First nonzero time-bin.
         start: f64,
+        /// Timebin at which the triangle peaks.
         peak_time: f64,
+        /// Last nonzero time-bin.
         stop: f64,
+        /// Maximum height of waveform.
         amplitude: f64,
     },
+    /// Gaussian waveform.
     Gaussian {
+        /// First nonzero time-bin.
         start: f64,
+        /// Last nonzero time-bin.
         stop: f64,
+        /// Mean of Gaussian.
         mean: f64,
+        /// Standard Deviation of Gaussian.
         sd: f64,
+        /// Maximum height of waveform.
         peak_amplitude: f64,
     },
+    /// Back-to-Back Exponential waveform.
     BackToBackExp {
+        /// First nonzero time-bin.
         start: f64,
+        /// Last nonzero time-bin.
         stop: f64,
+        /// Timebin at which peak occurs.
         peak_time: f64,
+        /// Coefficient of falling exponential.
         falling: f64,
+        /// Coefficient of rising exponential.
         rising: f64,
+        /// Intermediate value, memoised and used in computing pulse values.
         normalising_factor: f64,
+        /// Intermediate value, memoised and used in computing pulse values.
         rising_spread: f64,
+        /// Intermediate value, memoised and used in computing pulse values.
         falling_spread: f64,
+        /// Intermediate value, memoised and used in computing pulse values.
         frac_1_sqrt_2_spread: f64,
     },
 }
 
 impl PulseEvent {
+    /// Create new pulse event from a given pulse template and frame number.
+    ///
+    /// # Parameters
+    /// - template: underlying template to realise.
+    /// - frame: current frame, for quantities depending on [Transformation].
     pub(crate) fn sample(template: &PulseTemplate, frame: usize) -> Result<Self, JsonValueError> {
         match template {
             PulseTemplate::Flat {
@@ -164,6 +202,7 @@ impl PulseEvent {
         }
     }
 
+    /// Get start field.
     pub(crate) fn get_start(&self) -> Time {
         (match self {
             Self::Flat { start, .. } => *start,
@@ -173,6 +212,7 @@ impl PulseEvent {
         }) as Time
     }
 
+    /// Get stop field.
     pub(crate) fn get_end(&self) -> Time {
         (match self {
             Self::Flat { stop, .. } => *stop,
@@ -182,6 +222,7 @@ impl PulseEvent {
         }) as Time
     }
 
+    /// Get time bin that maximum intensity first occurs.
     pub(crate) fn time(&self) -> Time {
         (match self {
             Self::Flat { start, .. } => *start,
@@ -191,6 +232,7 @@ impl PulseEvent {
         }) as Time
     }
 
+    /// Get value of maximum intensity.
     pub(crate) fn intensity(&self) -> Intensity {
         (match self {
             Self::Flat { amplitude, .. } => *amplitude,
@@ -215,6 +257,10 @@ impl PulseEvent {
         }) as Intensity
     }
 
+    /// Get value of pulse at a given time.
+    ///
+    /// # Parameters
+    /// - time: time bin to get value at.
     pub(crate) fn get_value_at(&self, time: f64) -> f64 {
         if self.get_start() > time as Time || time as Time > self.get_end() {
             return Default::default();

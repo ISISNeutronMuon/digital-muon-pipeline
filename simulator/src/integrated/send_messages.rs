@@ -55,16 +55,31 @@ pub(crate) enum SendError {
     JsonValue(#[from] JsonValueError),
 }
 
+/// Encapsulates the parameters of the [send_message] function.
 struct SendMessageArgs<'a> {
+    /// Should OTel be used for tracing.
     use_otel: bool,
+    /// The Kafka Producer to send the message.
     producer: FutureProducer,
+    /// The FlatBuffer builder object containing the message.
     fbb: FlatBufferBuilder<'a>,
+    /// The destination topic.
     topic: String,
+    /// Span encasing this execution path.
     span: Span,
+    /// The key to attach to the message.
     key: &'static str,
 }
 
 impl<'a> SendMessageArgs<'a> {
+    /// Creates a new instance of the arguments.
+    ///
+    /// # Parameters
+    /// - use_otel: should OTel be used for tracing,
+    /// - fbb: the FlatBuffer builder object containing the message.
+    /// - producer: the Kafka Producer to send the message.
+    /// - topic: the destination topic,
+    /// - key: key to attach to the message,
     fn new(
         use_otel: bool,
         fbb: FlatBufferBuilder<'a>,
@@ -83,6 +98,10 @@ impl<'a> SendMessageArgs<'a> {
     }
 }
 
+/// Produces the message encapsulated by [SendMessageArgs] to the respective topic therein.
+///
+/// # Parameters
+/// - args: arguments encapsulating the message and its destination.
 #[tracing::instrument(skip_all)]
 async fn send_message(args: SendMessageArgs<'_>) {
     let span = debug_span!(parent: &args.span, "Send Message Thread");
@@ -104,16 +123,30 @@ async fn send_message(args: SendMessageArgs<'_>) {
     };
 }
 
+/// Returns the number of milliseconds since epoch for the given timestamp.
+///
+/// # Parameters
+/// - timestamp: source timestamp.
 fn get_time_since_epoch_ms(timestamp: &DateTime<Utc>) -> Result<u64, SendError> {
     Ok(timestamp.timestamp_millis().try_into()?)
 }
 
+/// Returns the number of nanoseconds since epoch for the given timestamp.
+///
+/// # Parameters
+/// - timestamp: source timestamp.
 fn get_time_since_epoch_ns(timestamp: &DateTime<Utc>) -> Result<i64, SendError> {
     timestamp
         .timestamp_nanos_opt()
         .ok_or(SendError::TimestampToNanos(*timestamp))
 }
 
+/// Produces a run start message to the run control topic.
+///
+/// # Parameters
+/// - externals: encapsulates state external to simulation.
+/// - status: the run start message.
+/// - timestamp: the timestamp to attach.
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) fn send_run_start_command(
     externals: &mut SimulationEngineExternals,
@@ -144,6 +177,12 @@ pub(crate) fn send_run_start_command(
     Ok(())
 }
 
+/// Produces a run stop message to the run control topic.
+///
+/// # Parameters
+/// - externals: encapsulates state external to simulation.
+/// - status: the run stop message.
+/// - timestamp: the timestamp to attach.
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) fn send_run_stop_command(
     externals: &mut SimulationEngineExternals,
@@ -172,6 +211,12 @@ pub(crate) fn send_run_stop_command(
     Ok(())
 }
 
+/// Produces a runlog message to the runlog topic.
+///
+/// # Parameters
+/// - externals: encapsulates state external to simulation.
+/// - timestamp: the timestamp to attach.
+/// - status: the runlog message.
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) fn send_run_log_command(
     externals: &mut SimulationEngineExternals,
@@ -203,6 +248,12 @@ pub(crate) fn send_run_log_command(
     Ok(())
 }
 
+/// Produces a sample environment message to the selog topic.
+///
+/// # Parameters
+/// - externals: encapsulates state external to simulation.
+/// - timestamp: the timestamp to attach.
+/// - sample_env: the sample environment message.
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) fn send_se_log_command(
     externals: &mut SimulationEngineExternals,
@@ -266,6 +317,12 @@ pub(crate) fn send_se_log_command(
     Ok(())
 }
 
+/// Produces an alarm message to the alarm topic.
+///
+/// # Parameters
+/// - externals: encapsulates state external to simulation.
+/// - timestamp: the timestamp to attach.
+/// - alarm: the alarm message.
 #[tracing::instrument(skip_all, err(level = "error"))]
 pub(crate) fn send_alarm_command(
     externals: &mut SimulationEngineExternals,
@@ -296,6 +353,16 @@ pub(crate) fn send_alarm_command(
     Ok(())
 }
 
+/// Produces a digitiser trace to the trace topic.
+///
+/// # Parameters
+/// - externals: encapsulates state external to simulation.
+/// - sample_rate: the sample rate to attach to the message.
+/// - cache: the trace cache from which the contents of the message to be built are selected.
+/// - metadata: the metadata to include in the message.
+/// - digitizer_id: the digitiser id of the message.
+/// - channels: slice containing the list of channels to include in the message.
+/// - selection_mode: determines how the traces are selected from the cache.
 #[tracing::instrument(skip_all, fields(digitizer_id = digitizer_id))]
 pub(crate) fn send_digitiser_trace_message(
     externals: &mut SimulationEngineExternals,
@@ -332,6 +399,15 @@ pub(crate) fn send_digitiser_trace_message(
     Ok(())
 }
 
+/// Produces a digitiser eventlist to the trace topic.
+///
+/// # Parameters
+/// - externals: encapsulates state external to simulation.
+/// - cache: the eventlist cache from which the contents of the message to be built are selected.
+/// - metadata: the metadata to include in the message.
+/// - digitizer_id: the digitiser id of the message.
+/// - channels: slice containing the list of channels to include in the message.
+/// - source_options: determines how the eventlists are selected from the cache.
 #[tracing::instrument(skip_all, fields(digitizer_id = digitizer_id))]
 pub(crate) fn send_digitiser_event_list_message(
     externals: &mut SimulationEngineExternals,
@@ -366,6 +442,15 @@ pub(crate) fn send_digitiser_event_list_message(
     Ok(())
 }
 
+/// Produces a frame eventlist to the trace topic.
+///
+/// # Parameters
+/// - externals: encapsulates state external to simulation.
+/// - cache: the eventlist cache from which the contents of the message to be built are selected.
+/// - metadata: the metadata to include in the message.
+/// - digitizer_id: the digitiser id of the message.
+/// - channels: slice containing the list of channels to include in the message.
+/// - source_options: determines how the eventlists are selected from the cache.
 #[tracing::instrument(skip_all)]
 pub(crate) fn send_aggregated_frame_event_list_message(
     externals: &mut SimulationEngineExternals,

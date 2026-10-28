@@ -2,6 +2,8 @@ use clap::ValueEnum;
 use isis_streaming_data_types::flatbuffers_generated::alarm_al00::Severity;
 use serde::Deserialize;
 
+/// Duplicate type of [Severity] that can be deserialized,
+/// then converted into it.
 #[derive(Clone, Debug, Deserialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum SeverityLevel {

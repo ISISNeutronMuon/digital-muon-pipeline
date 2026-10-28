@@ -9,12 +9,19 @@ use rand::SeedableRng;
 use rand_distr::{Distribution, Normal};
 use serde::Deserialize;
 
+/// Source of noise.
+///
+/// Should only be created via JSON deserialisation.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct NoiseSource {
+    /// Time bins between which the noise is nonzero.
     bounds: Interval<NumExpression<Time>>,
+    /// Defines noise type.
     attributes: NoiseAttributes,
     /// Length of the moving average window to apply to the noise.
+    ///
+    /// Note that [NoiseSource] does not apply this window, this field is used by [Noise].
     /// If no smoothing is required, set this to
     /// ```json
     /// "smoothing-window-length": { "const": 1 }
@@ -23,6 +30,11 @@ pub(crate) struct NoiseSource {
 }
 
 impl NoiseSource {
+    /// Generates a stateless noise value.
+    ///
+    /// # Parameters
+    /// - time: current time bin.
+    /// - frame_index: current frame, for quantities depending on [Transformation].
     pub(crate) fn sample(&self, time: Time, frame_index: usize) -> Result<f64, JsonValueError> {
         if self.bounds.is_in(time, frame_index)? {
             match &self.attributes {
@@ -53,26 +65,41 @@ impl NoiseSource {
     }
 }
 
+/// Defines the type of randomness used in [NoiseSource].
+///
+/// Should only be created via JSON deserialisation.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "noise-type")]
 pub(crate) enum NoiseAttributes {
+    /// Bernoulli noise, that is random blips of `value`.
     Bernoulli {
+        /// How likely is a given timebin to be nonzero.
         probability: NumExpression<f64>,
+        /// Value of the blip.
         value: FloatRandomDistribution<f64>,
     },
+    /// Uniform noise, nonzero within the interval.
     Uniform(Interval<NumExpression<f64>>),
+    /// Gaussian noise.
     Gaussian {
         mean: NumExpression<f64>,
         sd: NumExpression<f64>,
     },
 }
 
+/// Stateful noise, this is created from a [NoiseSource].
 pub(crate) struct Noise<'a> {
+    /// Source from which the noise is created.
     source: &'a NoiseSource,
+    /// Window of previous noise values, has length [NoiseSource::smoothing_window_length].
     prev: VecDeque<f64>,
 }
 
 impl<'a> Noise<'a> {
+    /// Create new noise from source.
+    ///
+    /// # Parameters
+    /// - source: noise source.
     pub(crate) fn new(source: &'a NoiseSource) -> Self {
         Self {
             source,
@@ -80,6 +107,12 @@ impl<'a> Noise<'a> {
         }
     }
 
+    /// Adds noise to an underlying value.
+    ///
+    /// # Parameters
+    /// - value: underlying value to add noise to.
+    /// - time: current time bin.
+    /// - frame_index: current frame, for quantities depending on [Transformation].
     pub(crate) fn noisify(
         &mut self,
         value: f64,
