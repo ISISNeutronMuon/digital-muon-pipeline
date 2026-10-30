@@ -17,7 +17,7 @@ use isis_streaming_data_types::flatbuffers_generated::{
 #[cfg(test)]
 use std::collections::vec_deque;
 use std::{collections::VecDeque, ffi::OsStr};
-use tracing::{debug, info_span, warn};
+use tracing::{debug, info, info_span, warn};
 
 /// Enables searching for a valid run based on a timestamp.
 trait FindValidRun<I: NexusFileInterface> {
@@ -200,6 +200,11 @@ impl<D: NexusEngineDependencies> NexusEngine<D> {
             self.abort_back_run(&run_start)?;
         }
 
+        // Check if a run with the same file name exists in the cache, and remove it if found.
+        if let Some(file_name) = run_start.filename() {
+            self.remove_run_with_file_name(file_name);
+        }
+
         let run = Run::new_run(&self.nexus_settings, run_start, &self.nexus_configuration)?;
         self.run_cache.push_back(run);
 
@@ -308,6 +313,9 @@ impl<D: NexusEngineDependencies> NexusEngine<D> {
     }
 
     /// This tells the last run in the run cache that it is being aborted.
+    ///
+    /// # Parameters
+    /// - data: the run start message that caused the abort.
     #[tracing::instrument(skip_all, level = "warn", err(level = "warn")
         fields(
             run_name = data.run_name(),
@@ -318,12 +326,37 @@ impl<D: NexusEngineDependencies> NexusEngine<D> {
     fn abort_back_run(&mut self, data: &RunStart<'_>) -> NexusWriterResult<()> {
         self.run_cache
             .back_mut()
-            .expect("run_cache::back_mut should exist")
+            .expect("run_cache::back_mut should exist, this should never fail.")
             .abort_run(&self.nexus_settings, data.start_time())?;
         Ok(())
     }
 
+    /// Finds a run with the given file name and removes it.
+    ///
+    /// For instance, if a run is stopped and started with the same run number before the nexus writer flushes,
+    /// the existing run is still is removed (closing the [File] object) so that a new run can be created.
+    ///
+    /// # Parameters
+    /// - file_name: the name of the nexus file to check the runs for.
+    ///
+    /// [File]: hdf5::File
+    #[tracing::instrument(skip_all, level = "info", fields(file_name = file_name))]
+    fn remove_run_with_file_name(&mut self, file_name: &str) {
+        if let Some(index) = self
+            .run_cache
+            .iter()
+            .enumerate()
+            .find_map(|(index, run)| (run.parameters().file_name == file_name).then_some(index))
+        {
+            info!("Found and removed existing run with file name {file_name}.");
+            self.run_cache.remove(index);
+        }
+    }
+
     /// This moves all completed runs into the completed directory and removes them from the run cache.
+    ///
+    /// # Parameters
+    /// - delay: the global ttl parameters for the runs.
     #[tracing::instrument(skip_all, level = "debug")]
     pub(crate) fn flush(&mut self, delay: &Duration) -> NexusWriterResult<()> {
         // Moves the runs into a new vector, then consumes it,
