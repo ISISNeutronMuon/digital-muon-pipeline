@@ -219,7 +219,7 @@ impl FlatBucket {
     }
 
     fn is_bucket_available(&self) -> bool {
-        self.limits.max > self.count
+        self.limits.get_max() > self.count
     }
 
     /// Determine whether the eventlist collection satisfies the bucket's criteria.
@@ -336,7 +336,7 @@ mod tests {
                 width: Default::default(),
             },
             count: 0,
-            limits: Interval { min: 0, max: 1 },
+            limits: Interval::new(0,1).unwrap(),
         };
         let collection = EventlistsCollection {
             span: Default::default(),
@@ -374,7 +374,7 @@ mod tests {
                 width: Default::default(),
             },
             count: 0,
-            limits: Interval { min: 0, max: 1 },
+            limits: Interval::new(0,1).unwrap(),
         };
         let bucket_2 = FlatBucket {
             span: Default::default(),
@@ -393,7 +393,7 @@ mod tests {
                 width: Default::default(),
             },
             count: 0,
-            limits: Interval { min: 0, max: 1 },
+            limits: Interval::new(0,1).unwrap(),
         };
         let collection = EventlistsCollection {
             span: Default::default(),

@@ -155,11 +155,29 @@ pub(crate) struct Interval<T>
 where
     T: Clone,
 {
-    pub(crate) min: T,
-    pub(crate) max: T,
+    min: T,
+    max: T,
+}
+
+impl<T : Clone> Interval<T> {
+    pub(crate) fn get_min(&self) -> T {
+        self.min.clone()
+    }
+
+    pub(crate) fn get_max(&self) -> T {
+        self.max.clone()
+    }
 }
 
 impl<T: PartialOrd + Copy> Interval<T> {
+    pub(crate) fn new(min: T, max: T) -> Result<Self, ()> {
+        if max < min {
+            Err(())
+        } else {
+            Ok(Self{ min, max })
+        }
+    }
+    
     pub(crate) fn range_inclusive(&self) -> RangeInclusive<T> {
         self.min..=self.max
     }

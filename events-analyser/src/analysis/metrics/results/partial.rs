@@ -50,7 +50,7 @@ where
 
     /// Tests whether the bucket has enough data to be aggregrated.
     pub(crate) fn is_bucket_full_enough(&self, bucket: &FlatBucket) -> bool {
-        self.num_messages >= bucket.limits.min
+        self.num_messages >= bucket.limits.get_min()
     }
 
     /// Increate message count.
