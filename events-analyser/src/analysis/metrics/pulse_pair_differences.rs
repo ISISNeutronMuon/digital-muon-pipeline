@@ -6,7 +6,7 @@ use crate::{
         utils::{Histogram, SumWithSumOfSqrs},
     },
     engine::{
-        FlatAlgorithm, FlatMetricPulsePairDifferences, FlatWaveform, PulsePairDifferencesProperty,
+        FlatAlgorithm, FlatMetricPulsePairDifferences, FlatWaveform, Interval, PulsePairDifferencesProperty
     },
     eventlists::ChannelDataByTopic,
 };
@@ -102,6 +102,20 @@ pub(crate) struct CompletedPulsePairDifferences {
     lower: Vec<f64>,
 }
 
+/// Takes a mutable slice and an interval, calculates the mean of the given interval of the slice, and normalises the whole slice to that value.
+/// FIXME: There is no error checking for divide by zero, or the range being out of bounds.
+/// 
+/// # Parameters
+///  - slice: the slice to mutate.
+///  - range: the range of the slice to take the mean of.
+fn get_normaliser(slice: &[f64], range: &Interval<usize>) -> Result<f64,()> {
+    let len = range.max.abs_diff(range.min) as f64;
+    if len == 0.0 {
+        return Err(())
+    }
+    Ok(slice.iter().take(range.max).skip(range.min).sum::<f64>()/len)
+}
+
 impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
     type Partial = PartialPulsePairDifferences;
     type Error = MetricResultError;
@@ -135,18 +149,19 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
         // Compute statistics.
         for (index, sum, mean, sd, upper, lower) in zipped_iterators {
             let counts_iterator = source.histogram.values().map(|histogram| {
+                let normaliser = get_normaliser(histogram.get_counts(), &source.source.settings.normaliser);
                 histogram
                     .get_counts()
                     .get(index)
-                    .expect("This should never fail.")
+                    .expect("This should never fail.")/normaliser
             });
 
             let mut sum_with_sum_of_sqrs = SumWithSumOfSqrs::default();
             for count in counts_iterator {
-                sum_with_sum_of_sqrs.add_to(*count);
+                sum_with_sum_of_sqrs.add_to(count);
                 *sum += count;
-                *upper = upper.max(*count);
-                *lower = lower.min(*count);
+                *upper = upper.max(count);
+                *lower = lower.min(count);
             }
             let mean_sd = sum_with_sum_of_sqrs.mean_and_stddev();
             *mean = mean_sd.mean;

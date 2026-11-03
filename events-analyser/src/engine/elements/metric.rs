@@ -39,6 +39,8 @@ pub(crate) struct MetricTypePulsePairDifferences {
     /// Encapsulates how the histogram is constructed.
     #[serde(flatten)]
     pub(crate) histogram: MetricTypeHistogram,
+    /// Normalise the histogram by the average of values from this interval.
+    pub(crate) normaliser: Interval<usize>,
 }
 
 ///
