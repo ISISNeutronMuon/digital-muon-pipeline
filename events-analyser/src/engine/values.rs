@@ -170,6 +170,7 @@ impl<T : Clone> Interval<T> {
 }
 
 impl<T: PartialOrd + Copy> Interval<T> {
+    #[cfg(test)]
     pub(crate) fn new(min: T, max: T) -> Result<Self, ()> {
         if max < min {
             Err(())
