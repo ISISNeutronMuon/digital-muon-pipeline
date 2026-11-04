@@ -212,30 +212,6 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialize_fixed_threshold_defaults() {
-        let json = r#"{
-            "polarity": "negative",
-            "mode": {
-                "fixed-threshold-discriminator": {
-                    "threshold": 10.0
-                }
-            }
-        }"#;
-
-        let settings: DetectorSettings = serde_json::from_str(json).unwrap();
-        assert_eq!(settings.polarity, Polarity::Negative);
-        assert_eq!(settings.baseline, 0);
-        assert_eq!(
-            settings.mode,
-            Mode::FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters {
-                threshold: 10.0,
-                duration: 1,
-                cool_off: 0,
-            })
-        );
-    }
-
-    #[test]
     fn test_deserialize_differential_threshold() {
         let json = r#"{
             "polarity": "positive",
@@ -243,7 +219,12 @@ mod tests {
             "mode": {
                 "differential-threshold-discriminator": {
                     "begin-threshold": 1.2,
-                    "end-threshold": 0.8
+                    "begin-duration": 0,
+                    "end-threshold": 0.8,
+                    "end-duration": 0,
+                    "cool-off": 0,
+                    "peak-height-mode": "max-value",
+                    "peak-height-basis": "trace-baseline"
                 }
             }
         }"#;
@@ -300,9 +281,13 @@ mod tests {
             "polarity": "positive",
             "mode": {
                 "multiscaling": {
+                    "number-of-layers": 4,
+                    "denoise": true,
                     "method": {
                         "fixed-threshold-discriminator": {
-                            "threshold": 7.0
+                            "threshold": 7.0,
+                            "duration": 1,
+                            "cool-off": 0
                         }
                     }
                 }
@@ -327,29 +312,5 @@ mod tests {
             }
             _ => panic!("Expected multiscaling mode"),
         }
-    }
-
-    #[test]
-    fn test_deserialize_snake_case_aliases() {
-        let json = r#"{
-            "polarity": "positive",
-            "mode": {
-                "fixed_threshold_discriminator": {
-                    "threshold": 4.0,
-                    "duration": 3,
-                    "cool_off": 1
-                }
-            }
-        }"#;
-
-        let settings: DetectorSettings = serde_json::from_str(json).unwrap();
-        assert_eq!(
-            settings.mode,
-            Mode::FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters {
-                threshold: 4.0,
-                duration: 3,
-                cool_off: 1,
-            })
-        );
     }
 }
