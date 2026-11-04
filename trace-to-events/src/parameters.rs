@@ -156,12 +156,6 @@ pub(crate) enum MultiscalingDetectorMethod {
     SmoothingDetector(SmoothingDetectorParameters),
 }
 
-impl Default for MultiscalingDetectorMethod {
-    fn default() -> Self {
-        Self::FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters::default())
-    }
-}
-
 /// Specifies which detector is to be used, and wraps the detector-specific options in each variant.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
