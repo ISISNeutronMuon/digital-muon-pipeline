@@ -18,7 +18,7 @@ use chrono::{DateTime, Utc};
 use clap::Parser;
 use const_format::concatcp;
 use digital_muon_common::{
-    CommonKafkaOpts, Intensity, init_tracer,
+    CommonKafkaOpts, init_tracer,
     metrics::{
         component_info_metric,
         failures::{self, FailureKind},
@@ -42,14 +42,15 @@ use digital_muon_streaming_types::{
 use metrics::{counter, describe_counter, describe_gauge, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use miette::IntoDiagnostic;
-use parameters::{DetectorSettings, Mode, Polarity};
+use parameters::DetectorSettings;
 use rdkafka::{
-    Message,
-    consumer::{CommitMode, Consumer},
+    Message, Offset, TopicPartitionList,
+    consumer::{CommitMode, Consumer, StreamConsumer},
     message::BorrowedMessage,
     producer::{DeliveryFuture, FutureProducer, FutureRecord},
+    util::Timeout,
 };
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Duration};
 use tokio::{
     select,
     signal::unix::{Signal, SignalKind, signal},
@@ -94,13 +95,9 @@ struct Cli {
     #[clap(long)]
     event_topic: String,
 
-    /// Determines whether events should register as positive or negative intensity
+    /// Kafka topic from which event formation configuration is consumed
     #[clap(long)]
-    polarity: Polarity,
-
-    /// Value of the intensity baseline
-    #[clap(long, default_value = "0")]
-    baseline: Intensity,
+    config_topic: String,
 
     /// Size of the send eventlist buffer.
     /// If this limit is exceeded, the component will exit.
@@ -118,9 +115,117 @@ struct Cli {
     /// All OpenTelemetry spans are emitted with this as the "service.namespace" property. Can be used to track different instances of the pipeline running in parallel.
     #[clap(long, default_value = "")]
     otel_namespace: String,
+}
 
-    #[command(subcommand)]
-    pub(crate) mode: Mode,
+/// Queries the config topic on boot, seeking the last/most recent message across all partitions,
+/// and applies it if present. Assigns all partitions to `Offset::End` afterwards so subsequent
+/// receives only catch newly produced messages.
+#[instrument(skip_all)]
+async fn fetch_latest_config(
+    consumer: &StreamConsumer,
+    config_topic: &str,
+) -> miette::Result<Option<DetectorSettings>> {
+    const METADATA_TIMEOUT: Duration = Duration::from_secs(5);
+    const WATERMARK_TIMEOUT: Timeout = Timeout::After(Duration::from_secs(5));
+    const RECV_TIMEOUT: Duration = Duration::from_secs(5);
+
+    let metadata = match consumer.fetch_metadata(Some(config_topic), METADATA_TIMEOUT) {
+        Ok(m) => m,
+        Err(e) => {
+            warn!("Failed to fetch metadata for config topic \"{config_topic}\": {e}");
+            return Ok(None);
+        }
+    };
+
+    let topic_metadata = match metadata.topics().iter().find(|t| t.name() == config_topic) {
+        Some(t) => t,
+        None => {
+            warn!("Topic \"{config_topic}\" not found in broker metadata");
+            return Ok(None);
+        }
+    };
+
+    let partitions = topic_metadata.partitions();
+    if partitions.is_empty() {
+        warn!("No partitions found for topic \"{config_topic}\"");
+        return Ok(None);
+    }
+
+    let mut candidate_partitions = Vec::new();
+    for p in partitions {
+        match consumer.fetch_watermarks(config_topic, p.id(), WATERMARK_TIMEOUT) {
+            Ok((low, high)) => {
+                debug!(
+                    "Config topic \"{}\" partition {}: low={}, high={}",
+                    config_topic,
+                    p.id(),
+                    low,
+                    high
+                );
+                if high > low {
+                    candidate_partitions.push((p.id(), high - 1));
+                }
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to fetch watermarks for config topic \"{}\" partition {}: {}",
+                    config_topic,
+                    p.id(),
+                    e
+                );
+            }
+        }
+    }
+
+    let mut latest_payload: Option<(i64, Vec<u8>)> = None;
+
+    for (partition_id, offset) in candidate_partitions {
+        consumer.unassign().into_diagnostic()?;
+        let mut tpl = TopicPartitionList::with_capacity(1);
+        tpl.add_partition_offset(config_topic, partition_id, Offset::Offset(offset))
+            .into_diagnostic()?;
+        consumer.assign(&tpl).into_diagnostic()?;
+
+        match tokio::time::timeout(RECV_TIMEOUT, consumer.recv()).await {
+            Ok(Ok(borrowed_msg)) => {
+                if let Some(payload) = borrowed_msg.payload() {
+                    let ts = borrowed_msg.timestamp().to_millis().unwrap_or(0);
+                    match &latest_payload {
+                        Some((best_ts, _)) if ts <= *best_ts => {}
+                        _ => {
+                            latest_payload = Some((ts, payload.to_vec()));
+                        }
+                    }
+                }
+            }
+            Ok(Err(e)) => {
+                warn!("Error receiving message from config topic partition {partition_id}: {e}");
+            }
+            Err(_) => {
+                warn!("Timeout receiving message from config topic partition {partition_id}");
+            }
+        }
+    }
+
+    consumer.unassign().into_diagnostic()?;
+    let mut tpl = TopicPartitionList::with_capacity(partitions.len());
+    for p in partitions {
+        tpl.add_partition_offset(config_topic, p.id(), Offset::End)
+            .into_diagnostic()?;
+    }
+    consumer.assign(&tpl).into_diagnostic()?;
+
+    if let Some((_, payload)) = latest_payload {
+        match serde_json::from_slice::<DetectorSettings>(&payload) {
+            Ok(settings) => Ok(Some(settings)),
+            Err(e) => {
+                warn!("Failed to parse JSON config message on boot: {e}");
+                Ok(None)
+            }
+        }
+    } else {
+        Ok(None)
+    }
 }
 
 #[tokio::main]
@@ -142,7 +247,7 @@ async fn main() -> miette::Result<()> {
 
     let producer: FutureProducer = client_config.create().into_diagnostic()?;
 
-    let consumer = digital_muon_common::create_default_consumer(
+    let trace_consumer = digital_muon_common::create_default_consumer(
         &kafka_opts.broker,
         &kafka_opts.username,
         &kafka_opts.password,
@@ -150,6 +255,31 @@ async fn main() -> miette::Result<()> {
         Some(&[args.trace_topic.as_str()]),
     )
     .into_diagnostic()?;
+
+    let config_group = format!("{}-config-{}", args.consumer_group, uuid::Uuid::new_v4());
+    let config_consumer = digital_muon_common::create_default_consumer(
+        &kafka_opts.broker,
+        &kafka_opts.username,
+        &kafka_opts.password,
+        &config_group,
+        None,
+    )
+    .into_diagnostic()?;
+
+    let initial_config = fetch_latest_config(&config_consumer, &args.config_topic).await?;
+    let mut message_processor = if let Some(settings) = initial_config {
+        info!(
+            "Applied initial event formation configuration: {:?}",
+            settings
+        );
+        Some(DigitiserMessageProcessor::new(8, &settings))
+    } else {
+        info!(
+            "No initial configuration found on topic \"{}\"; incoming trace messages will be discarded until configuration is received",
+            args.config_topic
+        );
+        None
+    };
 
     // Install exporter and register metrics
     let builder = PrometheusBuilder::new();
@@ -195,14 +325,6 @@ async fn main() -> miette::Result<()> {
 
     component_info_metric("trace-to-events");
 
-    let mut message_processor = DigitiserMessageProcessor::new(
-        8,
-        &DetectorSettings {
-            polarity: &args.polarity,
-            baseline: args.baseline,
-            mode: &args.mode,
-        },
-    );
     let sender_parameters = SenderParameters {
         event_topic: &args.event_topic,
         sender: &sender,
@@ -210,21 +332,51 @@ async fn main() -> miette::Result<()> {
     };
     loop {
         tokio::select! {
-            msg = consumer.recv() => match msg {
+            config_msg = config_consumer.recv() => match config_msg {
                 Ok(m) => {
-                    let span = info_span!("message_received");
-                    m.headers().conditional_extract_to_span(tracer.use_otel(), &span);
-                    let _guard = span.enter();
-                    process_kafka_message(
-                        &tracer,
-                        &sender_parameters,
-                        &mut message_processor,
-                        &m,
-                    ).into_diagnostic()?;
-
-                    consumer.commit_message(&m, CommitMode::Async).unwrap();
+                    if let Some(payload) = m.payload() {
+                        match serde_json::from_slice::<DetectorSettings>(payload) {
+                            Ok(new_settings) => {
+                                info!("Received new event formation configuration: {:?}", new_settings);
+                                if let Some(ref mut processor) = message_processor {
+                                    processor.reconfigure(&new_settings);
+                                } else {
+                                    message_processor = Some(DigitiserMessageProcessor::new(8, &new_settings));
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Failed to parse configuration JSON on topic \"{}\": {}", m.topic(), e);
+                                counter!(
+                                    FAILURES,
+                                    &[failures::get_label(FailureKind::UnableToDecodeMessage)]
+                                )
+                                .increment(1);
+                            }
+                        }
+                    }
                 }
-                Err(e) => warn!("Kafka error: {}", e)
+                Err(e) => warn!("Kafka error on config topic: {}", e)
+            },
+            trace_msg = trace_consumer.recv() => match trace_msg {
+                Ok(m) => {
+                    if let Some(ref mut processor) = message_processor {
+                        let span = info_span!("message_received");
+                        m.headers().conditional_extract_to_span(tracer.use_otel(), &span);
+                        let _guard = span.enter();
+                        process_kafka_message(
+                            &tracer,
+                            &sender_parameters,
+                            processor,
+                            &m,
+                        ).into_diagnostic()?;
+
+                        trace_consumer.commit_message(&m, CommitMode::Async).unwrap();
+                    } else {
+                        debug!("Discarding trace message: no event formation configuration applied yet");
+                        trace_consumer.commit_message(&m, CommitMode::Async).unwrap();
+                    }
+                }
+                Err(e) => warn!("Kafka error on trace topic: {}", e)
             },
             _ = sigint.recv() => {
                 //  Wait for the channel to close and

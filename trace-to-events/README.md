@@ -7,16 +7,17 @@ Traces are consumed from a kafka broker, processed into events and the resulting
 
 ## Command Line Interface
 
-`trace-to-events [OPTIONS] --broker <BROKER> [COMMAND]`
+`trace-to-events [OPTIONS] --broker <BROKER> --consumer-group <CONSUMER_GROUP> --trace-topic <TRACE_TOPIC> --event-topic <EVENT_TOPIC> --config-topic <CONFIG_TOPIC>`
 
 For instance:
 
 ```shell
-trace-to-events --broker localhost:19092 --trace-topic Traces --event-topic Events --polarity <POLARITY> --group trace-to-events
+trace-to-events --broker localhost:19092 --consumer-group trace-to-events --trace-topic Traces --event-topic Events --config-topic Config
 ```
 
-The trace topic is the kafka topic that trace messages are consumed from, and event topic is the topic that event messages are produced to.
-Polarity is the direction (positive or negative) in which the trace signal responds to events.
+- `--trace-topic`: The Kafka topic from which trace messages are consumed.
+- `--event-topic`: The Kafka topic to which digitiser event list messages are produced.
+- `--config-topic`: The Kafka topic from which event formation configuration JSON documents are consumed.
 
 For instructions run:
 
@@ -24,46 +25,27 @@ For instructions run:
 trace-to-events --help
 ```
 
-### Commands
+## Dynamic Event Formation Configuration
 
-- `fixed-threshold-discriminator`: Detects events using a fixed threshold discriminator. Events consist only of a time value.
-- `advanced-muon-detector`: Detects events using differential discriminators. Event lists consist of time and voltage values.
-- `help`: Print this message or the help of the given subcommand(s)
+Event formation parameters are configured by publishing a JSON document to the Kafka topic specified by `--config-topic`.
 
-### Fixed Threshold Discriminator
+- **On boot:** `trace-to-events` inspects `--config-topic`, retrieves the last/most recent message, and applies that configuration.
+- **Dynamic Reconfiguration:** When a new configuration message is published to `--config-topic`, the event formation pipeline is dynamically reconfigured and the new settings are applied to subsequent trace messages.
+- **Unconfigured State:** If no configuration is currently applied (e.g. before any configuration has been published to `--config-topic`), `trace-to-events` discards incoming trace messages until a valid configuration is received.
 
-`trace-to-events --broker <BROKER> fixed-threshold-discriminator --threshold <THRESHOLD>`
+### Configuration Schema
 
-```shell
-      --threshold <THRESHOLD>  If the detector is armed, an event is registered when the trace passes this value for the given duration
-      --duration <DURATION>    The duration, in samples, that the trace must exceed the threshold for [default: 1]
-      --cool-off <COOL_OFF>    After an event is registered, the detector disarms for this many samples [default: 0]
-```
+The JSON document schema corresponds directly to the structs and enums defined in [`src/parameters.rs`](src/parameters.rs):
 
-Threshold is the real threshold value, duration is how long the signal should be beyond the threshold to trigger an event (should be positive), and cool_down is how long before another detection can be found (should be non-negative).
+- [`DetectorSettings`](src/parameters.rs): Top-level configuration document containing `mode`, `polarity`, and optional `baseline`.
+- [`Polarity`](src/parameters.rs): Signal polarity (`"positive"`, `"negative"`).
+- [`Mode`](src/parameters.rs): Selected detector algorithm and its parameters:
+  - `FixedThresholdDiscriminator`: Configured by [`FixedThresholdDiscriminatorParameters`](src/parameters.rs).
+  - `DifferentialThresholdDiscriminator`: Configured by [`DifferentialThresholdDiscriminatorParameters`](src/parameters.rs) (along with [`PeakHeightMode`](src/parameters.rs) and [`PeakHeightBasis`](src/parameters.rs)).
+  - `SmoothingDetector`: Configured by [`SmoothingDetectorParameters`](src/parameters.rs).
+  - `Multiscaling`: Configured by [`MultiscalingDetectorParameters`](src/parameters.rs) and [`MultiscalingDetectorMethod`](src/parameters.rs).
 
-### Advanced Muon Detector
-
-`trace-to-events --broker <BROKER> advanced-muon-detector [OPTIONS] --baseline-length <BASELINE_LENGTH> --smoothing-window-size <SMOOTHING_WINDOW_SIZE> --muon-onset <MUON_ONSET> --muon-fall <MUON_FALL> --muon-termination <MUON_TERMINATION>`
-
-```shell
-      --baseline-length <BASELINE_LENGTH>
-          Size of initial portion of the trace to use for determining the baseline. Initial portion should be event free.
-      --smoothing-window-size <SMOOTHING_WINDOW_SIZE>
-          Size of the moving average window to use for the lopass filter.
-      --muon-onset <MUON_ONSET>
-          Differential threshold for detecting muon onset (threshold,duration,cool_down). See README.md.
-      --muon-fall <MUON_FALL>
-          Differential threshold for detecting muon peak (threshold,duration,cool_down). See README.md.
-      --muon-termination <MUON_TERMINATION>
-          Differential threshold for detecting muon termination (threshold,duration,cool_down). See README.md.
-      --max-amplitude <MAX_AMPLITUDE>
-          Optional parameter which (if set) filters out events whose peak is greater than the given value.
-      --min-amplitude <MIN_AMPLITUDE>
-          Optional parameter which (if set) filters out events whose peak is less than the given value.
-  -h, --help
-          Print help
-```
+Field names and enum variants map to `kebab-case` (with `snake_case` also supported via aliases).
 
 ## Configuring the Detector Pipeline
 
