@@ -10,7 +10,7 @@ use crate::pulse_detection::EventPoint;
 use super::{EventData, Real, TracePoint};
 
 /// Implement for detectors, which take in trace values and outputs events.
-pub(crate) trait Detector: Default + Clone {
+pub(crate) trait Detector: Clone {
     /// Trace type for input.
     type TracePointType: TracePoint;
     /// Event type for output, this must have the same `Time` type as `TracePointType`.

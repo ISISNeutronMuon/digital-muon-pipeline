@@ -5914,8 +5914,11 @@ dependencies = [
  "rayon",
  "rdkafka",
  "rustfft",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

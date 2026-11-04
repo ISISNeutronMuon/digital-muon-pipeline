@@ -72,7 +72,7 @@ impl ChannelState {
             polarity_sign,
             baseline: settings.baseline as Real,
             time: Default::default(),
-            algorithm: ChannelAlgorithmState::new(settings.mode),
+            algorithm: ChannelAlgorithmState::new(&settings.mode),
         }
     }
 
