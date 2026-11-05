@@ -1,11 +1,11 @@
 //! Defines the data type used in [FrameCache].
 //!
 //! [FrameCache]: crate::frame::FrameCache
-mod page;
 mod metrics;
+mod page;
 
 use crate::{
-    analysis::{page::ChartOutputError, metrics::MetricResultError},
+    analysis::{metrics::MetricResultError, page::ChartOutputError},
     engine::{AnalysisSettings, FlatBucketBlock, FlatChart, FlatPage},
     eventlists::EventlistsCollection,
 };
@@ -22,8 +22,8 @@ use std::{
 use thiserror::Error;
 use tracing::{info, info_span, trace};
 
-pub(crate) use page::ChartOutput;
 pub(crate) use metrics::PartialMetricResult;
+pub(crate) use page::ChartOutput;
 
 #[derive(Debug, Error)]
 pub(crate) enum AnalysisError {

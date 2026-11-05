@@ -6,7 +6,8 @@ use crate::{
         utils::{Histogram, SumWithSumOfSqrs},
     },
     engine::{
-        FlatAlgorithm, FlatMetricPulsePairDifferences, FlatWaveform, Interval, PulsePairDifferencesProperty
+        FlatAlgorithm, FlatMetricPulsePairDifferences, FlatWaveform, Interval,
+        PulsePairDifferencesProperty,
     },
     eventlists::ChannelDataByTopic,
 };
@@ -103,29 +104,34 @@ pub(crate) struct CompletedPulsePairDifferences {
     /// Channels.
     channels: Vec<f64>,
     /// Two dimensional surface of the histogram values of all channels.
-    surface: Vec<Vec<f64>>
+    surface: Vec<Vec<f64>>,
 }
 
 /// Calculates the inverse of the mean of the given interval of the slice.
-/// 
+///
 /// # Return
 /// - If the calculated `mean` is non-zero, returns `Ok(Some(1.0/mean))`
 /// - otherwise, returns `Ok(None)`.
 /// - If the given interval is not a valid and of nonzero length, then returns an error.
-/// 
+///
 /// # Parameters
 ///  - slice: the slice to mutate.
 ///  - range: the range of the slice to take the mean of.
-fn get_normaliser(slice: &[f64], range: &Interval<usize>) -> Result<Option<f64>,()> {
+fn get_normaliser(slice: &[f64], range: &Interval<usize>) -> Result<Option<f64>, ()> {
     let len = range.get_max() as f64 - range.get_min() as f64;
     if len.is_sign_negative() && len.is_zero() {
-        return Err(())
+        return Err(());
     }
-    let mean = slice.iter().take(range.get_max()).skip(range.get_min()).sum::<f64>()/len;
+    let mean = slice
+        .iter()
+        .take(range.get_max())
+        .skip(range.get_min())
+        .sum::<f64>()
+        / len;
     if mean.is_zero() {
-        return Ok(None)
+        return Ok(None);
     }
-    Ok(Some(1.0/mean))
+    Ok(Some(1.0 / mean))
 }
 
 impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
@@ -140,8 +146,15 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
             .next()
             .map(|hist| hist.get_bin_labels().to_vec())
             .unwrap_or_else(|| Histogram::generate_bin_labels(&source.source.settings.histogram));
-        let histograms = source.histogram.iter().sorted_by(|(a,_),(b,_)|u32::cmp(a,b)).collect::<Vec<_>>();
-        let channels = histograms.iter().map(|(c,_)|**c as f64).collect::<Vec<_>>();
+        let histograms = source
+            .histogram
+            .iter()
+            .sorted_by(|(a, _), (b, _)| u32::cmp(a, b))
+            .collect::<Vec<_>>();
+        let channels = histograms
+            .iter()
+            .map(|(c, _)| **c as f64)
+            .collect::<Vec<_>>();
 
         let mut sum = vec![0.0; labels.len()];
         let mut mean = vec![0.0; labels.len()];
@@ -164,27 +177,33 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
             });
 
         // Collect channel histograms and calculate their normalisers.
-        let histograms_with_normalisers = histograms.iter().map(|&(_, histogram)| {
-            let normaliser = get_normaliser(histogram.get_counts(), &source.source.settings.normaliser)
-                .expect("This should be pre-validated, this should never fail.");
-            (histogram, normaliser)
-        }).collect::<Vec<_>>();
+        let histograms_with_normalisers = histograms
+            .iter()
+            .map(|&(_, histogram)| {
+                let normaliser =
+                    get_normaliser(histogram.get_counts(), &source.source.settings.normaliser)
+                        .expect("This should be pre-validated, this should never fail.");
+                (histogram, normaliser)
+            })
+            .collect::<Vec<_>>();
 
         // Compute statistics.
         for (time_index, sum, mean, sd, upper, lower) in zipped_iterators {
             // Iterator that loops through each normalised histogram's value at `index`.
-            let counts = histograms_with_normalisers.iter()
+            let counts = histograms_with_normalisers
+                .iter()
                 .map(|&(histogram, normaliser)| {
                     if let Some(normaliser) = normaliser {
-                        normaliser*histogram
-                            .get_counts()
-                            .get(time_index)
-                            .expect("This should never fail.")
+                        normaliser
+                            * histogram
+                                .get_counts()
+                                .get(time_index)
+                                .expect("This should never fail.")
                     } else {
                         0.0 // FIXME: Should we do something else in this case?
                     }
-                }
-            ).collect::<Vec<_>>();
+                })
+                .collect::<Vec<_>>();
 
             for (channel_index, count) in counts.iter().enumerate() {
                 surface[channel_index][time_index] = *count
@@ -231,28 +250,29 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
                 central: self.mean.clone(),
                 bands: Some((self.sd.clone(), self.sd.clone())),
             }),
-            PulsePairDifferencesProperty::MeanBounds => MetricOutput::Histograms(HistogramWithBands {
-                labels: self.labels.clone(),
-                central: self.sum.clone(),
-                bands: Some((
-                    self.upper
-                        .iter()
-                        .zip(self.sum.iter())
-                        .map(|(upper, sum)| upper - sum)
-                        .collect(),
-                    self.lower
-                        .iter()
-                        .zip(self.sd.iter())
-                        .map(|(lower, sum)| sum - lower)
-                        .collect(),
-                )),
-            }),
-            PulsePairDifferencesProperty::ChannelHeatMap => MetricOutput::Surface(
-                Surface {
-                    x_values: self.labels.clone(),
-                    y_values: self.channels.clone(),
-                    data: self.surface.clone()
+            PulsePairDifferencesProperty::MeanBounds => {
+                MetricOutput::Histograms(HistogramWithBands {
+                    labels: self.labels.clone(),
+                    central: self.sum.clone(),
+                    bands: Some((
+                        self.upper
+                            .iter()
+                            .zip(self.sum.iter())
+                            .map(|(upper, sum)| upper - sum)
+                            .collect(),
+                        self.lower
+                            .iter()
+                            .zip(self.sd.iter())
+                            .map(|(lower, sum)| sum - lower)
+                            .collect(),
+                    )),
                 })
+            }
+            PulsePairDifferencesProperty::ChannelHeatMap => MetricOutput::Surface(Surface {
+                x_values: self.labels.clone(),
+                y_values: self.channels.clone(),
+                data: self.surface.clone(),
+            }),
         };
         Ok(metric_output)
     }

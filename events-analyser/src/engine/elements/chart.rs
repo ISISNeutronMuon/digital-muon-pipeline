@@ -16,7 +16,7 @@ pub(crate) enum ChartError {
     #[error("Series Error: {0}")]
     Series(#[from] SeriesError),
     #[error("Value Error: {0}")]
-    Value(#[from] ValueError)
+    Value(#[from] ValueError),
 }
 
 /// Encapsulates settings of a chart which do no need to be flattened.

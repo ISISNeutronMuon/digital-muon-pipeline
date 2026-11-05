@@ -15,10 +15,8 @@ use plotly::{
     common::{ErrorData, ErrorType, LegendGroupTitle, Line},
     heat_map::Smoothing,
     layout::{
-        Axis, GridPattern, GroupClick,
-        ItemClick, LayoutGrid, Legend,
-        ModeBar, TraceOrder, VAlign,
-    }
+        Axis, GridPattern, GroupClick, ItemClick, LayoutGrid, Legend, ModeBar, TraceOrder, VAlign,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::{fs::File, path::Path};
@@ -77,19 +75,19 @@ where
             .x_axis(&series.settings.x_axis)
             .y_axis(&series.settings.y_axis)
             .zsmooth(Smoothing::Best)
-            /*.legend_group(format!(
-                "x{0}y{1}",
-                series.settings.x_axis, series.settings.y_axis
-            ))
-            .legend_group_title(
-                LegendGroupTitle::new().text(
-                    series
-                        .settings
-                        .legend_group_title
-                        .as_ref()
-                        .unwrap_or(&series.settings.name),
-                ),
-            ) */
+        /*.legend_group(format!(
+            "x{0}y{1}",
+            series.settings.x_axis, series.settings.y_axis
+        ))
+        .legend_group_title(
+            LegendGroupTitle::new().text(
+                series
+                    .settings
+                    .legend_group_title
+                    .as_ref()
+                    .unwrap_or(&series.settings.name),
+            ),
+        ) */
     }
 }
 

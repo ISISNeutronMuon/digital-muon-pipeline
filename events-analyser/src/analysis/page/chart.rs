@@ -12,10 +12,8 @@ use plotly::{
     common::{ErrorData, ErrorType, LegendGroupTitle, Line},
     heat_map::Smoothing,
     layout::{
-        Axis, GridPattern, GroupClick,
-        ItemClick, LayoutGrid, Legend,
-        ModeBar, TraceOrder, VAlign,
-    }
+        Axis, GridPattern, GroupClick, ItemClick, LayoutGrid, Legend, ModeBar, TraceOrder, VAlign,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::{fs::File, path::Path};
@@ -78,19 +76,19 @@ where
             .x_axis(&series.settings.x_axis)
             .y_axis(&series.settings.y_axis)
             .zsmooth(Smoothing::Best)
-            /*.legend_group(format!(
-                "x{0}y{1}",
-                series.settings.x_axis, series.settings.y_axis
-            ))
-            .legend_group_title(
-                LegendGroupTitle::new().text(
-                    series
-                        .settings
-                        .legend_group_title
-                        .as_ref()
-                        .unwrap_or(&series.settings.name),
-                ),
-            ) */
+        /*.legend_group(format!(
+            "x{0}y{1}",
+            series.settings.x_axis, series.settings.y_axis
+        ))
+        .legend_group_title(
+            LegendGroupTitle::new().text(
+                series
+                    .settings
+                    .legend_group_title
+                    .as_ref()
+                    .unwrap_or(&series.settings.name),
+            ),
+        ) */
     }
 }
 
@@ -296,13 +294,18 @@ impl ChartOutput {
         series: &FlatSeries,
         surfaces: &[Surface],
     ) -> Vec<Box<dyn Trace>> {
-        surfaces.iter()
-        .map(|surface| {
-            HeatMap::new(surface.x_values.clone(), surface.y_values.clone(), surface.data.clone())
+        surfaces
+            .iter()
+            .map(|surface| {
+                HeatMap::new(
+                    surface.x_values.clone(),
+                    surface.y_values.clone(),
+                    surface.data.clone(),
+                )
                 .apply_settings(series)
-                .transpose(false)
-                as Box<dyn Trace>
-        }).collect::<Vec<_>>()
+                .transpose(false) as Box<dyn Trace>
+            })
+            .collect::<Vec<_>>()
     }
 
     pub(crate) fn build_plotly_trace(
@@ -315,8 +318,12 @@ impl ChartOutput {
             Some(MetricOutputSeries::WithErrors(data)) => {
                 vec![self.build_scalar_with_errors_trace(series, data)]
             }
-            Some(MetricOutputSeries::Group(data)) => vec![self.build_box_plot_plotly_trace(series, data)],
-            Some(MetricOutputSeries::Histograms(data)) => self.build_histograms_plotly_trace(series, data),
+            Some(MetricOutputSeries::Group(data)) => {
+                vec![self.build_box_plot_plotly_trace(series, data)]
+            }
+            Some(MetricOutputSeries::Histograms(data)) => {
+                self.build_histograms_plotly_trace(series, data)
+            }
             Some(MetricOutputSeries::Surface(data)) => {
                 self.build_surface_plotly_trace(series, data)
             }
@@ -399,9 +406,9 @@ impl ChartOutput {
                         .title(&self.chart.settings.x_axis_label)
                         .anchor(format!("y{}", index + 1))
                         .domain(&[
-                            x_pos as f64/(self.chart.settings.num_cols + 1) as f64,
-                            (x_pos + 1) as f64/(self.chart.settings.num_cols + 1) as f64
-                        ])
+                            x_pos as f64 / (self.chart.settings.num_cols + 1) as f64,
+                            (x_pos + 1) as f64 / (self.chart.settings.num_cols + 1) as f64,
+                        ]),
                 )
             });
         layout = Y_AXIS_METHODS
@@ -416,8 +423,8 @@ impl ChartOutput {
                         .title(&self.chart.settings.y_axis_label)
                         .anchor(format!("x{}", index + 1))
                         .domain(&[
-                            y_pos as f64/(self.chart.settings.num_rows + 1) as f64,
-                            (y_pos + 1) as f64/(self.chart.settings.num_rows + 1) as f64
+                            y_pos as f64 / (self.chart.settings.num_rows + 1) as f64,
+                            (y_pos + 1) as f64 / (self.chart.settings.num_rows + 1) as f64,
                         ]),
                 )
             });

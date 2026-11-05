@@ -159,7 +159,7 @@ where
     max: T,
 }
 
-impl<T : Clone> Interval<T> {
+impl<T: Clone> Interval<T> {
     pub(crate) fn get_min(&self) -> T {
         self.min.clone()
     }
@@ -175,10 +175,10 @@ impl<T: PartialOrd + Copy> Interval<T> {
         if max < min {
             Err(())
         } else {
-            Ok(Self{ min, max })
+            Ok(Self { min, max })
         }
     }
-    
+
     pub(crate) fn range_inclusive(&self) -> RangeInclusive<T> {
         self.min..=self.max
     }

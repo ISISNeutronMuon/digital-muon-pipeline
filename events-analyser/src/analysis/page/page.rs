@@ -1,9 +1,11 @@
-
 use crate::{
-    analysis::{metrics::{
-        CompletedMetricResult, FittingError, HistogramWithBands, MetricOutputSeries,
-        MetricResultError, Surface,
-    }, page::chart::{ChartOutput, ChartOutputError}},
+    analysis::{
+        metrics::{
+            CompletedMetricResult, FittingError, HistogramWithBands, MetricOutputSeries,
+            MetricResultError, Surface,
+        },
+        page::chart::{ChartOutput, ChartOutputError},
+    },
     engine::{FlatChart, FlatPage, FlatSeries, SeriesType},
 };
 use build_html::{Html, HtmlContainer, HtmlPage};
@@ -14,10 +16,8 @@ use plotly::{
     common::{ErrorData, ErrorType, LegendGroupTitle, Line},
     heat_map::Smoothing,
     layout::{
-        Axis, GridPattern, GroupClick,
-        ItemClick, LayoutGrid, Legend,
-        ModeBar, TraceOrder, VAlign,
-    }
+        Axis, GridPattern, GroupClick, ItemClick, LayoutGrid, Legend, ModeBar, TraceOrder, VAlign,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Write, path::Path};
@@ -49,7 +49,7 @@ impl PageOutput {
         let charts = page
             .charts
             .iter()
-            .map(|chart: &FlatChart|ChartOutput::new(chart, metrics))
+            .map(|chart: &FlatChart| ChartOutput::new(chart, metrics))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             page: page.clone(),
@@ -80,7 +80,9 @@ impl PageOutput {
             .with_title(&self.page.settings.title)
             .with_script_link(PLOTLY_JS_SCRIPT)
             .with_header(1, &self.page.settings.title);
-        let html = self.charts.iter().fold(html, |html, chart|html.with_raw(chart.build_plotly_graph().to_inline_html(None)));
+        let html = self.charts.iter().fold(html, |html, chart| {
+            html.with_raw(chart.build_plotly_graph().to_inline_html(None))
+        });
 
         let mut path = path.to_owned();
         path.push(&self.page.settings.title);

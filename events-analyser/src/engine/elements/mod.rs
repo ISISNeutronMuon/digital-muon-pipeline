@@ -14,7 +14,6 @@ pub(crate) use {
         FlatBucketBlock,
     },
     chart::{Chart, ChartError, FlatChart},
-    page::{Page, PageError, FlatPage},
     criteria::CriteriaTemplate,
     metric::{
         EventCountProperty, FalseCountProperty, FlatMetric, FlatMetricEventCount,
@@ -23,6 +22,7 @@ pub(crate) use {
         MuonLifetimeProperty, PropertyOfMetric, PulseHeightSpectraProperty,
         PulsePairDifferencesProperty,
     },
+    page::{FlatPage, Page, PageError},
     series::{FlatSeries, SeriesType},
     waveform::{FlatWaveform, Waveform, WaveformProperties},
 };

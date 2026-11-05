@@ -14,7 +14,8 @@ pub(crate) struct Histogram {
 
 impl Histogram {
     pub(crate) fn generate_bin_labels(histogram: &MetricTypeHistogram) -> Vec<f64> {
-        let coef = (histogram.interval.get_max() - histogram.interval.get_min()) / histogram.num_bins as f64;
+        let coef = (histogram.interval.get_max() - histogram.interval.get_min())
+            / histogram.num_bins as f64;
         (0..histogram.num_bins)
             .map(|i| i as f64 * coef + histogram.interval.get_min())
             .collect()
@@ -36,7 +37,8 @@ impl Histogram {
         if self.interval.get_min() <= value && value < self.interval.get_max() {
             self.num_values += 1;
             let index = (self.bins.len() as f64 * (value - self.interval.get_min())
-                / (self.interval.get_max() - self.interval.get_min())) as usize;
+                / (self.interval.get_max() - self.interval.get_min()))
+                as usize;
             self.bins
                 .get_mut(index)
                 .expect("Element should exist, this should never fail")

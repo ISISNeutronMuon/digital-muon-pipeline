@@ -43,9 +43,7 @@ impl<V1, E1, G1, H1, S1> MetricOutputGeneric<V1, E1, G1, H1, S1> {
             (Self::Histograms(vec), MetricOutputGeneric::Histograms(value)) => {
                 fh(vec, value.clone())
             }
-            (Self::Surface(vec), MetricOutputGeneric::Surface(value)) => {
-                fs(vec, value.clone())
-            }
+            (Self::Surface(vec), MetricOutputGeneric::Surface(value)) => fs(vec, value.clone()),
             _ => unreachable!(),
         }
     }
@@ -71,7 +69,7 @@ pub(crate) type MetricOutput = MetricOutputGeneric<
     Option<(f64, f64)>,
     Option<Vec<(f64, String)>>,
     HistogramWithBands,
-    Surface
+    Surface,
 >;
 
 /// Instance of `MetricOutputGeneric` which holds data aggregated over several buckets.
@@ -95,7 +93,14 @@ impl FromIterator<MetricOutput> for Option<MetricOutputSeries> {
             None,
             |series: Option<MetricOutputSeries>, value: MetricOutput| match series {
                 Some(mut series) => {
-                    series.apply_matched(&value, Vec::push, Vec::push, Vec::push, Vec::push, Vec::push);
+                    series.apply_matched(
+                        &value,
+                        Vec::push,
+                        Vec::push,
+                        Vec::push,
+                        Vec::push,
+                        Vec::push,
+                    );
                     Some(series)
                 }
                 None => Some(match value {

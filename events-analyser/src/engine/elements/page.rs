@@ -1,7 +1,13 @@
 use crate::{
     analysis::PartialMetricResult,
     engine::{
-        AnalysisSettings, Chart, FlatBucketBlock, FlatChart, FlatSeries, Flattenable, FlattenableWithIndex, elements::{ChartError, series::{Series, SeriesError}}, values::{Dependency, ValueError}
+        AnalysisSettings, Chart, FlatBucketBlock, FlatChart, FlatSeries, Flattenable,
+        FlattenableWithIndex,
+        elements::{
+            ChartError,
+            series::{Series, SeriesError},
+        },
+        values::{Dependency, ValueError},
     },
 };
 use serde::{Deserialize, Serialize};
@@ -64,9 +70,7 @@ impl FlatPage {
     ) -> bool {
         self.charts
             .iter_mut()
-            .all(|chart|chart
-                .evaluate_readiness(bucket_blocks, metrics)
-            )
+            .all(|chart| chart.evaluate_readiness(bucket_blocks, metrics))
     }
 }
 
@@ -85,7 +89,7 @@ impl Flattenable<(&AnalysisSettings, &[FlatBucketBlock])> for Page {
         let charts = self
             .charts
             .iter()
-            .map(|chart|chart.flatten((library, flat_bucket_blocks)))
+            .map(|chart| chart.flatten((library, flat_bucket_blocks)))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(FlatPage {
