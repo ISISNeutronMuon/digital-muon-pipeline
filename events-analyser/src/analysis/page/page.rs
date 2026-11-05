@@ -1,24 +1,11 @@
 use crate::{
     analysis::{
-        metrics::{
-            CompletedMetricResult, FittingError, HistogramWithBands, MetricOutputSeries,
-            MetricResultError, Surface,
-        },
+        metrics::CompletedMetricResult,
         page::chart::{ChartOutput, ChartOutputError},
     },
-    engine::{FlatChart, FlatPage, FlatSeries, SeriesType},
+    engine::{FlatChart, FlatPage},
 };
 use build_html::{Html, HtmlContainer, HtmlPage};
-use num::Integer;
-use plotly::{
-    Bar, BoxPlot, HeatMap, Layout, Plot, Scatter, Trace,
-    box_plot::{BoxMean, BoxPoints},
-    common::{ErrorData, ErrorType, LegendGroupTitle, Line},
-    heat_map::Smoothing,
-    layout::{
-        Axis, GridPattern, GroupClick, ItemClick, LayoutGrid, Legend, ModeBar, TraceOrder, VAlign,
-    },
-};
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Write, path::Path};
 use thiserror::Error;

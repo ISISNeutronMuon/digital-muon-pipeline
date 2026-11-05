@@ -1,7 +1,10 @@
 use crate::{
-    analysis::metrics::{
-        CompletedMetricResult, FittingError, HistogramWithBands, MetricOutputSeries,
-        MetricResultError, Surface,
+    analysis::{
+        metrics::{
+            CompletedMetricResult, FittingError, HistogramWithBands, MetricOutputSeries,
+            MetricResultError, Surface,
+        },
+        page::TraceExt,
     },
     engine::{FlatChart, FlatSeries, SeriesType},
 };
@@ -16,20 +19,7 @@ use plotly::{
     },
 };
 use serde::{Deserialize, Serialize};
-use std::{fs::File, path::Path};
 use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub(crate) enum ChartOutputError {
-    #[error("Metric Result Error: {0}")]
-    Metric(#[from] MetricResultError),
-}
-
-/// Helper trait for plotly chart components.
-trait TraceExt {
-    /// Sets the name, x_axis, y_axis, and legend data.
-    fn apply_settings(self, series: &FlatSeries) -> Self;
-}
 
 impl<X, Y> TraceExt for Box<Scatter<X, Y>>
 where
@@ -140,6 +130,12 @@ where
                 ),
             )
     }
+}
+
+#[derive(Debug, Error)]
+pub(crate) enum ChartOutputError {
+    #[error("Metric Result Error: {0}")]
+    Metric(#[from] MetricResultError),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -5,8 +5,8 @@ mod metrics;
 mod page;
 
 use crate::{
-    analysis::{metrics::MetricResultError, page::ChartOutputError},
-    engine::{AnalysisSettings, FlatBucketBlock, FlatChart, FlatPage},
+    analysis::{metrics::MetricResultError, page::PageOutputError},
+    engine::{AnalysisSettings, FlatBucketBlock, FlatPage},
     eventlists::EventlistsCollection,
 };
 use chrono::{DateTime, ParseError, TimeDelta, Utc};
@@ -23,7 +23,7 @@ use thiserror::Error;
 use tracing::{info, info_span, trace};
 
 pub(crate) use metrics::PartialMetricResult;
-pub(crate) use page::ChartOutput;
+pub(crate) use page::PageOutput;
 
 #[derive(Debug, Error)]
 pub(crate) enum AnalysisError {
@@ -33,8 +33,8 @@ pub(crate) enum AnalysisError {
     Json(#[from] serde_json::error::Error),
     #[error("IO Error {0}")]
     IO(#[from] std::io::Error),
-    #[error("Chart Error: {0}")]
-    Chart(#[from] ChartOutputError),
+    #[error("Page Error: {0}")]
+    Page(#[from] PageOutputError),
     #[error("Span Error: {0}")]
     Span(#[from] SpanOnceError),
     #[error("Metric Result Error: {0}")]
@@ -212,7 +212,7 @@ impl AnalysisEngine {
             .collect::<Result<Vec<_>, _>>()?;
 
         for page in &self.pages {
-            let output = ChartOutput::new(page, &metrics)?;
+            let output = PageOutput::new(page, &metrics)?;
 
             if page.settings.output_to_json {
                 output.save_json(&self.path)?;
@@ -235,11 +235,11 @@ impl AnalysisEngine {
                 "Idle Time Trigger Satisfied, last push: {}.",
                 last_message_timestamp.to_rfc3339()
             );
-            for chart in &mut self.charts {
-                if chart.evaluate_readiness(&self.buckets_blocks, &self.metrics) {
-                    trace!("{}, ready.", chart.settings.title);
+            for page in &mut self.pages {
+                if page.evaluate_readiness(&self.buckets_blocks, &self.metrics) {
+                    trace!("{}, ready.", page.settings.title);
                 } else {
-                    trace!("{}, not ready.", chart.settings.title);
+                    trace!("{}, not ready.", page.settings.title);
                     return false;
                 }
             }
