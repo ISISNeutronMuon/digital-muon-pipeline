@@ -1,17 +1,15 @@
 use crate::{
     analysis::metrics::{
         CompletedMetricResult, FittingError, HistogramWithBands, MetricOutputSeries,
-        MetricResultError,
+        MetricResultError, Surface,
     },
     engine::{FlatChart, FlatSeries, SeriesType},
 };
+use num::Integer;
 use plotly::{
-    Bar, BoxPlot, Layout, Plot, Scatter, Trace,
-    box_plot::{BoxMean, BoxPoints},
-    common::{ErrorData, ErrorType, LegendGroupTitle, Line},
-    layout::{
+    Bar, BoxPlot, HeatMap, Layout, Plot, Scatter, Trace, box_plot::{BoxMean, BoxPoints}, common::{ErrorData, ErrorType, LegendGroupTitle, Line}, heat_map::Smoothing, layout::{
         Axis, GridPattern, GroupClick, ItemClick, LayoutGrid, Legend, ModeBar, TraceOrder, VAlign,
-    },
+    }
 };
 use serde::{Deserialize, Serialize};
 use std::{fs::File, path::Path};
@@ -64,6 +62,33 @@ where
                         .unwrap_or(&series.settings.name),
                 ),
             )
+    }
+}
+
+impl<X, Y, Z> TraceExt for Box<HeatMap<X, Y, Z>>
+where
+    X: Clone + Serialize,
+    Y: Clone + Serialize,
+    Z: Clone + Serialize,
+{
+    fn apply_settings(self, series: &FlatSeries) -> Self {
+        self.name(&series.settings.name)
+            .x_axis(&series.settings.x_axis)
+            .y_axis(&series.settings.y_axis)
+            .zsmooth(Smoothing::Best)
+            /*.legend_group(format!(
+                "x{0}y{1}",
+                series.settings.x_axis, series.settings.y_axis
+            ))
+            .legend_group_title(
+                LegendGroupTitle::new().text(
+                    series
+                        .settings
+                        .legend_group_title
+                        .as_ref()
+                        .unwrap_or(&series.settings.name),
+                ),
+            ) */
     }
 }
 
@@ -168,7 +193,7 @@ impl ChartOutput {
         let mut path = path.to_owned();
         path.push(&self.chart.settings.title);
         path.add_extension("html");
-        let plot = self.build_graph();
+        let plot = self.build_plotly_graph();
         plot.write_html(&path);
         Ok(())
     }
@@ -228,7 +253,7 @@ impl ChartOutput {
     /// # Arguments
     /// - series: Source of series settings
     /// - data: FIXME: TODO
-    fn build_box_plot_trace(
+    fn build_box_plot_plotly_trace(
         &self,
         series: &FlatSeries,
         data: &[Option<Vec<(f64, String)>>],
@@ -261,7 +286,7 @@ impl ChartOutput {
     /// # Arguments
     /// - series: Source of series settings
     /// - data: FIXME: TODO
-    fn build_histograms_trace(
+    fn build_histograms_plotly_trace(
         &self,
         series: &FlatSeries,
         data: &[HistogramWithBands],
@@ -289,7 +314,21 @@ impl ChartOutput {
             .collect::<Vec<_>>()
     }
 
-    pub(crate) fn build_trace(
+    pub(crate) fn build_surface_plotly_trace(
+        &self,
+        series: &FlatSeries,
+        surfaces: &[Surface],
+    ) -> Vec<Box<dyn Trace>> {
+        surfaces.iter()
+        .map(|surface| {
+            HeatMap::new(surface.x_values.clone(), surface.y_values.clone(), surface.data.clone())
+                .apply_settings(series)
+                .transpose(false)
+                as Box<dyn Trace>
+        }).collect::<Vec<_>>()
+    }
+
+    pub(crate) fn build_plotly_trace(
         &self,
         series: &FlatSeries,
         data: Option<&MetricOutputSeries>,
@@ -299,8 +338,11 @@ impl ChartOutput {
             Some(MetricOutputSeries::WithErrors(data)) => {
                 vec![self.build_scalar_with_errors_trace(series, data)]
             }
-            Some(MetricOutputSeries::Group(data)) => vec![self.build_box_plot_trace(series, data)],
-            Some(MetricOutputSeries::Histograms(data)) => self.build_histograms_trace(series, data),
+            Some(MetricOutputSeries::Group(data)) => vec![self.build_box_plot_plotly_trace(series, data)],
+            Some(MetricOutputSeries::Histograms(data)) => self.build_histograms_plotly_trace(series, data),
+            Some(MetricOutputSeries::Surface(data)) => {
+                self.build_surface_plotly_trace(series, data)
+            }
             None => vec![
                 Scatter::<f64, f64>::new(Default::default(), Default::default())
                     .name(format!("{} - values missing.", series.settings.name)),
@@ -308,11 +350,11 @@ impl ChartOutput {
         }
     }
 
-    fn build_grid(&self) -> LayoutGrid {
+    fn build_plotly_grid(&self) -> LayoutGrid {
         let mut grid = LayoutGrid::new()
             .columns(self.chart.settings.num_cols)
             .rows(self.chart.settings.num_rows)
-            .pattern(GridPattern::Coupled);
+            .pattern(GridPattern::Independent);
         if let Some(x_gap_fraction) = &self.chart.settings.x_gap_fraction {
             grid = grid.x_gap(*x_gap_fraction);
         }
@@ -322,7 +364,7 @@ impl ChartOutput {
         grid
     }
 
-    fn build_legend(&self) -> Legend {
+    fn build_plotly_legend(&self) -> Legend {
         Legend::new()
             .item_click(ItemClick::Toggle)
             .item_double_click(ItemClick::ToggleOthers)
@@ -332,14 +374,14 @@ impl ChartOutput {
             .valign(VAlign::Middle)
     }
 
-    fn build_layout(&self) -> Layout {
+    fn build_plotly_layout(&self) -> Layout {
         let mut layout = Layout::new()
             .title(&self.chart.settings.title)
             .mode_bar(ModeBar::new())
             .show_legend(true)
             .auto_size(true)
-            .legend(self.build_legend())
-            .grid(self.build_grid());
+            .legend(self.build_plotly_legend())
+            .grid(self.build_plotly_grid());
         if let Some(width) = &self.chart.settings.width {
             layout = layout.width((self.chart.settings.num_cols + 1) * width);
         }
@@ -373,11 +415,16 @@ impl ChartOutput {
             .take(self.chart.settings.num_rows * self.chart.settings.num_cols)
             .enumerate()
             .fold(layout, |layout, (index, x_axis)| {
+                let (x_pos, _) = index.div_mod_floor(&self.chart.settings.num_cols);
                 x_axis(
                     layout,
                     Axis::new()
                         .title(&self.chart.settings.x_axis_label)
-                        .anchor(format!("y{}", index + 1)),
+                        .anchor(format!("y{}", index + 1))
+                        .domain(&[
+                            x_pos as f64/(self.chart.settings.num_cols + 1) as f64,
+                            (x_pos + 1) as f64/(self.chart.settings.num_cols + 1) as f64
+                        ])
                 )
             });
         layout = Y_AXIS_METHODS
@@ -385,23 +432,28 @@ impl ChartOutput {
             .take(self.chart.settings.num_rows * self.chart.settings.num_cols)
             .enumerate()
             .fold(layout, |layout, (index, y_axis)| {
+                let (_, y_pos) = index.div_mod_floor(&self.chart.settings.num_cols);
                 y_axis(
                     layout,
                     Axis::new()
                         .title(&self.chart.settings.y_axis_label)
-                        .anchor(format!("x{}", index + 1)),
+                        .anchor(format!("x{}", index + 1))
+                        .domain(&[
+                            y_pos as f64/(self.chart.settings.num_rows + 1) as f64,
+                            (y_pos + 1) as f64/(self.chart.settings.num_rows + 1) as f64
+                        ]),
                 )
             });
         layout
     }
 
-    pub(crate) fn build_graph(&self) -> Plot {
+    pub(crate) fn build_plotly_graph(&self) -> Plot {
         let mut plot = Plot::new();
-        plot.set_layout(self.build_layout());
+        plot.set_layout(self.build_plotly_layout());
 
         // Using `fold`` rather than `for` as this fixes some compiler type-checking issues.
         let add_traces = |mut plot: Plot, (series, series_data): (_, &Option<_>)| {
-            let traces = self.build_trace(series, series_data.as_ref());
+            let traces = self.build_plotly_trace(series, series_data.as_ref());
             plot.add_traces(traces);
             plot
         };

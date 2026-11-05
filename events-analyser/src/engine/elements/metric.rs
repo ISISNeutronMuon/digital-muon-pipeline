@@ -147,6 +147,8 @@ pub(crate) enum PulsePairDifferencesProperty {
     MeanSd,
     /// Display histogram whose counts are the mean of the per-channel counts, along with the minimum and maximum count bands.
     MeanBounds,
+    /// Display counts as a per-channel heatmap.
+    ChannelHeatMap,
 }
 
 impl Flattenable<&[String]> for Metric {

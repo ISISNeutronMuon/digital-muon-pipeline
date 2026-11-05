@@ -2,33 +2,37 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum MetricOutputGeneric<V, E, G, H> {
+pub(crate) enum MetricOutputGeneric<V, E, G, H, S> {
     Value(V),
     WithErrors(E),
     Group(G),
     Histograms(H),
+    Surface(S),
 }
 
-impl<V1, E1, G1, H1> MetricOutputGeneric<V1, E1, G1, H1> {
+impl<V1, E1, G1, H1, S1> MetricOutputGeneric<V1, E1, G1, H1, S1> {
     /// Matches the variants of `Self` with an instance of `MetricOutputGeneric` (with possibly different generic type arguments),
     /// and applies a closure to it, where the closure used depends on the variants and is given by the caller.
     /// Note that this method assumes both `self` and `other` use the same variant, and is not `Self::Empty`.
-    pub(crate) fn apply_matched<V2, E2, G2, H2, FV, FE, FG, FH>(
+    pub(crate) fn apply_matched<V2, E2, G2, H2, S2, FV, FE, FG, FH, FS>(
         &mut self,
-        other: &MetricOutputGeneric<V2, E2, G2, H2>,
+        other: &MetricOutputGeneric<V2, E2, G2, H2, S2>,
         fv: FV,
         fe: FE,
         fg: FG,
         fh: FH,
+        fs: FS,
     ) where
         FV: Fn(&mut V1, V2),
         FE: Fn(&mut E1, E2),
         FG: Fn(&mut G1, G2),
         FH: Fn(&mut H1, H2),
+        FS: Fn(&mut S1, S2),
         V2: Clone,
         E2: Clone,
         G2: Clone,
         H2: Clone,
+        S2: Clone,
     {
         match (self, &other) {
             (Self::Value(vec), MetricOutputGeneric::Value(value)) => fv(vec, value.clone()),
@@ -38,6 +42,9 @@ impl<V1, E1, G1, H1> MetricOutputGeneric<V1, E1, G1, H1> {
             (Self::Group(vec), MetricOutputGeneric::Group(value)) => fg(vec, value.clone()),
             (Self::Histograms(vec), MetricOutputGeneric::Histograms(value)) => {
                 fh(vec, value.clone())
+            }
+            (Self::Surface(vec), MetricOutputGeneric::Surface(value)) => {
+                fs(vec, value.clone())
             }
             _ => unreachable!(),
         }
@@ -51,12 +58,20 @@ pub(crate) struct HistogramWithBands {
     pub(crate) bands: Option<(Vec<f64>, Vec<f64>)>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct Surface {
+    pub(crate) x_values: Vec<f64>,
+    pub(crate) y_values: Vec<f64>,
+    pub(crate) data: Vec<Vec<f64>>,
+}
+
 /// Instance of `MetricOutputGeneric` which holds data derived from a single bucket.
 pub(crate) type MetricOutput = MetricOutputGeneric<
     Option<f64>,
     Option<(f64, f64)>,
     Option<Vec<(f64, String)>>,
     HistogramWithBands,
+    Surface
 >;
 
 /// Instance of `MetricOutputGeneric` which holds data aggregated over several buckets.
@@ -71,6 +86,7 @@ pub(crate) type MetricOutputSeries = MetricOutputGeneric<
     Vec<Option<(f64, f64)>>,
     Vec<Option<Vec<(f64, String)>>>,
     Vec<HistogramWithBands>,
+    Vec<Surface>,
 >;
 
 impl FromIterator<MetricOutput> for Option<MetricOutputSeries> {
@@ -79,7 +95,7 @@ impl FromIterator<MetricOutput> for Option<MetricOutputSeries> {
             None,
             |series: Option<MetricOutputSeries>, value: MetricOutput| match series {
                 Some(mut series) => {
-                    series.apply_matched(&value, Vec::push, Vec::push, Vec::push, Vec::push);
+                    series.apply_matched(&value, Vec::push, Vec::push, Vec::push, Vec::push, Vec::push);
                     Some(series)
                 }
                 None => Some(match value {
@@ -87,6 +103,7 @@ impl FromIterator<MetricOutput> for Option<MetricOutputSeries> {
                     MetricOutput::WithErrors(value) => MetricOutputSeries::WithErrors(vec![value]),
                     MetricOutput::Group(value) => MetricOutputSeries::Group(vec![value]),
                     MetricOutput::Histograms(value) => MetricOutputSeries::Histograms(vec![value]),
+                    MetricOutput::Surface(value) => MetricOutputSeries::Surface(vec![value]),
                 }),
             },
         )

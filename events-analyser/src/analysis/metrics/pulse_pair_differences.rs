@@ -1,7 +1,7 @@
 use crate::{
     analysis::metrics::{
         MetricOutput, MetricResultError,
-        output::HistogramWithBands,
+        output::{HistogramWithBands, Surface},
         results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{Histogram, SumWithSumOfSqrs},
     },
@@ -12,7 +12,7 @@ use crate::{
 };
 use digital_muon_common::{Channel, Time};
 use itertools::Itertools;
-use num::Float;
+use num::{Float, Zero};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -100,20 +100,32 @@ pub(crate) struct CompletedPulsePairDifferences {
     upper: Vec<f64>,
     /// Values of the histogram formed by taking the minimum of all per-channel histograms.
     lower: Vec<f64>,
+    /// Channels.
+    channels: Vec<f64>,
+    /// Two dimensional surface of the histogram values of all channels.
+    surface: Vec<Vec<f64>>
 }
 
-/// Takes a mutable slice and an interval, calculates the mean of the given interval of the slice, and normalises the whole slice to that value.
-/// FIXME: There is no error checking for divide by zero, or the range being out of bounds.
+/// Calculates the inverse of the mean of the given interval of the slice.
+/// 
+/// # Return
+/// - If the calculated `mean` is non-zero, returns `Ok(Some(1.0/mean))`
+/// - otherwise, returns `Ok(None)`.
+/// - If the given interval is not a valid and of nonzero length, then returns an error.
 /// 
 /// # Parameters
 ///  - slice: the slice to mutate.
 ///  - range: the range of the slice to take the mean of.
-fn get_normaliser(slice: &[f64], range: &Interval<usize>) -> Result<f64,()> {
-    let len = range.max.abs_diff(range.min) as f64;
-    if len == 0.0 {
+fn get_normaliser(slice: &[f64], range: &Interval<usize>) -> Result<Option<f64>,()> {
+    let len = range.get_max() as f64 - range.get_min() as f64;
+    if len.is_sign_negative() && len.is_zero() {
         return Err(())
     }
-    Ok(slice.iter().take(range.max).skip(range.min).sum::<f64>()/len)
+    let mean = slice.iter().take(range.get_max()).skip(range.get_min()).sum::<f64>()/len;
+    if mean.is_zero() {
+        return Ok(None)
+    }
+    Ok(Some(1.0/mean))
 }
 
 impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
@@ -128,11 +140,16 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
             .next()
             .map(|hist| hist.get_bin_labels().to_vec())
             .unwrap_or_else(|| Histogram::generate_bin_labels(&source.source.settings.histogram));
+        let histograms = source.histogram.iter().sorted_by(|(a,_),(b,_)|u32::cmp(a,b)).collect::<Vec<_>>();
+        let channels = histograms.iter().map(|(c,_)|**c as f64).collect::<Vec<_>>();
+
         let mut sum = vec![0.0; labels.len()];
         let mut mean = vec![0.0; labels.len()];
         let mut sd = vec![0.0; labels.len()];
         let mut upper = vec![0.0; labels.len()];
         let mut lower = vec![f64::MAX; labels.len()];
+        let mut surface = vec![vec![0.0; labels.len()]; channels.len()];
+        //let mut surface = Vec::<f64>::with_capacity(labels.len()*source.histogram.len());
 
         // Gather mut iterators of all the above vectors together (along with the index) and convert them to a convenient tuple form.
         let zipped_iterators = sum
@@ -146,18 +163,35 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
                 (index, sum, mean, sd, upper, lower)
             });
 
+        // Collect channel histograms and calculate their normalisers.
+        let histograms_with_normalisers = histograms.iter().map(|&(_, histogram)| {
+            let normaliser = get_normaliser(histogram.get_counts(), &source.source.settings.normaliser)
+                .expect("This should be pre-validated, this should never fail.");
+            (histogram, normaliser)
+        }).collect::<Vec<_>>();
+
         // Compute statistics.
-        for (index, sum, mean, sd, upper, lower) in zipped_iterators {
-            let counts_iterator = source.histogram.values().map(|histogram| {
-                let normaliser = get_normaliser(histogram.get_counts(), &source.source.settings.normaliser);
-                histogram
-                    .get_counts()
-                    .get(index)
-                    .expect("This should never fail.")/normaliser
-            });
+        for (time_index, sum, mean, sd, upper, lower) in zipped_iterators {
+            // Iterator that loops through each normalised histogram's value at `index`.
+            let counts = histograms_with_normalisers.iter()
+                .map(|&(histogram, normaliser)| {
+                    if let Some(normaliser) = normaliser {
+                        normaliser*histogram
+                            .get_counts()
+                            .get(time_index)
+                            .expect("This should never fail.")
+                    } else {
+                        0.0 // FIXME: Should we do something else in this case?
+                    }
+                }
+            ).collect::<Vec<_>>();
+
+            for (channel_index, count) in counts.iter().enumerate() {
+                surface[channel_index][time_index] = *count
+            }
 
             let mut sum_with_sum_of_sqrs = SumWithSumOfSqrs::default();
-            for count in counts_iterator {
+            for count in counts {
                 sum_with_sum_of_sqrs.add_to(count);
                 *sum += count;
                 *upper = upper.max(count);
@@ -175,43 +209,51 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
             sum,
             upper,
             lower,
+            channels,
+            surface,
         })
     }
 
     fn get_property(&self, property: Self::Property) -> Result<MetricOutput, Self::Error> {
-        let histogram = match property {
-            PulsePairDifferencesProperty::Sum => HistogramWithBands {
+        let metric_output = match property {
+            PulsePairDifferencesProperty::Sum => MetricOutput::Histograms(HistogramWithBands {
                 labels: self.labels.clone(),
                 central: self.sum.clone(),
                 bands: None,
-            },
-            PulsePairDifferencesProperty::Mean => HistogramWithBands {
+            }),
+            PulsePairDifferencesProperty::Mean => MetricOutput::Histograms(HistogramWithBands {
                 labels: self.labels.clone(),
                 central: self.mean.clone(),
                 bands: None,
-            },
-            PulsePairDifferencesProperty::MeanSd => HistogramWithBands {
+            }),
+            PulsePairDifferencesProperty::MeanSd => MetricOutput::Histograms(HistogramWithBands {
+                labels: self.labels.clone(),
+                central: self.mean.clone(),
+                bands: Some((self.sd.clone(), self.sd.clone())),
+            }),
+            PulsePairDifferencesProperty::MeanBounds => MetricOutput::Histograms(HistogramWithBands {
                 labels: self.labels.clone(),
                 central: self.sum.clone(),
                 bands: Some((
-                    self.mean
+                    self.upper
                         .iter()
-                        .zip(self.sd.iter())
-                        .map(|(m, s)| m + s)
+                        .zip(self.sum.iter())
+                        .map(|(upper, sum)| upper - sum)
                         .collect(),
-                    self.mean
+                    self.lower
                         .iter()
                         .zip(self.sd.iter())
-                        .map(|(m, s)| m - s)
+                        .map(|(lower, sum)| sum - lower)
                         .collect(),
                 )),
-            },
-            PulsePairDifferencesProperty::MeanBounds => HistogramWithBands {
-                labels: self.labels.clone(),
-                central: self.sum.clone(),
-                bands: Some((self.upper.clone(), self.lower.clone())),
-            },
+            }),
+            PulsePairDifferencesProperty::ChannelHeatMap => MetricOutput::Surface(
+                Surface {
+                    x_values: self.labels.clone(),
+                    y_values: self.channels.clone(),
+                    data: self.surface.clone()
+                })
         };
-        Ok(MetricOutput::Histograms(histogram))
+        Ok(metric_output)
     }
 }
