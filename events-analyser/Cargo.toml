@@ -5,6 +5,7 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+build_html.workspace = true
 chrono.workspace = true
 clap.workspace = true
 digital-muon-common.workspace = true

@@ -9,6 +9,7 @@ pub(crate) use crate::engine::{
         FlatMetricPulseHeightSpectra, FlatMetricPulsePairDifferences, FlatMetricType, FlatSeries,
         FlatWaveform, Metric, MetricTypeHistogram, MuonLifetimeProperty, PropertyOfMetric,
         PulseHeightSpectraProperty, PulsePairDifferencesProperty, SeriesType,
+        Page, PageError, FlatPage,
     },
     settings::{AnalysisSettings, Array, Templates},
     values::Interval,

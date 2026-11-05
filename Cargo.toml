@@ -23,6 +23,7 @@ edition = "2024"
 actix-files = "0.7"
 actix-web = { version = "4", features = ["macros"] }
 assert_approx_eq = "1.1.0"
+build_html = "2.8.0"
 cfg-if = "1"
 chrono = { version = "0.4.44", features = ["serde"] }
 clap = { version = "4.5.60", features = ["derive", "env", "cargo", "string"] }

@@ -1,10 +1,8 @@
 use crate::engine::{
-    Chart, FlatBucketBlock, FlatChart, FlatMetric, Flattenable, HasName, Metric,
-    elements::{
+    Chart, FlatBucketBlock, FlatChart, FlatMetric, FlatPage, Flattenable, HasName, Metric, Page, PageError, elements::{
         Algorithm, AlgorithmProperties, BucketBlock, BucketBlockProperties, BucketBlockTemplate,
         BucketError, ChartError, CriteriaTemplate, Waveform, WaveformProperties,
-    },
-    values::ValueError,
+    }, values::ValueError
 };
 use serde::Deserialize;
 use std::ops::Deref;
@@ -79,7 +77,7 @@ pub(crate) struct AnalysisSettings {
     /// Blocks of buckets that accept collections of eventlists.
     pub(crate) buckets: Vec<BucketBlock>,
     /// List of Charts.
-    pub(crate) charts: Vec<Chart>,
+    pub(crate) pages: Vec<Page>,
     /// Controls when to start the evaluation phase.
     pub(crate) idle_time_sec: i64,
 }
@@ -99,14 +97,14 @@ impl AnalysisSettings {
             .collect::<Result<_, ValueError>>()
     }
 
-    pub(crate) fn flatten_charts(
+    pub(crate) fn flatten_pages(
         &self,
         buckets: &[FlatBucketBlock],
-    ) -> Result<Vec<FlatChart>, ChartError> {
-        self.charts
+    ) -> Result<Vec<FlatPage>, PageError> {
+        self.pages
             .iter()
-            .map(|chart| chart.flatten((self, buckets)))
-            .collect::<Result<_, ChartError>>()
+            .map(|page| page.flatten((self, buckets)))
+            .collect::<Result<_, PageError>>()
     }
 
     pub(crate) fn get_bucket_block_index(&self, name: &str) -> Option<usize> {

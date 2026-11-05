@@ -7,8 +7,14 @@ use crate::{
 };
 use num::Integer;
 use plotly::{
-    Bar, BoxPlot, HeatMap, Layout, Plot, Scatter, Trace, box_plot::{BoxMean, BoxPoints}, common::{ErrorData, ErrorType, LegendGroupTitle, Line}, heat_map::Smoothing, layout::{
-        Axis, GridPattern, GroupClick, ItemClick, LayoutGrid, Legend, ModeBar, TraceOrder, VAlign,
+    Bar, BoxPlot, HeatMap, Layout, Plot, Scatter, Trace,
+    box_plot::{BoxMean, BoxPoints},
+    common::{ErrorData, ErrorType, LegendGroupTitle, Line},
+    heat_map::Smoothing,
+    layout::{
+        Axis, GridPattern, GroupClick,
+        ItemClick, LayoutGrid, Legend,
+        ModeBar, TraceOrder, VAlign,
     }
 };
 use serde::{Deserialize, Serialize};
@@ -17,17 +23,13 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub(crate) enum ChartOutputError {
-    #[error("Json Error: {0}")]
-    Json(#[from] serde_json::error::Error),
-    #[error("IO Error: {0}")]
-    IO(#[from] std::io::Error),
     #[error("Metric Result Error: {0}")]
     Metric(#[from] MetricResultError),
 }
 
 /// Helper trait for plotly chart components.
 trait TraceExt {
-    /// Sets the name, x_axis, y_axis, and legend data/
+    /// Sets the name, x_axis, y_axis, and legend data.
     fn apply_settings(self, series: &FlatSeries) -> Self;
 }
 
@@ -171,31 +173,6 @@ impl ChartOutput {
             chart: chart.clone(),
             data,
         })
-    }
-
-    pub(crate) fn load_json(path: &Path, chart_name: &str) -> Result<Self, ChartOutputError> {
-        let mut path = path.to_path_buf();
-        path.push(chart_name);
-        path.add_extension("json");
-        Ok(serde_json::from_reader(File::open(&path)?)?)
-    }
-
-    pub(crate) fn save_json(&self, path: &Path) -> Result<(), ChartOutputError> {
-        let mut path = path.to_owned();
-        path.push(&self.chart.settings.title);
-        path.add_extension("json");
-        let file = File::create(&path)?;
-        serde_json::to_writer_pretty(file, self)?;
-        Ok(())
-    }
-
-    pub(crate) fn save_plotly(&self, path: &Path) -> Result<(), ChartOutputError> {
-        let mut path = path.to_owned();
-        path.push(&self.chart.settings.title);
-        path.add_extension("html");
-        let plot = self.build_plotly_graph();
-        plot.write_html(&path);
-        Ok(())
     }
 
     fn build_scalar_x_axis<T>(&self, data: &[Option<T>]) -> Vec<f64> {

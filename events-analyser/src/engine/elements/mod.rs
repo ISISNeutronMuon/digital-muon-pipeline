@@ -3,6 +3,7 @@ mod bucket;
 mod chart;
 mod criteria;
 mod metric;
+mod page;
 mod series;
 mod waveform;
 
@@ -13,6 +14,7 @@ pub(crate) use {
         FlatBucketBlock,
     },
     chart::{Chart, ChartError, FlatChart},
+    page::{Page, PageError, FlatPage},
     criteria::CriteriaTemplate,
     metric::{
         EventCountProperty, FalseCountProperty, FlatMetric, FlatMetricEventCount,
