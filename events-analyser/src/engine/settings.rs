@@ -1,9 +1,9 @@
 use crate::engine::{
-    Chart, FlatBucketBlock, FlatChart, FlatMetric, FlatPage, Flattenable, HasName, Metric, Page,
+    FlatBucketBlock, FlatMetric, FlatPage, Flattenable, HasName, Metric, Page,
     PageError,
     elements::{
         Algorithm, AlgorithmProperties, BucketBlock, BucketBlockProperties, BucketBlockTemplate,
-        BucketError, ChartError, CriteriaTemplate, Waveform, WaveformProperties,
+        BucketError, CriteriaTemplate, Waveform, WaveformProperties,
     },
     values::ValueError,
 };

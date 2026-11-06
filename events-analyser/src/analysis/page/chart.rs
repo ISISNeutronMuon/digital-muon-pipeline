@@ -402,8 +402,8 @@ impl ChartOutput {
                         .title(&self.chart.settings.x_axis_label)
                         .anchor(format!("y{}", index + 1))
                         .domain(&[
-                            x_pos as f64 / (self.chart.settings.num_cols + 1) as f64,
-                            (x_pos + 1) as f64 / (self.chart.settings.num_cols + 1) as f64,
+                            x_pos as f64 / (self.chart.settings.num_cols) as f64,
+                            (x_pos + 1) as f64 / (self.chart.settings.num_cols) as f64,
                         ]),
                 )
             });
@@ -419,8 +419,8 @@ impl ChartOutput {
                         .title(&self.chart.settings.y_axis_label)
                         .anchor(format!("x{}", index + 1))
                         .domain(&[
-                            y_pos as f64 / (self.chart.settings.num_rows + 1) as f64,
-                            (y_pos + 1) as f64 / (self.chart.settings.num_rows + 1) as f64,
+                            y_pos as f64 / (self.chart.settings.num_rows) as f64,
+                            (y_pos + 1) as f64 / (self.chart.settings.num_rows) as f64,
                         ]),
                 )
             });

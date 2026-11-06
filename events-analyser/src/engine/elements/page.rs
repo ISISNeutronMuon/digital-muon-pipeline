@@ -1,13 +1,8 @@
 use crate::{
     analysis::PartialMetricResult,
     engine::{
-        AnalysisSettings, Chart, FlatBucketBlock, FlatChart, FlatSeries, Flattenable,
-        FlattenableWithIndex,
-        elements::{
-            ChartError,
-            series::{Series, SeriesError},
-        },
-        values::{Dependency, ValueError},
+        AnalysisSettings, Chart, FlatBucketBlock, FlatChart, Flattenable,
+        elements::ChartError,
     },
 };
 use serde::{Deserialize, Serialize};
