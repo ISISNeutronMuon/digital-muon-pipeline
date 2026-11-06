@@ -49,29 +49,24 @@ impl PartialMetricResultBucket for PartialPulsePairDifferences {
         channel: Channel,
         by_topic: &ChannelDataByTopic,
     ) {
-        // Filter the list of event times by event intensity.
-        let times = by_topic
+        let time_diffs = by_topic
             .get(self.source.topic)
             .expect("This should never fail.")
             .get_time_intensity()
             .iter()
-            .filter_map(|(time, intensity)| {
-                self.source
+            .permutations(2)
+            .filter_map(|vec| {
+                let [(first_time, first_intensity), (last_time, last_intensity)] = vec
+                    .try_into()
+                    .expect("Vector should have length 2, this should never fail.");
+                let range = self.source
                     .settings
                     .intensity_filter
-                    .range_inclusive()
-                    .contains(intensity)
-                    .then_some(*time)
-            })
+                    .range_inclusive();
+                (range.contains(first_intensity) || range.contains(last_intensity))
+                    .then_some(Time::abs_diff(*first_time, *last_time))
+                })
             .collect::<Vec<_>>();
-
-        // Calculate all temporal differences between each pair of events.
-        let time_diffs = times.iter().permutations(2).map(|vec| {
-            let [first, last] = vec
-                .try_into()
-                .expect("Vector should have length 2, this should never fail.");
-            Time::abs_diff(*first, *last)
-        });
 
         // Obtain the channel's histogram.
         let histogram = self
