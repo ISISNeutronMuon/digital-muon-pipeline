@@ -6,7 +6,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub(crate) enum SeriesError {
     #[error("Block {0} has {1} buckets, and should have {2}.")]
-    BucketInconsistancy(String, usize, usize),
+    BucketInconsistancy(usize, usize, usize),
     #[error("Bucket block not found, {0}.")]
     BucketNotFound(String),
     #[error("Metric not found, {0}.")]

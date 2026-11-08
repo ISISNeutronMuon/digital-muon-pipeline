@@ -47,8 +47,6 @@ pub(crate) struct ChartBasicSettings {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Chart {
-    /// Number of values to use in the x-axis.
-    width: usize,
     #[serde(flatten)]
     settings: ChartBasicSettings,
     /// Values to display on the x-axis. This can either be from an array, or a function.
@@ -127,31 +125,33 @@ impl Flattenable<(&AnalysisSettings, &[FlatBucketBlock])> for Chart {
         &self,
         (library, flat_bucket_blocks): (&AnalysisSettings, &[FlatBucketBlock]),
     ) -> Result<Self::Flat, Self::Error> {
-        let x_axis = (0..self.width)
-            .map(|x| self.x_axis.flatten(library.templates.get_arrays(), x))
-            .collect::<Result<Vec<_>, _>>()?;
-
         let series = self
             .series
             .iter()
-            .map(|series| {
-                series.flatten(library).and_then(|flat_series| {
-                    let bucket_number = flat_bucket_blocks
-                        .get(flat_series.from_bucket_block)
-                        .expect("This should never fail.")
-                        .buckets
-                        .len();
-                    if bucket_number != self.width {
-                        Err(SeriesError::BucketInconsistancy(
-                            series.metric.clone(),
-                            bucket_number,
-                            self.width,
-                        ))
-                    } else {
-                        Ok(flat_series)
-                    }
-                })
-            })
+            .map(|series|series.flatten(library))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let bucket_sizes = series.iter().map(|series|
+            flat_bucket_blocks
+                .get(series.from_bucket_block)
+                .expect("This should never fail.")
+                .buckets
+                .len()
+        ).collect::<Vec<_>>();
+
+        let width = *bucket_sizes.first().expect("This should never fail.");
+        for (series, &this_width) in series.iter().zip(bucket_sizes.iter()) {
+            if width != this_width {
+                return Err(SeriesError::BucketInconsistancy(
+                    series.from_bucket_block,
+                    this_width,
+                    width,
+                ).into());
+            }
+        }
+
+        let x_axis = (0..width)
+            .map(|x| self.x_axis.flatten(library.templates.get_arrays(), x))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(FlatChart {
