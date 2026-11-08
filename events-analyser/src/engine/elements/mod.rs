@@ -20,5 +20,5 @@ pub(crate) use {
         PulsePairDifferencesProperty,
     },
     page::{FlatPage, Page, PageError},
-    series::{FlatSeries, SeriesType}
+    series::{FlatSeries, SeriesType},
 };

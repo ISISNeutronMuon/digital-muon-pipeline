@@ -1,7 +1,7 @@
 use crate::{
     analysis::{
+        chart_page::chart::{ChartOutput, ChartOutputError},
         metrics::CompletedMetricResult,
-        page::chart::{ChartOutput, ChartOutputError},
     },
     engine::{FlatChart, FlatPage},
 };
@@ -74,7 +74,7 @@ impl PageOutput {
         let mut path = path.to_owned();
         path.push(&self.page.settings.title);
         path.add_extension("html");
-        let mut file = File::create(path).unwrap();
+        let mut file = File::create(path)?;
         file.write_all(html.to_html_string().as_bytes())?;
         file.flush()?;
         Ok(())

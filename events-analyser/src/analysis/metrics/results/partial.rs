@@ -27,11 +27,7 @@ pub(crate) trait PartialMetricResultBucket: Clone + Serialize + DeserializeOwned
     fn load_data(&mut self, source: &Self) {
         *self = source.clone();
     }
-    fn push(
-        &mut self,
-        channel: Channel,
-        by_topic: &ChannelDataByTopic,
-    );
+    fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic);
 }
 
 impl<C> MetricResultBucketWrapper<C>
@@ -119,17 +115,11 @@ where
     ///
     /// # Parameters
     /// - bucket_index: the bucket to push to.
-    pub(super) fn push(
-        &mut self,
-        bucket_index: BucketIndex,
-        collection: &ChannelCollection,
-    ) {
+    pub(super) fn push(&mut self, bucket_index: BucketIndex, collection: &ChannelCollection) {
         let partial_metric_result = self.get_bucket_mut(bucket_index);
         partial_metric_result.increment_count();
         for (&channel, by_topic) in collection.iter() {
-            partial_metric_result
-                .object
-                .push(channel, by_topic);
+            partial_metric_result.object.push(channel, by_topic);
         }
     }
 
@@ -225,11 +215,7 @@ impl PartialMetricResult {
         }
     }
 
-    pub(crate) fn push(
-        &mut self,
-        bucket_index: BucketIndex,
-        collection: &ChannelCollection,
-    ) {
+    pub(crate) fn push(&mut self, bucket_index: BucketIndex, collection: &ChannelCollection) {
         match self {
             Self::EventCount(patrial_metric_result_store) => {
                 patrial_metric_result_store.push(bucket_index, collection)

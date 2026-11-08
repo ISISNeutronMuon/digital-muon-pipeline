@@ -46,11 +46,7 @@ impl PartialMetricResultBucket for PartialMuonLifetime {
         *self = source.clone();
     }
 
-    fn push(
-        &mut self,
-        channel: Channel,
-        by_topic: &ChannelDataByTopic,
-    ) {
+    fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic) {
         for (time, _) in by_topic
             .get(self.source.topic)
             .expect("Topic should exist, this should never fail.")

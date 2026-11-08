@@ -1,9 +1,7 @@
 use crate::engine::{
-    FlatBucketBlock, FlatMetric, FlatPage, Flattenable, HasName, Metric, Page,
-    PageError,
+    FlatBucketBlock, FlatMetric, FlatPage, Flattenable, HasName, Metric, Page, PageError,
     elements::{
-        BucketBlock, BucketBlockProperties, BucketBlockTemplate,
-        BucketError, CriteriaTemplate
+        BucketBlock, BucketBlockProperties, BucketBlockTemplate, BucketError, CriteriaTemplate,
     },
     values::ValueError,
 };

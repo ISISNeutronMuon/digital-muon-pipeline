@@ -5,10 +5,7 @@ use crate::{
         results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{Histogram, SumWithSumOfSqrs},
     },
-    engine::{
-        FlatMetricPulsePairDifferences, Interval,
-        PulsePairDifferencesProperty,
-    },
+    engine::{FlatMetricPulsePairDifferences, Interval, PulsePairDifferencesProperty},
     eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::{Channel, Time};
@@ -42,11 +39,7 @@ impl PartialMetricResultBucket for PartialPulsePairDifferences {
         self.histogram = source.histogram.clone();
     }
 
-    fn push(
-        &mut self,
-        channel: Channel,
-        by_topic: &ChannelDataByTopic,
-    ) {
+    fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic) {
         let time_diffs = by_topic
             .get(self.source.topic)
             .expect("This should never fail.")
@@ -57,13 +50,10 @@ impl PartialMetricResultBucket for PartialPulsePairDifferences {
                 let [(first_time, first_intensity), (last_time, last_intensity)] = vec
                     .try_into()
                     .expect("Vector should have length 2, this should never fail.");
-                let range = self.source
-                    .settings
-                    .intensity_filter
-                    .range_inclusive();
+                let range = self.source.settings.intensity_filter.range_inclusive();
                 (range.contains(first_intensity) || range.contains(last_intensity))
                     .then_some(Time::abs_diff(*first_time, *last_time))
-                })
+            })
             .collect::<Vec<_>>();
 
         // Obtain the channel's histogram.
@@ -199,7 +189,11 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
                 .collect::<Vec<_>>();
 
             for (channel_index, count) in counts.iter().enumerate() {
-                surface[channel_index][time_index] = *count
+                *surface
+                    .get_mut(channel_index)
+                    .expect("Element should exist, this should never fail.")
+                    .get_mut(time_index)
+                    .expect("Element should exist, this should never fail.") = *count
             }
 
             let mut sum_with_sum_of_sqrs = SumWithSumOfSqrs::default();

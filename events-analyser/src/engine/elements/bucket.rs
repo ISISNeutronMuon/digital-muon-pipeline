@@ -18,16 +18,8 @@ use tracing::{info_span, instrument};
 pub(crate) enum BucketError {
     #[error("Number not found in instance, or source {0}")]
     NoNumber(String),
-    #[error("Algorithm not found in instance, or source {0}")]
-    NoAlgorithm(String),
-    #[error("Waveform not found in instance, or source {0}")]
-    NoWaveform(String),
     #[error("Limits not found in instance, or source {0}")]
     NoLimits(String),
-    #[error("Cannot find algorithm {0}.")]
-    CannotFindAlgorithm(String),
-    #[error("Cannot find waveform {0}.")]
-    CannotFindWaveform(String),
     #[error("Value Error: {0}")]
     Value(#[from] ValueError),
     #[error("Value Error: {0}")]
@@ -42,10 +34,6 @@ pub(crate) enum BucketError {
 pub(crate) struct BucketBlockProperties {
     /// The number of buckets in this block.
     pub(crate) number: Option<usize>,
-    /// The name of the detection algorithm these buckets expect.
-    pub(crate) algorithm: Option<String>,
-    /// The name of the modelling waveform these buckets expect.
-    pub(crate) waveform: Option<String>,
     /// Specifies the minimum and maximum number of eventlist collections these buckets allow.
     pub(crate) limits: Option<Interval<Value<usize>>>,
 }

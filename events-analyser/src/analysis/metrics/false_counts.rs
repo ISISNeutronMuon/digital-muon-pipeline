@@ -84,15 +84,10 @@ impl PartialMetricResultBucket for PartialFalseCount {
         }
     }
 
-    fn push(
-        &mut self,
-        channel: Channel,
-        by_topic: &ChannelDataByTopic,
-    ) {
+    fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic) {
         // true_by_estimates is indexed by the detected events, and the corresponding element is the list of true events that have been associated to it
         // rejected_true is the list of all true events that are not associated with any detected events.
-        let (true_by_estimates, rejected_true) =
-            self.sort_true_by_estimates(by_topic);
+        let (true_by_estimates, rejected_true) = self.sort_true_by_estimates(by_topic);
 
         let ambiguous_true_positives: usize = true_by_estimates
             .iter()
@@ -128,7 +123,7 @@ impl PartialFalseCount {
         let estimate_data = collection_by_topic
             .get(self.source.estimate_topic)
             .expect("Topic should exist, this should never fail.");
-        let radius = self.source.waveform_radius as u32;
+        let radius = self.source.waveform_radius;
 
         let filter = |true_data: &ChannelData, index, detected_time, _detected_intensity| {
             let dist = true_data.get_temporal_distance_from(index, detected_time);

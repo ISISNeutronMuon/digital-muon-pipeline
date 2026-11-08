@@ -168,7 +168,7 @@ impl Flattenable<&[String]> for Metric {
             MetricType::FalseCount {
                 true_topic,
                 estimate_topic,
-                waveform_radius
+                waveform_radius,
             } => FlatMetricType::FalseCount(FlatMetricFalseCount {
                 true_topic: library
                     .iter()

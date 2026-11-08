@@ -1,10 +1,10 @@
 use crate::{
     analysis::{
+        chart_page::TraceExt,
         metrics::{
             CompletedMetricResult, FittingError, HistogramWithBands, MetricOutputSeries,
             MetricResultError, Surface,
         },
-        page::TraceExt,
     },
     engine::{FlatChart, FlatSeries, SeriesType},
 };
@@ -67,19 +67,6 @@ where
             .x_axis(&series.settings.axis.x_axis)
             .y_axis(&series.settings.axis.y_axis)
             .zsmooth(Smoothing::Best)
-        /*.legend_group(format!(
-            "x{0}y{1}",
-            series.settings.x_axis, series.settings.y_axis
-        ))
-        .legend_group_title(
-            LegendGroupTitle::new().text(
-                series
-                    .settings
-                    .legend_group_title
-                    .as_ref()
-                    .unwrap_or(&series.settings.name),
-            ),
-        ) */
     }
 }
 
@@ -99,7 +86,8 @@ where
             .legend_group_title(
                 LegendGroupTitle::new().text(
                     series
-                        .settings.axis
+                        .settings
+                        .axis
                         .legend_group_title
                         .as_ref()
                         .unwrap_or(&series.settings.name),

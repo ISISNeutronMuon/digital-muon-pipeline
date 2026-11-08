@@ -29,11 +29,7 @@ impl PartialMetricResultBucket for PartialEventCount {
         }
     }
 
-    fn push(
-        &mut self,
-        channel: Channel,
-        collection_by_topic: &ChannelDataByTopic,
-    ) {
+    fn push(&mut self, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
         let data = collection_by_topic
             .get(self.topic)
             .expect("Topic should exist, this should never fail.");

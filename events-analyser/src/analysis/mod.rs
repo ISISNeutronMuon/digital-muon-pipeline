@@ -1,11 +1,11 @@
 //! Defines the data type used in [FrameCache].
 //!
 //! [FrameCache]: crate::frame::FrameCache
+mod chart_page;
 mod metrics;
-mod page;
 
 use crate::{
-    analysis::{metrics::MetricResultError, page::PageOutputError},
+    analysis::{chart_page::PageOutputError, metrics::MetricResultError},
     engine::{AnalysisSettings, FlatBucketBlock, FlatPage},
     eventlists::EventlistsCollection,
 };
@@ -22,8 +22,8 @@ use std::{
 use thiserror::Error;
 use tracing::{info, info_span, trace};
 
+pub(crate) use chart_page::PageOutput;
 pub(crate) use metrics::PartialMetricResult;
-pub(crate) use page::PageOutput;
 
 #[derive(Debug, Error)]
 pub(crate) enum AnalysisError {
@@ -152,9 +152,9 @@ impl AnalysisEngine {
                 index.block_index, index.bucket_index, bucket.count
             );
             let collection = collection.into_channel_collection();
-            self.metrics.iter_mut().for_each(|metric| {
-                metric.push(index, &collection)
-            });
+            self.metrics
+                .iter_mut()
+                .for_each(|metric| metric.push(index, &collection));
         } else {
             info!("Bucket {}, {} full", index.block_index, index.bucket_index);
         }

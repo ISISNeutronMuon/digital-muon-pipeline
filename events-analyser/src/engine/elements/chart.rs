@@ -11,13 +11,6 @@ use std::fmt::Debug;
 use thiserror::Error;
 use tracing::info;
 
-/*
-Line: from a bucket block containing as many buckets as there are ticks on the x axis, can plot multiple series on the same axis.
-Histogram: 
-Heatmap
-*/
-
-
 #[derive(Debug, Error)]
 pub(crate) enum ChartError {
     #[error("Series Error: {0}")]
@@ -144,16 +137,19 @@ impl Flattenable<(&AnalysisSettings, &[FlatBucketBlock])> for Chart {
         let series = self
             .series
             .iter()
-            .map(|series|series.flatten(library))
+            .map(|series| series.flatten(library))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let bucket_sizes = series.iter().map(|series|
-            flat_bucket_blocks
-                .get(series.from_bucket_block)
-                .expect("This should never fail.")
-                .buckets
-                .len()
-        ).collect::<Vec<_>>();
+        let bucket_sizes = series
+            .iter()
+            .map(|series| {
+                flat_bucket_blocks
+                    .get(series.from_bucket_block)
+                    .expect("This should never fail.")
+                    .buckets
+                    .len()
+            })
+            .collect::<Vec<_>>();
 
         let width = *bucket_sizes.first().expect("This should never fail.");
         for (series, &this_width) in series.iter().zip(bucket_sizes.iter()) {
@@ -162,7 +158,8 @@ impl Flattenable<(&AnalysisSettings, &[FlatBucketBlock])> for Chart {
                     series.from_bucket_block,
                     this_width,
                     width,
-                ).into());
+                )
+                .into());
             }
         }
 
