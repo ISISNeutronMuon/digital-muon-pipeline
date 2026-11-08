@@ -28,25 +28,26 @@ where
 {
     fn apply_settings(self, series: &FlatSeries) -> Self {
         let mut line = Line::new();
-        if let Some(line_style) = &series.settings.line_style {
+        if let Some(line_style) = &series.settings.line.line_style {
             line = line.dash(line_style.into());
         }
-        if let Some(line_colour) = &series.settings.line_colour {
+        if let Some(line_colour) = &series.settings.line.line_colour {
             line = line.color(line_colour.to_string());
         }
 
         self.name(&series.settings.name)
             .line(line)
-            .x_axis(&series.settings.x_axis)
-            .y_axis(&series.settings.y_axis)
+            .x_axis(&series.settings.axis.x_axis)
+            .y_axis(&series.settings.axis.y_axis)
             .legend_group(format!(
                 "x{0}y{1}",
-                series.settings.x_axis, series.settings.y_axis
+                series.settings.axis.x_axis, series.settings.axis.y_axis
             ))
             .legend_group_title(
                 LegendGroupTitle::new().text(
                     series
                         .settings
+                        .axis
                         .legend_group_title
                         .as_ref()
                         .unwrap_or(&series.settings.name),
@@ -63,8 +64,8 @@ where
 {
     fn apply_settings(self, series: &FlatSeries) -> Self {
         self.name(&series.settings.name)
-            .x_axis(&series.settings.x_axis)
-            .y_axis(&series.settings.y_axis)
+            .x_axis(&series.settings.axis.x_axis)
+            .y_axis(&series.settings.axis.y_axis)
             .zsmooth(Smoothing::Best)
         /*.legend_group(format!(
             "x{0}y{1}",
@@ -89,16 +90,16 @@ where
 {
     fn apply_settings(self, series: &FlatSeries) -> Self {
         self.name(&series.settings.name)
-            .x_axis(&series.settings.x_axis)
-            .y_axis(&series.settings.y_axis)
+            .x_axis(&series.settings.axis.x_axis)
+            .y_axis(&series.settings.axis.y_axis)
             .legend_group(format!(
                 "x{0}y{1}",
-                series.settings.x_axis, series.settings.y_axis
+                series.settings.axis.x_axis, series.settings.axis.y_axis
             ))
             .legend_group_title(
                 LegendGroupTitle::new().text(
                     series
-                        .settings
+                        .settings.axis
                         .legend_group_title
                         .as_ref()
                         .unwrap_or(&series.settings.name),
@@ -114,16 +115,17 @@ where
 {
     fn apply_settings(self, series: &FlatSeries) -> Self {
         self.name(&series.settings.name)
-            .x_axis(&series.settings.x_axis)
-            .y_axis(&series.settings.y_axis)
+            .x_axis(&series.settings.axis.x_axis)
+            .y_axis(&series.settings.axis.y_axis)
             .legend_group(format!(
                 "x{0}y{1}",
-                series.settings.x_axis, series.settings.y_axis
+                series.settings.axis.x_axis, series.settings.axis.y_axis
             ))
             .legend_group_title(
                 LegendGroupTitle::new().text(
                     series
                         .settings
+                        .axis
                         .legend_group_title
                         .as_ref()
                         .unwrap_or(&series.settings.name),
@@ -186,7 +188,7 @@ impl ChartOutput {
     fn build_scalar_trace(&self, series: &FlatSeries, data: &[Option<f64>]) -> Box<dyn Trace> {
         let x_axis = self.build_scalar_x_axis(data);
         let y_axis = data.iter().flatten().copied().collect::<Vec<_>>();
-        match &series.settings.series_type {
+        match &series.settings.line.series_type {
             SeriesType::Scatter(scatter_type) => Scatter::new(x_axis, y_axis)
                 .mode(scatter_type.into())
                 .apply_settings(series),
@@ -208,7 +210,7 @@ impl ChartOutput {
         let y_axis = data.iter().flatten().map(|x| x.0).collect::<Vec<_>>();
         let band = data.iter().flatten().map(|x| x.1).collect::<Vec<_>>();
         let error_y = ErrorData::new(ErrorType::Data).array(band).thickness(0.5);
-        match &series.settings.series_type {
+        match &series.settings.line.series_type {
             SeriesType::Scatter(scatter_type) => Scatter::new(x_axis, y_axis)
                 .mode(scatter_type.into())
                 .error_y(error_y)
@@ -275,7 +277,7 @@ impl ChartOutput {
                     .error_y(error_y)
                     .apply_settings(series);
 
-                match &series.settings.series_type {
+                match &series.settings.line.series_type {
                     SeriesType::Scatter(scatter_type) => {
                         scatter.mode(scatter_type.into()) as Box<dyn Trace>
                     }
@@ -332,13 +334,13 @@ impl ChartOutput {
 
     fn build_plotly_grid(&self) -> LayoutGrid {
         let mut grid = LayoutGrid::new()
-            .columns(self.chart.settings.num_cols)
-            .rows(self.chart.settings.num_rows)
+            .columns(self.chart.settings.multiplot.num_cols)
+            .rows(self.chart.settings.multiplot.num_rows)
             .pattern(GridPattern::Independent);
-        if let Some(x_gap_fraction) = &self.chart.settings.x_gap_fraction {
+        if let Some(x_gap_fraction) = &self.chart.settings.multiplot.x_gap_fraction {
             grid = grid.x_gap(*x_gap_fraction);
         }
-        if let Some(y_gap_fraction) = &self.chart.settings.y_gap_fraction {
+        if let Some(y_gap_fraction) = &self.chart.settings.multiplot.y_gap_fraction {
             grid = grid.y_gap(*y_gap_fraction);
         }
         grid
@@ -363,10 +365,10 @@ impl ChartOutput {
             .legend(self.build_plotly_legend())
             .grid(self.build_plotly_grid());
         if let Some(width) = &self.chart.settings.width {
-            layout = layout.width((self.chart.settings.num_cols + 1) * width);
+            layout = layout.width((self.chart.settings.multiplot.num_cols + 1) * width);
         }
         if let Some(height) = &self.chart.settings.height {
-            layout = layout.height((self.chart.settings.num_rows + 1) * height);
+            layout = layout.height((self.chart.settings.multiplot.num_rows + 1) * height);
         }
 
         // Apply x- and y-axes settings.
@@ -392,35 +394,35 @@ impl ChartOutput {
         ];
         layout = X_AXIS_METHODS
             .iter()
-            .take(self.chart.settings.num_rows * self.chart.settings.num_cols)
+            .take(self.chart.settings.multiplot.num_rows * self.chart.settings.multiplot.num_cols)
             .enumerate()
             .fold(layout, |layout, (index, x_axis)| {
-                let (x_pos, _) = index.div_mod_floor(&self.chart.settings.num_cols);
+                let (x_pos, _) = index.div_mod_floor(&self.chart.settings.multiplot.num_cols);
                 x_axis(
                     layout,
                     Axis::new()
                         .title(&self.chart.settings.x_axis_label)
                         .anchor(format!("y{}", index + 1))
                         .domain(&[
-                            x_pos as f64 / (self.chart.settings.num_cols) as f64,
-                            (x_pos + 1) as f64 / (self.chart.settings.num_cols) as f64,
+                            x_pos as f64 / (self.chart.settings.multiplot.num_cols) as f64,
+                            (x_pos + 1) as f64 / (self.chart.settings.multiplot.num_cols) as f64,
                         ]),
                 )
             });
         layout = Y_AXIS_METHODS
             .iter()
-            .take(self.chart.settings.num_rows * self.chart.settings.num_cols)
+            .take(self.chart.settings.multiplot.num_rows * self.chart.settings.multiplot.num_cols)
             .enumerate()
             .fold(layout, |layout, (index, y_axis)| {
-                let (_, y_pos) = index.div_mod_floor(&self.chart.settings.num_cols);
+                let (_, y_pos) = index.div_mod_floor(&self.chart.settings.multiplot.num_cols);
                 y_axis(
                     layout,
                     Axis::new()
                         .title(&self.chart.settings.y_axis_label)
                         .anchor(format!("x{}", index + 1))
                         .domain(&[
-                            y_pos as f64 / (self.chart.settings.num_rows) as f64,
-                            (y_pos + 1) as f64 / (self.chart.settings.num_rows) as f64,
+                            y_pos as f64 / (self.chart.settings.multiplot.num_rows) as f64,
+                            (y_pos + 1) as f64 / (self.chart.settings.multiplot.num_rows) as f64,
                         ]),
                 )
             });

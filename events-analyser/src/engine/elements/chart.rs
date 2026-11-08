@@ -11,6 +11,13 @@ use std::fmt::Debug;
 use thiserror::Error;
 use tracing::info;
 
+/*
+Line: from a bucket block containing as many buckets as there are ticks on the x axis, can plot multiple series on the same axis.
+Histogram: 
+Heatmap
+*/
+
+
 #[derive(Debug, Error)]
 pub(crate) enum ChartError {
     #[error("Series Error: {0}")]
@@ -22,25 +29,34 @@ pub(crate) enum ChartError {
 /// Encapsulates settings of a chart which do no need to be flattened.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct ChartBasicSettings {
-    /// Label written on the x-axis.
-    pub(crate) x_axis_label: String,
-    /// Label written on the y-axis.
-    pub(crate) y_axis_label: String,
-    /// Title that appears on the chart.
-    pub(crate) title: String,
+pub(crate) struct ChartBasicMultiplotSettings {
     /// Number of rows the chart layout grid.
     pub(crate) num_rows: usize,
     /// Number of columns the chart layout grid.
     pub(crate) num_cols: usize,
-    /// Width of each graph in this chart.
-    pub(crate) width: Option<usize>,
-    /// Height of each graph in this chart.
-    pub(crate) height: Option<usize>,
     /// Horizontal space between graphs in this chart as a proportion of the width.
     pub(crate) x_gap_fraction: Option<f64>,
     /// Vertical space between graphs in this chart as a proportion of the height.
     pub(crate) y_gap_fraction: Option<f64>,
+}
+
+/// Encapsulates settings of a chart which do no need to be flattened.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct ChartBasicSettings {
+    /// Title that appears on the chart.
+    pub(crate) title: String,
+    /// Label written on the x-axis.
+    pub(crate) x_axis_label: String,
+    /// Label written on the y-axis.
+    pub(crate) y_axis_label: String,
+    /// Width of each plot in this chart.
+    pub(crate) width: Option<usize>,
+    /// Height of each plot in this chart.
+    pub(crate) height: Option<usize>,
+    /// Settings controlling how plots across multiple axes appear.
+    #[serde(flatten)]
+    pub(crate) multiplot: ChartBasicMultiplotSettings,
 }
 
 /// Defines a chart that can be written as a graphical chart, or as a json structure.
