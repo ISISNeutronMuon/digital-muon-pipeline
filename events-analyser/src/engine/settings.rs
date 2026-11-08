@@ -2,8 +2,8 @@ use crate::engine::{
     FlatBucketBlock, FlatMetric, FlatPage, Flattenable, HasName, Metric, Page,
     PageError,
     elements::{
-        Algorithm, AlgorithmProperties, BucketBlock, BucketBlockProperties, BucketBlockTemplate,
-        BucketError, CriteriaTemplate, Waveform, WaveformProperties,
+        BucketBlock, BucketBlockProperties, BucketBlockTemplate,
+        BucketError, CriteriaTemplate
     },
     values::ValueError,
 };
@@ -19,12 +19,8 @@ pub(crate) struct Templates {
     pub(crate) criteria_templates: Vec<CriteriaTemplate>,
     /// List of arrays that can be referenced by other lements.
     pub(crate) arrays: Vec<Array>,
-    /// List of algorithms that can be referenced by [BucketBlock] elements.
-    pub(crate) algorithms: Vec<Algorithm>,
     /// List of templates that can partially define [BucketBlock] elements.
     pub(crate) bucket_templates: Vec<BucketBlockTemplate>,
-    /// List of waveforms that can be referenced by [BucketBlock] elements.
-    pub(crate) waveforms: Vec<Waveform>,
 }
 
 impl Templates {
@@ -48,18 +44,6 @@ impl Templates {
         self.criteria_templates
             .iter()
             .find(|tmplt| tmplt.has_name(name))
-    }
-
-    pub(crate) fn get_algorithm(&self, name: &str) -> Option<&AlgorithmProperties> {
-        self.algorithms
-            .iter()
-            .find_map(|alg| alg.has_name(name).then_some(alg.deref()))
-    }
-
-    pub(crate) fn get_waveform(&self, name: &str) -> Option<&WaveformProperties> {
-        self.waveforms
-            .iter()
-            .find_map(|wav| wav.has_name(name).then_some(wav.deref()))
     }
 }
 

@@ -8,7 +8,7 @@ use crate::{
         results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{Histogram, MeanSD},
     },
-    engine::{FlatAlgorithm, FlatMetricMuonLifetime, FlatWaveform, MuonLifetimeProperty},
+    engine::{FlatMetricMuonLifetime, MuonLifetimeProperty},
     eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
@@ -48,8 +48,6 @@ impl PartialMetricResultBucket for PartialMuonLifetime {
 
     fn push(
         &mut self,
-        _waveform: &FlatWaveform,
-        _algorithm: &FlatAlgorithm,
         channel: Channel,
         by_topic: &ChannelDataByTopic,
     ) {

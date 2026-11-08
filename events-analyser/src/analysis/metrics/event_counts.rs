@@ -6,7 +6,7 @@ use crate::{
         results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{MeanSD, SumWithSumOfSqrs},
     },
-    engine::{EventCountProperty, FlatAlgorithm, FlatMetricEventCount, FlatWaveform},
+    engine::{EventCountProperty, FlatMetricEventCount},
     eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
@@ -31,8 +31,6 @@ impl PartialMetricResultBucket for PartialEventCount {
 
     fn push(
         &mut self,
-        _waveform: &FlatWaveform,
-        _algorithm: &FlatAlgorithm,
         channel: Channel,
         collection_by_topic: &ChannelDataByTopic,
     ) {

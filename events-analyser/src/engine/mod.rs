@@ -4,10 +4,10 @@ mod values;
 
 pub(crate) use crate::engine::{
     elements::{
-        Chart, EventCountProperty, FalseCountProperty, FlatAlgorithm, FlatBucket, FlatBucketBlock,
+        Chart, EventCountProperty, FalseCountProperty, FlatBucket, FlatBucketBlock,
         FlatChart, FlatMetric, FlatMetricEventCount, FlatMetricFalseCount, FlatMetricMuonLifetime,
         FlatMetricPulseHeightSpectra, FlatMetricPulsePairDifferences, FlatMetricType, FlatPage,
-        FlatSeries, FlatWaveform, Metric, MetricTypeHistogram, MuonLifetimeProperty, Page,
+        FlatSeries, Metric, MetricTypeHistogram, MuonLifetimeProperty, Page,
         PageError, PropertyOfMetric, PulseHeightSpectraProperty, PulsePairDifferencesProperty,
         SeriesType,
     },

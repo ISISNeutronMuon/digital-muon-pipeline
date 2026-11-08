@@ -153,7 +153,7 @@ impl AnalysisEngine {
             );
             let collection = collection.into_channel_collection();
             self.metrics.iter_mut().for_each(|metric| {
-                metric.push(&bucket.waveform, &bucket.algorithm, index, &collection)
+                metric.push(index, &collection)
             });
         } else {
             info!("Bucket {}, {} full", index.block_index, index.bucket_index);

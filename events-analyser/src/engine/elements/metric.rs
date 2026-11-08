@@ -55,6 +55,7 @@ pub(crate) enum MetricType {
     FalseCount {
         true_topic: String,
         estimate_topic: String,
+        waveform_radius: u32,
     },
     #[serde(rename_all = "kebab-case")]
     MuonLifetime {
@@ -167,6 +168,7 @@ impl Flattenable<&[String]> for Metric {
             MetricType::FalseCount {
                 true_topic,
                 estimate_topic,
+                waveform_radius
             } => FlatMetricType::FalseCount(FlatMetricFalseCount {
                 true_topic: library
                     .iter()
@@ -178,6 +180,7 @@ impl Flattenable<&[String]> for Metric {
                     .enumerate()
                     .find_map(|(index, topic)| (topic == estimate_topic).then_some(index))
                     .expect("This should never fail."),
+                waveform_radius: *waveform_radius,
             }),
             MetricType::MuonLifetime { topic, histogram } => {
                 FlatMetricType::MuonLifetime(FlatMetricMuonLifetime {
@@ -248,6 +251,7 @@ pub(crate) enum FlatMetricType {
 pub(crate) struct FlatMetricFalseCount {
     pub(crate) true_topic: usize,
     pub(crate) estimate_topic: usize,
+    pub(crate) waveform_radius: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

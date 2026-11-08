@@ -6,7 +6,7 @@ use crate::{
         utils::{Histogram, SumWithSumOfSqrs},
     },
     engine::{
-        FlatAlgorithm, FlatMetricPulseHeightSpectra, FlatWaveform, PulseHeightSpectraProperty,
+        FlatMetricPulseHeightSpectra, PulseHeightSpectraProperty,
     },
     eventlists::ChannelDataByTopic,
 };
@@ -42,8 +42,6 @@ impl PartialMetricResultBucket for PartialPulseHeightSpectra {
 
     fn push(
         &mut self,
-        _waveform: &FlatWaveform,
-        _algorithm: &FlatAlgorithm,
         channel: Channel,
         by_topic: &ChannelDataByTopic,
     ) {

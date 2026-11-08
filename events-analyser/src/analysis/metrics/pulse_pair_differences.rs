@@ -6,7 +6,7 @@ use crate::{
         utils::{Histogram, SumWithSumOfSqrs},
     },
     engine::{
-        FlatAlgorithm, FlatMetricPulsePairDifferences, FlatWaveform, Interval,
+        FlatMetricPulsePairDifferences, Interval,
         PulsePairDifferencesProperty,
     },
     eventlists::ChannelDataByTopic,
@@ -44,8 +44,6 @@ impl PartialMetricResultBucket for PartialPulsePairDifferences {
 
     fn push(
         &mut self,
-        _waveform: &FlatWaveform,
-        _algorithm: &FlatAlgorithm,
         channel: Channel,
         by_topic: &ChannelDataByTopic,
     ) {
