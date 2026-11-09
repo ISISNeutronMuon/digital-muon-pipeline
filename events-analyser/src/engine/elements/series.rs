@@ -6,7 +6,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub(crate) enum SeriesError {
     #[error("Block {0} has {1} buckets, and should have {2}.")]
-    BucketInconsistancy(String, usize, usize),
+    BucketInconsistancy(usize, usize, usize),
     #[error("Bucket block not found, {0}.")]
     BucketNotFound(String),
     #[error("Metric not found, {0}.")]
@@ -16,21 +16,39 @@ pub(crate) enum SeriesError {
 /// Encapsulates settings of a series which do no need to be flattened.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct SeriesBasicSettings {
-    /// Name of series that appears in the key.
-    pub(crate) name: String,
-    /// Colour to apply to the line and marker on the graph.
-    pub(crate) line_colour: Option<String>,
-    /// Colour to apply to the line and marker on the graph.
-    pub(crate) line_style: Option<DashStyle>,
-    /// Whether to display the series as a bar chart (if applicable).
-    pub(crate) series_type: SeriesType,
+pub(crate) struct SeriesBasicAxisSettings {
     /// If present, the title used to group series together.
     pub(crate) legend_group_title: Option<String>,
     /// The name of the x-axis to plot the series on.
     pub(crate) x_axis: String,
     /// The name of the y-axis to plot the series on.
     pub(crate) y_axis: String,
+}
+
+/// Encapsulates settings of a series which do no need to be flattened.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct SeriesBasicLineSettings {
+    /// Whether to display the series as a line or bar chart.
+    pub(crate) series_type: SeriesType,
+    /// Colour to apply to the line and marker on the graph.
+    pub(crate) line_colour: Option<String>,
+    /// Colour to apply to the line and marker on the graph.
+    pub(crate) line_style: Option<DashStyle>,
+}
+
+/// Encapsulates settings of a series which do no need to be flattened.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct SeriesBasicSettings {
+    /// Name of series that appears in the key.
+    pub(crate) name: String,
+    /// Settings controlling the appearance of the lines/bars.
+    #[serde(flatten)]
+    pub(crate) line: SeriesBasicLineSettings,
+    /// Settings controlling the axis the series is displayed on.
+    #[serde(flatten)]
+    pub(crate) axis: SeriesBasicAxisSettings,
 }
 
 /// Encapsulates the style to use for the line of a series.

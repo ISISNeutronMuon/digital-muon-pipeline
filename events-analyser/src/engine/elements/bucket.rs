@@ -1,11 +1,7 @@
 use crate::{
     engine::{
         Flattenable, FlattenableWithIndex, HasName, HasSource, Templates,
-        elements::{
-            algorithm::FlatAlgorithm,
-            criteria::{Criteria, CriteriaError, FlatCriteria},
-            waveform::FlatWaveform,
-        },
+        elements::criteria::{Criteria, CriteriaError, FlatCriteria},
         values::{Interval, Value, ValueError},
     },
     eventlists::EventlistsCollection,
@@ -22,16 +18,8 @@ use tracing::{info_span, instrument};
 pub(crate) enum BucketError {
     #[error("Number not found in instance, or source {0}")]
     NoNumber(String),
-    #[error("Algorithm not found in instance, or source {0}")]
-    NoAlgorithm(String),
-    #[error("Waveform not found in instance, or source {0}")]
-    NoWaveform(String),
     #[error("Limits not found in instance, or source {0}")]
     NoLimits(String),
-    #[error("Cannot find algorithm {0}.")]
-    CannotFindAlgorithm(String),
-    #[error("Cannot find waveform {0}.")]
-    CannotFindWaveform(String),
     #[error("Value Error: {0}")]
     Value(#[from] ValueError),
     #[error("Value Error: {0}")]
@@ -46,10 +34,6 @@ pub(crate) enum BucketError {
 pub(crate) struct BucketBlockProperties {
     /// The number of buckets in this block.
     pub(crate) number: Option<usize>,
-    /// The name of the detection algorithm these buckets expect.
-    pub(crate) algorithm: Option<String>,
-    /// The name of the modelling waveform these buckets expect.
-    pub(crate) waveform: Option<String>,
     /// Specifies the minimum and maximum number of eventlist collections these buckets allow.
     pub(crate) limits: Option<Interval<Value<usize>>>,
 }
@@ -160,10 +144,6 @@ pub(crate) struct FlatBucket {
     span: SpanOnce,
     /// The crieria that is required for an eventlist collection to belong to one of these buckets.
     pub(crate) criteria: FlatCriteria,
-    /// The properties of the detection algorithm this bucket expects.
-    pub(crate) algorithm: FlatAlgorithm,
-    /// The properties of the waveform model this buckets expects.
-    pub(crate) waveform: FlatWaveform,
     /// The number of eventlist collections that have been placed in this bucket FIXME: Maybe Remove.
     pub(crate) count: usize,
     /// Specifies the minimum and maximum number of eventlist collections these buckets allow.
@@ -205,8 +185,6 @@ impl Debug for FlatBucket {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FlatBucket")
             .field("criteria", &self.criteria)
-            .field("algorithm", &self.algorithm)
-            .field("waveform", &self.waveform)
             .field("count", &self.count)
             .field("limits", &self.limits)
             .finish()
@@ -219,7 +197,7 @@ impl FlatBucket {
     }
 
     fn is_bucket_available(&self) -> bool {
-        self.limits.max > self.count
+        self.limits.get_max() > self.count
     }
 
     /// Determine whether the eventlist collection satisfies the bucket's criteria.
@@ -256,18 +234,6 @@ impl Flattenable<&Templates> for BucketBlock {
             .as_ref()
             .or_else(|| template.and_then(|tmplt| tmplt.number.as_ref()))
             .ok_or_else(|| BucketError::NoNumber(self.get_source().into()))?;
-        let algorithm = self
-            .properties
-            .algorithm
-            .as_ref()
-            .or_else(|| template.and_then(|tmplt| tmplt.algorithm.as_ref()))
-            .ok_or_else(|| BucketError::NoAlgorithm(self.get_source().into()))?;
-        let waveform = self
-            .properties
-            .waveform
-            .as_ref()
-            .or_else(|| template.and_then(|tmplt| tmplt.waveform.as_ref()))
-            .ok_or_else(|| BucketError::NoWaveform(self.get_source().into()))?;
         let limits = self
             .properties
             .limits
@@ -275,25 +241,13 @@ impl Flattenable<&Templates> for BucketBlock {
             .or_else(|| template.and_then(|tmplt| tmplt.limits.as_ref()))
             .ok_or_else(|| BucketError::NoLimits(self.get_source().into()))?;
 
-        let algorithm = library
-            .get_algorithm(algorithm)
-            .ok_or_else(|| BucketError::CannotFindAlgorithm(algorithm.into()))?;
-
-        let waveform = library
-            .get_waveform(waveform)
-            .ok_or_else(|| BucketError::CannotFindWaveform(waveform.into()))?;
-
         let buckets = (0..*number)
             .map(|index| {
                 let criteria = self.criteria.flatten(library, index)?;
-                let algorithm = algorithm.flatten(library.get_arrays(), index)?;
-                let waveform = waveform.flatten(&library.arrays, index)?;
                 let limits = limits.flatten(&library.arrays, index)?;
                 let mut bucket = FlatBucket {
                     span: SpanOnce::default(),
                     criteria,
-                    algorithm,
-                    waveform,
                     limits,
                     count: Default::default(),
                 };
@@ -327,16 +281,8 @@ mod tests {
                 channels: Filter::Any,
                 digitiser_ids: Filter::Any,
             },
-            algorithm: FlatAlgorithm::FixedThreshold {
-                _threshold: Default::default(),
-                _duration: Default::default(),
-                _cool_down: Default::default(),
-            },
-            waveform: FlatWaveform::Flat {
-                width: Default::default(),
-            },
             count: 0,
-            limits: Interval { min: 0, max: 1 },
+            limits: Interval::new(0, 1).unwrap(),
         };
         let collection = EventlistsCollection {
             span: Default::default(),
@@ -365,16 +311,8 @@ mod tests {
                 channels: Filter::Any,
                 digitiser_ids: Filter::Any,
             },
-            algorithm: FlatAlgorithm::FixedThreshold {
-                _threshold: Default::default(),
-                _duration: Default::default(),
-                _cool_down: Default::default(),
-            },
-            waveform: FlatWaveform::Flat {
-                width: Default::default(),
-            },
             count: 0,
-            limits: Interval { min: 0, max: 1 },
+            limits: Interval::new(0, 1).unwrap(),
         };
         let bucket_2 = FlatBucket {
             span: Default::default(),
@@ -384,16 +322,8 @@ mod tests {
                 channels: Filter::Any,
                 digitiser_ids: Filter::Any,
             },
-            algorithm: FlatAlgorithm::FixedThreshold {
-                _threshold: Default::default(),
-                _duration: Default::default(),
-                _cool_down: Default::default(),
-            },
-            waveform: FlatWaveform::Flat {
-                width: Default::default(),
-            },
             count: 0,
-            limits: Interval { min: 0, max: 1 },
+            limits: Interval::new(0, 1).unwrap(),
         };
         let collection = EventlistsCollection {
             span: Default::default(),

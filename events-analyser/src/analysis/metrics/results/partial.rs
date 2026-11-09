@@ -13,7 +13,7 @@ use crate::{
             },
         },
     },
-    engine::{FlatAlgorithm, FlatBucket, FlatMetricType, FlatWaveform},
+    engine::{FlatBucket, FlatMetricType},
     eventlists::{ChannelCollection, ChannelDataByTopic},
 };
 use digital_muon_common::Channel;
@@ -27,13 +27,7 @@ pub(crate) trait PartialMetricResultBucket: Clone + Serialize + DeserializeOwned
     fn load_data(&mut self, source: &Self) {
         *self = source.clone();
     }
-    fn push(
-        &mut self,
-        waveform: &FlatWaveform,
-        algorithm: &FlatAlgorithm,
-        channel: Channel,
-        by_topic: &ChannelDataByTopic,
-    );
+    fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic);
 }
 
 impl<C> MetricResultBucketWrapper<C>
@@ -50,7 +44,7 @@ where
 
     /// Tests whether the bucket has enough data to be aggregrated.
     pub(crate) fn is_bucket_full_enough(&self, bucket: &FlatBucket) -> bool {
-        self.num_messages >= bucket.limits.min
+        self.num_messages >= bucket.limits.get_min()
     }
 
     /// Increate message count.
@@ -121,19 +115,11 @@ where
     ///
     /// # Parameters
     /// - bucket_index: the bucket to push to.
-    pub(super) fn push(
-        &mut self,
-        waveform: &FlatWaveform,
-        algorithm: &FlatAlgorithm,
-        bucket_index: BucketIndex,
-        collection: &ChannelCollection,
-    ) {
+    pub(super) fn push(&mut self, bucket_index: BucketIndex, collection: &ChannelCollection) {
         let partial_metric_result = self.get_bucket_mut(bucket_index);
         partial_metric_result.increment_count();
         for (&channel, by_topic) in collection.iter() {
-            partial_metric_result
-                .object
-                .push(waveform, algorithm, channel, by_topic);
+            partial_metric_result.object.push(channel, by_topic);
         }
     }
 
@@ -229,28 +215,22 @@ impl PartialMetricResult {
         }
     }
 
-    pub(crate) fn push(
-        &mut self,
-        waveform: &FlatWaveform,
-        algorithm: &FlatAlgorithm,
-        bucket_index: BucketIndex,
-        collection: &ChannelCollection,
-    ) {
+    pub(crate) fn push(&mut self, bucket_index: BucketIndex, collection: &ChannelCollection) {
         match self {
             Self::EventCount(patrial_metric_result_store) => {
-                patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
+                patrial_metric_result_store.push(bucket_index, collection)
             }
             Self::FalseCount(patrial_metric_result_store) => {
-                patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
+                patrial_metric_result_store.push(bucket_index, collection)
             }
             Self::MuonLifetime(patrial_metric_result_store) => {
-                patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
+                patrial_metric_result_store.push(bucket_index, collection)
             }
             Self::PulseHeightSpectra(patrial_metric_result_store) => {
-                patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
+                patrial_metric_result_store.push(bucket_index, collection)
             }
             Self::PulsePairDifferences(patrial_metric_result_store) => {
-                patrial_metric_result_store.push(waveform, algorithm, bucket_index, collection)
+                patrial_metric_result_store.push(bucket_index, collection)
             }
         }
     }

@@ -5,9 +5,7 @@ use crate::{
         results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{Histogram, SumWithSumOfSqrs},
     },
-    engine::{
-        FlatAlgorithm, FlatMetricPulseHeightSpectra, FlatWaveform, PulseHeightSpectraProperty,
-    },
+    engine::{FlatMetricPulseHeightSpectra, PulseHeightSpectraProperty},
     eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
@@ -40,13 +38,7 @@ impl PartialMetricResultBucket for PartialPulseHeightSpectra {
         self.histogram = source.histogram.clone();
     }
 
-    fn push(
-        &mut self,
-        _waveform: &FlatWaveform,
-        _algorithm: &FlatAlgorithm,
-        channel: Channel,
-        by_topic: &ChannelDataByTopic,
-    ) {
+    fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic) {
         for (_, intensity) in by_topic
             .get(self.source.topic)
             .expect("This should never fail.")

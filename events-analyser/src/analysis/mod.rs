@@ -1,12 +1,12 @@
 //! Defines the data type used in [FrameCache].
 //!
 //! [FrameCache]: crate::frame::FrameCache
-mod chart;
+mod chart_page;
 mod metrics;
 
 use crate::{
-    analysis::{chart::ChartOutputError, metrics::MetricResultError},
-    engine::{AnalysisSettings, FlatBucketBlock, FlatChart},
+    analysis::{chart_page::PageOutputError, metrics::MetricResultError},
+    engine::{AnalysisSettings, FlatBucketBlock, FlatPage},
     eventlists::EventlistsCollection,
 };
 use chrono::{DateTime, ParseError, TimeDelta, Utc};
@@ -22,7 +22,7 @@ use std::{
 use thiserror::Error;
 use tracing::{info, info_span, trace};
 
-pub(crate) use chart::ChartOutput;
+pub(crate) use chart_page::PageOutput;
 pub(crate) use metrics::PartialMetricResult;
 
 #[derive(Debug, Error)]
@@ -33,8 +33,8 @@ pub(crate) enum AnalysisError {
     Json(#[from] serde_json::error::Error),
     #[error("IO Error {0}")]
     IO(#[from] std::io::Error),
-    #[error("Chart Error: {0}")]
-    Chart(#[from] ChartOutputError),
+    #[error("Page Error: {0}")]
+    Page(#[from] PageOutputError),
     #[error("Span Error: {0}")]
     Span(#[from] SpanOnceError),
     #[error("Metric Result Error: {0}")]
@@ -56,7 +56,7 @@ pub(crate) struct AnalysisEngine {
     metrics_json_name: Option<String>,
     buckets_blocks: Vec<FlatBucketBlock>,
     metrics: Vec<PartialMetricResult>,
-    charts: Vec<FlatChart>,
+    pages: Vec<FlatPage>,
     idle_time: TimeDelta,
     last_message_timestamp: Option<DateTime<Utc>>,
 }
@@ -76,8 +76,8 @@ impl AnalysisEngine {
             .map(|block| block.buckets.len())
             .collect::<Vec<_>>();
 
-        let charts = settings
-            .flatten_charts(&buckets_blocks)
+        let pages = settings
+            .flatten_pages(&buckets_blocks)
             .expect("Fixme: This may fail.");
 
         let metrics = settings
@@ -88,20 +88,20 @@ impl AnalysisEngine {
             .collect::<Vec<_>>();
 
         info!(
-            "Analysis Engine created with {} metric(s), {} chart(s), and {} bucket block(s).",
+            "Analysis Engine created with {} metric(s), {} page(s), and {} bucket block(s).",
             metrics.len(),
-            charts.len(),
+            pages.len(),
             bucket_block_sizes.len()
         );
         info!("Metric(s): {metrics:?}");
-        info!("Chart(s): {charts:?}");
+        info!("Page(s): {pages:?}");
         info!("Bucket size(s): {bucket_block_sizes:?}");
 
         let mut this = Self {
             path,
             metrics,
             buckets_blocks,
-            charts,
+            pages,
             metrics_json_name: settings.metrics_json_name,
             idle_time: TimeDelta::seconds(settings.idle_time_sec),
             last_message_timestamp: None,
@@ -152,9 +152,9 @@ impl AnalysisEngine {
                 index.block_index, index.bucket_index, bucket.count
             );
             let collection = collection.into_channel_collection();
-            self.metrics.iter_mut().for_each(|metric| {
-                metric.push(&bucket.waveform, &bucket.algorithm, index, &collection)
-            });
+            self.metrics
+                .iter_mut()
+                .for_each(|metric| metric.push(index, &collection));
         } else {
             info!("Bucket {}, {} full", index.block_index, index.bucket_index);
         }
@@ -201,7 +201,7 @@ impl AnalysisEngine {
         Ok(())
     }
 
-    pub(crate) fn build_charts(&mut self) -> Result<(), AnalysisError> {
+    pub(crate) fn build_pages(&mut self) -> Result<(), AnalysisError> {
         if let Some(metrics_json_name) = &self.metrics_json_name {
             self.save_metrics_json(&self.path, metrics_json_name)?;
         }
@@ -211,13 +211,13 @@ impl AnalysisEngine {
             .map(|part| part.build_aggregate())
             .collect::<Result<Vec<_>, _>>()?;
 
-        for chart in &self.charts {
-            let output = ChartOutput::new(chart, &metrics)?;
+        for page in &self.pages {
+            let output = PageOutput::new(page, &metrics)?;
 
-            if chart.settings.output_to_json {
+            if page.settings.output_to_json {
                 output.save_json(&self.path)?;
             }
-            if chart.settings.output_to_html {
+            if page.settings.output_to_html {
                 output.save_plotly(&self.path)?;
             }
         }
@@ -235,11 +235,11 @@ impl AnalysisEngine {
                 "Idle Time Trigger Satisfied, last push: {}.",
                 last_message_timestamp.to_rfc3339()
             );
-            for chart in &mut self.charts {
-                if chart.evaluate_readiness(&self.buckets_blocks, &self.metrics) {
-                    trace!("{}, ready.", chart.settings.title);
+            for page in &mut self.pages {
+                if page.evaluate_readiness(&self.buckets_blocks, &self.metrics) {
+                    trace!("{}, ready.", page.settings.title);
                 } else {
-                    trace!("{}, not ready.", chart.settings.title);
+                    trace!("{}, not ready.", page.settings.title);
                     return false;
                 }
             }

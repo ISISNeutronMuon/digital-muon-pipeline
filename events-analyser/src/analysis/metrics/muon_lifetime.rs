@@ -8,7 +8,7 @@ use crate::{
         results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{Histogram, MeanSD},
     },
-    engine::{FlatAlgorithm, FlatMetricMuonLifetime, FlatWaveform, MuonLifetimeProperty},
+    engine::{FlatMetricMuonLifetime, MuonLifetimeProperty},
     eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
@@ -46,13 +46,7 @@ impl PartialMetricResultBucket for PartialMuonLifetime {
         *self = source.clone();
     }
 
-    fn push(
-        &mut self,
-        _waveform: &FlatWaveform,
-        _algorithm: &FlatAlgorithm,
-        channel: Channel,
-        by_topic: &ChannelDataByTopic,
-    ) {
+    fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic) {
         for (time, _) in by_topic
             .get(self.source.topic)
             .expect("Topic should exist, this should never fail.")
@@ -230,10 +224,7 @@ mod tests {
         let histogram_counts = [
             17488.0, 4856.0, 1410.0, 554.0, 333.0, 250.0, 225.0, 225.0, 250.0, 237.0,
         ];
-        let interval = Interval {
-            min: 0.0,
-            max: 30000.0,
-        };
+        let interval = Interval::new(0.0, 30000.0).unwrap();
         let mut histogram = Histogram::new(&MetricTypeHistogram {
             num_bins: 10,
             interval: interval.clone(),
@@ -268,10 +259,7 @@ mod tests {
         let histogram_counts = [
             7309.0, 2001.0, 542.0, 220.0, 76.0, 74.0, 43.0, 49.0, 47.0, 62.0,
         ];
-        let interval = Interval {
-            min: 0.0,
-            max: 30000.0,
-        };
+        let interval = Interval::new(0.0, 30000.0).unwrap();
         let mut histogram = Histogram::new(&MetricTypeHistogram {
             num_bins: 10,
             interval: interval.clone(),

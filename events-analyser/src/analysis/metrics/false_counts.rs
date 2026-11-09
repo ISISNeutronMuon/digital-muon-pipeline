@@ -4,7 +4,7 @@ use crate::{
         results::{CompleteMetricResultBucket, PartialMetricResultBucket},
         utils::{GroupDataBy, MeanSD, SumWithSumOfSqrs},
     },
-    engine::{FalseCountProperty, FlatAlgorithm, FlatMetricFalseCount, FlatWaveform},
+    engine::{FalseCountProperty, FlatMetricFalseCount},
     event::ChannelData,
     eventlists::ChannelDataByTopic,
 };
@@ -68,8 +68,7 @@ impl From<&FalseCountValues<SumWithSumOfSqrs>> for FalseCountValues<MeanSD> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct PartialFalseCount {
     num: usize,
-    true_topic: usize,
-    estimate_topic: usize,
+    source: FlatMetricFalseCount,
     channels: HashMap<Channel, FalseCountValues<SumWithSumOfSqrs>>,
 }
 
@@ -80,23 +79,15 @@ impl PartialMetricResultBucket for PartialFalseCount {
     fn make_default(source: &FlatMetricFalseCount) -> Self {
         Self {
             num: Default::default(),
-            true_topic: source.true_topic,
-            estimate_topic: source.estimate_topic,
+            source: source.clone(),
             channels: Default::default(),
         }
     }
 
-    fn push(
-        &mut self,
-        waveform: &FlatWaveform,
-        algorithm: &FlatAlgorithm,
-        channel: Channel,
-        by_topic: &ChannelDataByTopic,
-    ) {
+    fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic) {
         // true_by_estimates is indexed by the detected events, and the corresponding element is the list of true events that have been associated to it
         // rejected_true is the list of all true events that are not associated with any detected events.
-        let (true_by_estimates, rejected_true) =
-            self.sort_true_by_estimates(waveform, algorithm, by_topic);
+        let (true_by_estimates, rejected_true) = self.sort_true_by_estimates(by_topic);
 
         let ambiguous_true_positives: usize = true_by_estimates
             .iter()
@@ -124,17 +115,15 @@ impl PartialMetricResultBucket for PartialFalseCount {
 impl PartialFalseCount {
     pub(crate) fn sort_true_by_estimates(
         &self,
-        waveform: &FlatWaveform,
-        _algorithm: &FlatAlgorithm,
         collection_by_topic: &[ChannelData],
     ) -> (Vec<Vec<usize>>, Vec<usize>) {
         let true_data = collection_by_topic
-            .get(self.true_topic)
+            .get(self.source.true_topic)
             .expect("Topic should exist, this should never fail.");
         let estimate_data = collection_by_topic
-            .get(self.estimate_topic)
+            .get(self.source.estimate_topic)
             .expect("Topic should exist, this should never fail.");
-        let radius = waveform.effective_radius_at_base() as u32;
+        let radius = self.source.waveform_radius;
 
         let filter = |true_data: &ChannelData, index, detected_time, _detected_intensity| {
             let dist = true_data.get_temporal_distance_from(index, detected_time);

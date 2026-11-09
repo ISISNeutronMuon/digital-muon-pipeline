@@ -1,8 +1,7 @@
 use crate::engine::{
-    Chart, FlatBucketBlock, FlatChart, FlatMetric, Flattenable, HasName, Metric,
+    FlatBucketBlock, FlatMetric, FlatPage, Flattenable, HasName, Metric, Page, PageError,
     elements::{
-        Algorithm, AlgorithmProperties, BucketBlock, BucketBlockProperties, BucketBlockTemplate,
-        BucketError, ChartError, CriteriaTemplate, Waveform, WaveformProperties,
+        BucketBlock, BucketBlockProperties, BucketBlockTemplate, BucketError, CriteriaTemplate,
     },
     values::ValueError,
 };
@@ -18,12 +17,8 @@ pub(crate) struct Templates {
     pub(crate) criteria_templates: Vec<CriteriaTemplate>,
     /// List of arrays that can be referenced by other lements.
     pub(crate) arrays: Vec<Array>,
-    /// List of algorithms that can be referenced by [BucketBlock] elements.
-    pub(crate) algorithms: Vec<Algorithm>,
     /// List of templates that can partially define [BucketBlock] elements.
     pub(crate) bucket_templates: Vec<BucketBlockTemplate>,
-    /// List of waveforms that can be referenced by [BucketBlock] elements.
-    pub(crate) waveforms: Vec<Waveform>,
 }
 
 impl Templates {
@@ -48,18 +43,6 @@ impl Templates {
             .iter()
             .find(|tmplt| tmplt.has_name(name))
     }
-
-    pub(crate) fn get_algorithm(&self, name: &str) -> Option<&AlgorithmProperties> {
-        self.algorithms
-            .iter()
-            .find_map(|alg| alg.has_name(name).then_some(alg.deref()))
-    }
-
-    pub(crate) fn get_waveform(&self, name: &str) -> Option<&WaveformProperties> {
-        self.waveforms
-            .iter()
-            .find_map(|wav| wav.has_name(name).then_some(wav.deref()))
-    }
 }
 
 ///
@@ -79,7 +62,7 @@ pub(crate) struct AnalysisSettings {
     /// Blocks of buckets that accept collections of eventlists.
     pub(crate) buckets: Vec<BucketBlock>,
     /// List of Charts.
-    pub(crate) charts: Vec<Chart>,
+    pub(crate) pages: Vec<Page>,
     /// Controls when to start the evaluation phase.
     pub(crate) idle_time_sec: i64,
 }
@@ -99,14 +82,14 @@ impl AnalysisSettings {
             .collect::<Result<_, ValueError>>()
     }
 
-    pub(crate) fn flatten_charts(
+    pub(crate) fn flatten_pages(
         &self,
         buckets: &[FlatBucketBlock],
-    ) -> Result<Vec<FlatChart>, ChartError> {
-        self.charts
+    ) -> Result<Vec<FlatPage>, PageError> {
+        self.pages
             .iter()
-            .map(|chart| chart.flatten((self, buckets)))
-            .collect::<Result<_, ChartError>>()
+            .map(|page| page.flatten((self, buckets)))
+            .collect::<Result<_, PageError>>()
     }
 
     pub(crate) fn get_bucket_block_index(&self, name: &str) -> Option<usize> {

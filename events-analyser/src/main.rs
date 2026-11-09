@@ -40,7 +40,7 @@ mod event;
 mod eventlists;
 
 use crate::{
-    analysis::{AnalysisEngine, ChartOutput},
+    analysis::{AnalysisEngine, PageOutput},
     engine::AnalysisSettings,
     evaluator_task::create_evaluator_task,
 };
@@ -159,7 +159,7 @@ async fn main() -> miette::Result<()> {
     let eval_args = match args.mode {
         Mode::Evaluate(eval_args) => eval_args,
         Mode::ConvertJson(conv_json_args) => {
-            ChartOutput::load_json(&args.chart_output, &conv_json_args.file_name)
+            PageOutput::load_json(&args.chart_output, &conv_json_args.file_name)
                 .into_diagnostic()?
                 .save_plotly(&args.chart_output)
                 .into_diagnostic()?;

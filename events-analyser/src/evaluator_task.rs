@@ -67,7 +67,7 @@ async fn recv_and_evaluate(
             _ = chart_poll_interval.tick() => {
                 trace!("Polling for chart completion.");
                 if analysis_engine.evaluate_chart_readiness() {
-                    match analysis_engine.build_charts() {
+                    match analysis_engine.build_pages() {
                         Ok(_) => (),
                         Err(e) => {
                             error!("{e}");

@@ -17,46 +17,45 @@ pub(crate) enum ChartError {
     Series(#[from] SeriesError),
     #[error("Value Error: {0}")]
     Value(#[from] ValueError),
-    #[error("No output mode is set: set one of `output-to-json`, or `output-to-html` to `true`.")]
-    NoOutputModeSet,
 }
 
 /// Encapsulates settings of a chart which do no need to be flattened.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct ChartBasicSettings {
-    #[serde(default)]
-    /// Whether to write the chart to a json file (default: false).
-    pub(crate) output_to_json: bool,
-    #[serde(default)]
-    /// Whether to write the chart to a graphical html file (default: false).
-    pub(crate) output_to_html: bool,
-    /// Label written on the x-axis.
-    pub(crate) x_axis_label: String,
-    /// Label written on the y-axis.
-    pub(crate) y_axis_label: String,
-    /// Title that appears on the graph (as well as the file name).
-    pub(crate) title: String,
+pub(crate) struct ChartBasicMultiplotSettings {
     /// Number of rows the chart layout grid.
     pub(crate) num_rows: usize,
     /// Number of columns the chart layout grid.
     pub(crate) num_cols: usize,
-    /// Number of columns the chart layout grid.
-    pub(crate) width: Option<usize>,
-    /// Width of each graph in this chart.
-    pub(crate) height: Option<usize>,
     /// Horizontal space between graphs in this chart as a proportion of the width.
     pub(crate) x_gap_fraction: Option<f64>,
     /// Vertical space between graphs in this chart as a proportion of the height.
     pub(crate) y_gap_fraction: Option<f64>,
 }
 
+/// Encapsulates settings of a chart which do no need to be flattened.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct ChartBasicSettings {
+    /// Title that appears on the chart.
+    pub(crate) title: String,
+    /// Label written on the x-axis.
+    pub(crate) x_axis_label: String,
+    /// Label written on the y-axis.
+    pub(crate) y_axis_label: String,
+    /// Width of each plot in this chart.
+    pub(crate) width: Option<usize>,
+    /// Height of each plot in this chart.
+    pub(crate) height: Option<usize>,
+    /// Settings controlling how plots across multiple axes appear.
+    #[serde(flatten)]
+    pub(crate) multiplot: ChartBasicMultiplotSettings,
+}
+
 /// Defines a chart that can be written as a graphical chart, or as a json structure.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Chart {
-    /// Number of values to use in the x-axis.
-    width: usize,
     #[serde(flatten)]
     settings: ChartBasicSettings,
     /// Values to display on the x-axis. This can either be from an array, or a function.
@@ -135,35 +134,37 @@ impl Flattenable<(&AnalysisSettings, &[FlatBucketBlock])> for Chart {
         &self,
         (library, flat_bucket_blocks): (&AnalysisSettings, &[FlatBucketBlock]),
     ) -> Result<Self::Flat, Self::Error> {
-        if !self.settings.output_to_html && !self.settings.output_to_json {
-            return Err(ChartError::NoOutputModeSet);
-        }
-
-        let x_axis = (0..self.width)
-            .map(|x| self.x_axis.flatten(library.templates.get_arrays(), x))
-            .collect::<Result<Vec<_>, _>>()?;
-
         let series = self
             .series
             .iter()
+            .map(|series| series.flatten(library))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let bucket_sizes = series
+            .iter()
             .map(|series| {
-                series.flatten(library).and_then(|flat_series| {
-                    let bucket_number = flat_bucket_blocks
-                        .get(flat_series.from_bucket_block)
-                        .expect("This should never fail.")
-                        .buckets
-                        .len();
-                    if bucket_number != self.width {
-                        Err(SeriesError::BucketInconsistancy(
-                            series.metric.clone(),
-                            bucket_number,
-                            self.width,
-                        ))
-                    } else {
-                        Ok(flat_series)
-                    }
-                })
+                flat_bucket_blocks
+                    .get(series.from_bucket_block)
+                    .expect("This should never fail.")
+                    .buckets
+                    .len()
             })
+            .collect::<Vec<_>>();
+
+        let width = *bucket_sizes.first().expect("This should never fail.");
+        for (series, &this_width) in series.iter().zip(bucket_sizes.iter()) {
+            if width != this_width {
+                return Err(SeriesError::BucketInconsistancy(
+                    series.from_bucket_block,
+                    this_width,
+                    width,
+                )
+                .into());
+            }
+        }
+
+        let x_axis = (0..width)
+            .map(|x| self.x_axis.flatten(library.templates.get_arrays(), x))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(FlatChart {
