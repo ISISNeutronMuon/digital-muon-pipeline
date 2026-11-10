@@ -38,6 +38,7 @@ mod engine;
 mod evaluator_task;
 mod event;
 mod eventlists;
+mod metric;
 
 use crate::{
     analysis::{AnalysisEngine, PageOutput},
