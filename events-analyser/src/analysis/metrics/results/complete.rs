@@ -1,19 +1,13 @@
 use crate::{
     analysis::metrics::{
-        MetricOutput, MetricResultError,
-        event_counts::CompletedEventCount,
-        false_counts::CompletedFalseCount,
-        muon_lifetime::CompletedMuonLifetime,
-        output::MetricOutputSeries,
-        pulse_height_spectra::CompletedPulseHeightSpectra,
-        pulse_pair_differences::CompletedPulsePairDifferences,
-        results::{MetricResultByBucket, PartialMetricResultBucket},
+        results::MetricResultByBucket,
     },
-    engine::PropertyOfMetric,
+    engine::PropertyOfMetric, metric::{CompleteMetric, CompleteSeriesOutput, complete},
+    metric::MetricResultError
 };
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 use tracing::error;
-
+/*
 /// Encapsulates the completed results of a metric, aggregated from instances
 /// of objects implementing `PartialMetricResultBucket`.
 pub(crate) trait CompleteMetricResultBucket: Clone + Serialize + DeserializeOwned {
@@ -29,13 +23,14 @@ pub(crate) trait CompleteMetricResultBucket: Clone + Serialize + DeserializeOwne
     /// Extract a particular property of the results.
     fn get_property(&self, property: Self::Property) -> Result<MetricOutput, Self::Error>;
 }
-
-impl<C: CompleteMetricResultBucket> MetricResultByBucket<C> {
+ */
+impl<C: CompleteMetric> MetricResultByBucket<C> {
     pub(super) fn get_property(
         &self,
         block: usize,
         property: C::Property,
-    ) -> Result<MetricOutputSeries, C::Error> {
+    ) -> Result<CompleteSeriesOutput, C::Error>
+    where Option<CompleteSeriesOutput>: FromIterator<C::Output> {
         let block = self
             .by_bucket
             .get(block)
@@ -43,7 +38,7 @@ impl<C: CompleteMetricResultBucket> MetricResultByBucket<C> {
         let output = block
             .iter()
             .map(|bucket| bucket.get_property(property.clone()))
-            .collect::<Result<Option<MetricOutputSeries>, _>>()?
+            .collect::<Result<Option<CompleteSeriesOutput>, _>>()?
             .expect("Buckets should exist, this should never fail.");
         Ok(output)
     }
@@ -53,11 +48,11 @@ impl<C: CompleteMetricResultBucket> MetricResultByBucket<C> {
 /// Each variant wraps a different concrete instance of [MetricResultByBucket].
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum CompletedMetricResult {
-    EventCount(MetricResultByBucket<CompletedEventCount>),
-    FalseCount(MetricResultByBucket<CompletedFalseCount>),
-    MuonLifetime(MetricResultByBucket<CompletedMuonLifetime>),
-    PulseHeightSpectra(MetricResultByBucket<CompletedPulseHeightSpectra>),
-    PulsePairDifferences(MetricResultByBucket<CompletedPulsePairDifferences>),
+    EventCount(MetricResultByBucket<complete::EventCount>),
+    FalseCount(MetricResultByBucket<complete::FalseCount>),
+    MuonLifetime(MetricResultByBucket<complete::MuonLifetime>),
+    PulseHeightSpectra(MetricResultByBucket<complete::PulseHeightSpectra>),
+    PulsePairDifferences(MetricResultByBucket<complete::PulsePairTimeDiff>),
 }
 
 impl CompletedMetricResult {
@@ -65,7 +60,7 @@ impl CompletedMetricResult {
         &self,
         block: usize,
         property: PropertyOfMetric,
-    ) -> Result<MetricOutputSeries, MetricResultError> {
+    ) -> Result<CompleteSeriesOutput, MetricResultError> {
         Ok(match (self, property.clone()) {
             (Self::EventCount(completed), PropertyOfMetric::EventCount(property)) => {
                 completed.get_property(block, property)?

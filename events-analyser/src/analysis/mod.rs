@@ -5,7 +5,8 @@ mod chart_page;
 mod metrics;
 
 use crate::{
-    analysis::{chart_page::PageOutputError, metrics::MetricResultError},
+    metric::MetricResultError,
+    analysis::{chart_page::PageOutputError},
     engine::{AnalysisSettings, FlatBucketBlock, FlatPage},
     eventlists::EventlistsCollection,
 };

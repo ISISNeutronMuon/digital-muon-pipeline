@@ -13,11 +13,7 @@ pub(crate) use {
     chart::{Chart, ChartError, FlatChart},
     criteria::CriteriaTemplate,
     metric::{
-        EventCountProperty, FalseCountProperty, FlatMetric, FlatMetricEventCount,
-        FlatMetricFalseCount, FlatMetricMuonLifetime, FlatMetricPulseHeightSpectra,
-        FlatMetricPulsePairDifferences, FlatMetricType, Metric, MetricTypeHistogram,
-        MuonLifetimeProperty, PropertyOfMetric, PulseHeightSpectraProperty,
-        PulsePairDifferencesProperty,
+        FlatMetric, FlatMetricType, Metric, MetricTypeHistogram, PropertyOfMetric
     },
     page::{FlatPage, Page, PageError},
     series::{FlatSeries, SeriesType},

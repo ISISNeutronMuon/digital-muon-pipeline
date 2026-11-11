@@ -2,11 +2,9 @@ use crate::{
     analysis::{
         chart_page::TraceExt,
         metrics::{
-            CompletedMetricResult, FittingError, HistogramWithBands, MetricOutputSeries,
-            MetricResultError, Surface,
+            CompletedMetricResult
         },
-    },
-    engine::{FlatChart, FlatSeries, SeriesType},
+    }, engine::{FlatChart, FlatSeries, SeriesType}, metric::{Surface, HistogramWithBands, CompleteSeriesOutput, FittingError, MetricResultError}
 };
 use num::Integer;
 use plotly::{
@@ -132,7 +130,7 @@ pub(crate) enum ChartOutputError {
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct ChartOutput {
     chart: FlatChart,
-    data: Vec<Option<MetricOutputSeries>>,
+    data: Vec<Option<CompleteSeriesOutput>>,
 }
 
 impl ChartOutput {
@@ -250,68 +248,59 @@ impl ChartOutput {
     fn build_histograms_plotly_trace(
         &self,
         series: &FlatSeries,
-        data: &[HistogramWithBands],
-    ) -> Vec<Box<dyn Trace>> {
-        data.iter()
-            .map(|histogram| {
-                let mut error_y = ErrorData::new(ErrorType::Data).thickness(0.5);
-                if let Some((upper, lower)) = histogram.bands.as_ref() {
-                    error_y = error_y
-                        .symmetric(false)
-                        .array(upper.clone())
-                        .array_minus(lower.clone())
-                }
-                let scatter = Scatter::new(histogram.labels.clone(), histogram.central.clone())
-                    .error_y(error_y)
-                    .apply_settings(series);
+        histogram: &HistogramWithBands,
+    ) -> Box<dyn Trace> {
+        let mut error_y = ErrorData::new(ErrorType::Data).thickness(0.5);
+        if let Some((upper, lower)) = histogram.bands.as_ref() {
+            error_y = error_y
+                .symmetric(false)
+                .array(upper.clone())
+                .array_minus(lower.clone())
+        }
+        let scatter = Scatter::new(histogram.labels.clone(), histogram.central.clone())
+            .error_y(error_y)
+            .apply_settings(series);
 
-                match &series.settings.line.series_type {
-                    SeriesType::Scatter(scatter_type) => {
-                        scatter.mode(scatter_type.into()) as Box<dyn Trace>
-                    }
-                    SeriesType::Bar => scatter as Box<dyn Trace>,
-                }
-            })
-            .collect::<Vec<_>>()
+        match &series.settings.line.series_type {
+            SeriesType::Scatter(scatter_type) => {
+                scatter.mode(scatter_type.into()) as Box<dyn Trace>
+            }
+            SeriesType::Bar => scatter as Box<dyn Trace>,
+        }
     }
 
     pub(crate) fn build_surface_plotly_trace(
         &self,
         series: &FlatSeries,
-        surfaces: &[Surface],
-    ) -> Vec<Box<dyn Trace>> {
-        surfaces
-            .iter()
-            .map(|surface| {
-                HeatMap::new(
-                    surface.x_values.clone(),
-                    surface.y_values.clone(),
-                    surface.data.clone(),
-                )
-                .apply_settings(series)
-                .transpose(false) as Box<dyn Trace>
-            })
-            .collect::<Vec<_>>()
+        surface: &Surface,
+    ) -> Box<dyn Trace> {
+            HeatMap::new(
+                surface.x_values.clone(),
+                surface.y_values.clone(),
+                surface.data.clone(),
+            )
+            .apply_settings(series)
+            .transpose(false) as Box<dyn Trace>
     }
 
     pub(crate) fn build_plotly_trace(
         &self,
         series: &FlatSeries,
-        data: Option<&MetricOutputSeries>,
+        data: Option<&CompleteSeriesOutput>,
     ) -> Vec<Box<dyn Trace>> {
         match data {
-            Some(MetricOutputSeries::Value(data)) => vec![self.build_scalar_trace(series, data)],
-            Some(MetricOutputSeries::WithErrors(data)) => {
+            Some(CompleteSeriesOutput::Value(data)) => vec![self.build_scalar_trace(series, data)],
+            Some(CompleteSeriesOutput::ValueWithErrors(data)) => {
                 vec![self.build_scalar_with_errors_trace(series, data)]
             }
-            Some(MetricOutputSeries::Group(data)) => {
+            Some(CompleteSeriesOutput::LabelledGroup(data)) => {
                 vec![self.build_box_plot_plotly_trace(series, data)]
             }
-            Some(MetricOutputSeries::Histograms(data)) => {
-                self.build_histograms_plotly_trace(series, data)
+            Some(CompleteSeriesOutput::Histogram(data)) => {
+                vec![self.build_histograms_plotly_trace(series, data)]
             }
-            Some(MetricOutputSeries::Surface(data)) => {
-                self.build_surface_plotly_trace(series, data)
+            Some(CompleteSeriesOutput::HeatMap(data)) => {
+                vec![self.build_surface_plotly_trace(series, data)]
             }
             None => vec![
                 Scatter::<f64, f64>::new(Default::default(), Default::default())

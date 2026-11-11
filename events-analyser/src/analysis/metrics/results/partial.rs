@@ -1,24 +1,16 @@
 use crate::{
     analysis::{
         BucketIndex,
-        metrics::{
-            event_counts::PartialEventCount,
-            false_counts::PartialFalseCount,
-            muon_lifetime::PartialMuonLifetime,
-            pulse_height_spectra::PartialPulseHeightSpectra,
-            pulse_pair_differences::PartialPulsePairDifferences,
-            results::{
-                CompleteMetricResultBucket, MetricResultBucketWrapper, MetricResultByBucket,
-                MetricResultError, complete::CompletedMetricResult,
-            },
-        },
+        metrics::{results::{
+                MetricResultBucketWrapper, MetricResultByBucket,
+                complete::CompletedMetricResult,
+            }},
     },
     engine::{FlatBucket, FlatMetricType},
-    eventlists::{ChannelCollection, ChannelDataByTopic},
+    eventlists::ChannelCollection, metric::{CompleteMetric, MetricResultError, FlatMetricShell, PartialMetric, PartialMetricShell, partial},
 };
-use digital_muon_common::Channel;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-
+use serde::{Deserialize, Serialize};
+/*
 pub(crate) trait PartialMetricResultBucket: Clone + Serialize + DeserializeOwned {
     type Source;
     type Complete: CompleteMetricResultBucket<Partial = Self>;
@@ -29,16 +21,14 @@ pub(crate) trait PartialMetricResultBucket: Clone + Serialize + DeserializeOwned
     }
     fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic);
 }
-
-impl<C> MetricResultBucketWrapper<C>
-where
-    C: PartialMetricResultBucket,
+ */
+impl<C: PartialMetric> MetricResultBucketWrapper<PartialMetricShell<C>>
 {
     /// Create a new and empty partial results storage object.
-    pub(crate) fn new(source: &C::Source) -> Self {
+    pub(crate) fn new(source: &FlatMetricShell<<C as PartialMetric>::Source>) -> Self {
         Self {
             num_messages: Default::default(),
-            object: C::make_default(source),
+            object: PartialMetricShell::make_default(source),
         }
     }
 
@@ -53,34 +43,29 @@ where
     }
 
     /// Create aggregated version of this type.
-    pub(crate) fn aggregate(
+    pub(crate) fn aggregate<C2 : CompleteMetric<Partial = C>>(
         &self,
-    ) -> Result<
-        MetricResultBucketWrapper<C::Complete>,
-        <C::Complete as CompleteMetricResultBucket>::Error,
-    > {
+    ) -> Result<MetricResultBucketWrapper<C2>, C2::Error> {
         Ok(MetricResultBucketWrapper {
             num_messages: self.num_messages,
-            object: C::Complete::aggregate(self)?,
+            object: C2::aggregate(self)?,
         })
     }
 }
 
-impl<C> MetricResultByBucket<C>
+impl<P> MetricResultByBucket<PartialMetricShell<P>>
 where
-    C: PartialMetricResultBucket,
-    MetricResultError:
-        From<<<C as PartialMetricResultBucket>::Complete as CompleteMetricResultBucket>::Error>,
+    P: PartialMetric
 {
     /// Create new instance from a `Source` instance and a list of the number of buckets in each block.
     ///
     /// # Parameters
     /// - source: the source of the data, namely the type wrapped by a variant of a [FlatMetricType] instance.
     /// - bucket_block_sizes: the number of buckets in each bucket block.
-    pub(super) fn new(source: C::Source, bucket_block_sizes: &[usize]) -> Self {
+    pub(super) fn new(source: FlatMetricShell<P::Source>, bucket_block_sizes: &[usize]) -> Self {
         let by_bucket = bucket_block_sizes
             .iter()
-            .map(|size| vec![MetricResultBucketWrapper::<C>::new(&source); *size])
+            .map(|size| vec![MetricResultBucketWrapper::<PartialMetricShell<P>>::new(&source); *size])
             .collect::<Vec<_>>();
         Self { by_bucket }
     }
@@ -103,7 +88,7 @@ where
     ///
     /// # Parameters
     /// - bucket_index: the bucket to obtain.
-    fn get_bucket_mut(&mut self, bucket_index: BucketIndex) -> &mut MetricResultBucketWrapper<C> {
+    fn get_bucket_mut(&mut self, bucket_index: BucketIndex) -> &mut MetricResultBucketWrapper<PartialMetricShell<P>> {
         self.by_bucket
             .get_mut(bucket_index.block_index)
             .expect("Block index should be valid, this should never fail")
@@ -134,10 +119,9 @@ where
         }
     }
 
-    pub(super) fn aggregate(
+    pub(super) fn aggregate<C : CompleteMetric<Partial = P>>(
         &self,
-    ) -> Result<MetricResultByBucket<C::Complete>, <C::Complete as CompleteMetricResultBucket>::Error>
-    {
+    ) -> Result<MetricResultByBucket<C>, C::Error> {
         Ok(MetricResultByBucket {
             by_bucket: self
                 .by_bucket
@@ -157,15 +141,15 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum PartialMetricResult {
     /// Descriptive statistics on the count of events.
-    EventCount(MetricResultByBucket<PartialEventCount>),
+    EventCount(MetricResultByBucket<PartialMetricShell<partial::EventCount>>),
     /// Descriptive statistics on the count of true/false positive/negative events.
-    FalseCount(MetricResultByBucket<PartialFalseCount>),
+    FalseCount(MetricResultByBucket<PartialMetricShell<partial::FalseCount>>),
     /// Descriptive statistics on the muon-lifetime estimated from the data.
-    MuonLifetime(MetricResultByBucket<PartialMuonLifetime>),
+    MuonLifetime(MetricResultByBucket<PartialMetricShell<partial::MuonLifetime>>),
     /// Descriptive statistics on the pulse height spectra estimated from the data.
-    PulseHeightSpectra(MetricResultByBucket<PartialPulseHeightSpectra>),
+    PulseHeightSpectra(MetricResultByBucket<PartialMetricShell<partial::PulseHeightSpectra>>),
     /// Descriptive statistics on the pulse-pair differences estimated from the data.
-    PulsePairDifferences(MetricResultByBucket<PartialPulsePairDifferences>),
+    PulsePairDifferences(MetricResultByBucket<PartialMetricShell<partial::PulsePairTimeDiff>>),
 }
 
 impl PartialMetricResult {
