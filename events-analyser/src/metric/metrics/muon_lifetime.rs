@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{engine::{Flattenable, MetricTypeHistogram}, metric::{CompleteMetric, FlattenedMetric, JsonMetric, PartialMetric, error::FittingError, utils::Histogram}};
+use crate::{
+    engine::{MetricTypeHistogram, ValueError},
+    metric::{CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric, PartialMetricShell, error::FittingError, utils::Histogram}
+};
 
 use digital_muon_common::Channel;
 use nalgebra::DVector;
@@ -14,39 +17,36 @@ use varpro::{
 
 
 use crate::{
-    metric::{utils::{MeanSD, SumWithSumOfSqrs}, outputs::{CompleteSeriesOutput, PartialSeriesOutput}},
+    metric::{utils::MeanSD, outputs::PartialSeriesOutput},
     eventlists::ChannelDataByTopic,
 };
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct JsonMuonLifetime {
     topic: String,
-    #[serde(flatten)]
-    histogram: MetricTypeHistogram,
 }
 
 impl JsonMetric for JsonMuonLifetime {
     type Flattened = FlatMuonLifetime;
-    type Settings = ();
+    type Settings = MetricTypeHistogram;
 
-    fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ()> {
+    fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ValueError> {
         Ok(FlatMuonLifetime {
             topic: library
                 .iter()
                 .enumerate()
                 .find_map(|(index, this_topic)| (*this_topic == self.topic).then_some(index))
-                .expect("This should never fail."),
-            histogram: self.histogram.clone(),
+                .expect("This should never fail.")
         })
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatMuonLifetime {
     topic: usize,
-    #[serde(flatten)]
-    pub(crate) histogram: MetricTypeHistogram,
 }
 
 impl FlattenedMetric for FlatMuonLifetime {
@@ -54,6 +54,7 @@ impl FlattenedMetric for FlatMuonLifetime {
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct PartialMuonLifetime {
     histogram: HashMap<Channel, Histogram>,
 }
@@ -61,15 +62,15 @@ pub(crate) struct PartialMuonLifetime {
 impl PartialMetric for PartialMuonLifetime {
     type Source = FlatMuonLifetime;
 
-    fn push(&mut self, source: &Self::Source, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
+    fn push(&mut self, source: &FlatMetricShell<Self::Source>, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
         for (time, _) in collection_by_topic
-            .get(source.topic)
+            .get(source.flat.topic)
             .expect("Topic should exist, this should never fail.")
             .get_time_intensity()
         {
             self.histogram
                 .entry(channel)
-                .or_insert_with(|| Histogram::new(&source.histogram))
+                .or_insert_with(|| Histogram::new(&source.settings))
                 .push(*time as f64);
         }
     }
@@ -89,6 +90,7 @@ impl PartialMetric for PartialMuonLifetime {
 /// where `A` and `B` are linear parameters and `tau` is the lifetime parameter being estimated.
 /// Note we are only interested in the `tau` parameter.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct CompletedMuonLifetime {
     total_lifetime: Option<MeanSD>,
     lifetime: HashMap<Channel, Option<MeanSD>>,
@@ -196,7 +198,7 @@ impl CompleteMetric for CompletedMuonLifetime {
     
     type Output = PartialSeriesOutput;
 
-    fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error> {
+    fn aggregate(source: &PartialMetricShell<Self::Partial>) -> Result<Self, Self::Error> {
         let lifetime = source
             .histogram
             .iter()

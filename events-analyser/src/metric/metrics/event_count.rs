@@ -2,17 +2,20 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::engine::ValueError;
+use crate::metric::{FlatMetricShell, PartialMetricShell};
 use crate::metric::{CompleteMetric, FlattenedMetric, JsonMetric, error::MetricResultError, PartialMetric};
 
 
 use crate::{
-    metric::{utils::{MeanSD, SumWithSumOfSqrs}, outputs::{CompleteSeriesOutput, PartialSeriesOutput}},
+    metric::{utils::{MeanSD, SumWithSumOfSqrs}, outputs::PartialSeriesOutput},
     eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct JsonEventCount {
     topic: String
 }
@@ -21,7 +24,7 @@ impl JsonMetric for JsonEventCount {
     type Flattened = FlatEventCount;
     type Settings = ();
 
-    fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ()> {
+    fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ValueError> {
         Ok(FlatEventCount {
             topic: library
                 .iter()
@@ -33,6 +36,7 @@ impl JsonMetric for JsonEventCount {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatEventCount {
     topic: usize
 }
@@ -42,6 +46,7 @@ impl FlattenedMetric for FlatEventCount {
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct PartialEventCount {
     count: HashMap<Channel, SumWithSumOfSqrs>,
 }
@@ -49,9 +54,9 @@ pub(crate) struct PartialEventCount {
 impl PartialMetric for PartialEventCount {
     type Source = FlatEventCount;
 
-    fn push(&mut self, source: &Self::Source, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
+    fn push(&mut self, source: &FlatMetricShell<Self::Source>, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
         let data = collection_by_topic
-            .get(source.topic)
+            .get(source.flat.topic)
             .expect("Topic should exist, this should never fail.");
         self.count
             .entry(channel)
@@ -61,6 +66,7 @@ impl PartialMetric for PartialEventCount {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) struct CompletedEventCount {
     count: HashMap<Channel, MeanSD>,
     total_count: MeanSD,
@@ -80,7 +86,7 @@ impl CompleteMetric for CompletedEventCount {
     type Property = EventCountProperty;
     type Output = PartialSeriesOutput;
 
-    fn aggregate(source: &Self::Partial) -> Result<Self, MetricResultError> {
+    fn aggregate(source: &PartialMetricShell<Self::Partial>) -> Result<Self, MetricResultError> {
         let count = source
             .count
             .iter()
