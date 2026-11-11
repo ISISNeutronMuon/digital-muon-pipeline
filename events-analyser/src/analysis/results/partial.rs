@@ -1,10 +1,10 @@
 use crate::{
     analysis::{
         BucketIndex,
-        metrics::{results::{
-                MetricResultBucketWrapper, MetricResultByBucket,
-                complete::CompletedMetricResult,
-            }},
+        results::{
+            MetricResultBucketWrapper, MetricResultByBucket,
+            complete::CompletedMetricResult,
+        },
     },
     engine::{FlatBucket, FlatMetricType},
     eventlists::ChannelCollection, metric::{CompleteMetric, MetricResultError, FlatMetricShell, PartialMetric, PartialMetricShell, partial},

@@ -1,9 +1,7 @@
 use crate::{
     analysis::{
         chart_page::TraceExt,
-        metrics::{
-            CompletedMetricResult
-        },
+        results::CompletedMetricResult,
     }, engine::{FlatChart, FlatSeries, SeriesType}, metric::{Surface, HistogramWithBands, CompleteSeriesOutput, FittingError, MetricResultError}
 };
 use num::Integer;

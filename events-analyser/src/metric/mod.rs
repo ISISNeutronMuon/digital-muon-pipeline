@@ -35,6 +35,14 @@ pub(crate) struct JsonMetricShell<T : JsonMetric> {
 
 pub(crate) trait FlattenedMetric : Clone + Debug + Serialize + DeserializeOwned {
     type Json: JsonMetric<Flattened = Self>;
+    
+    #[cfg(test)]
+    fn to_shell(self, settings: <Self::Json as JsonMetric>::Settings) -> FlatMetricShell<Self> {
+        FlatMetricShell {
+            flat: self,
+            settings,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +79,15 @@ pub(crate) trait PartialMetric: Default + Clone {
     fn push(&mut self, source: &FlatMetricShell<Self::Source>, channel: Channel, collection_by_topic: &ChannelDataByTopic);
     fn load_data(&mut self, source: &Self) {
         *self = source.clone();
+    }
+
+    #[cfg(test)]
+    fn to_shell(self, source: FlatMetricShell<Self::Source>, notifications: Vec<String>) -> PartialMetricShell<Self> {
+        PartialMetricShell {
+            source,
+            notifications,
+            inner: self,
+        }
     }
 }
 

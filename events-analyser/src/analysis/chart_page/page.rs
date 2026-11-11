@@ -1,7 +1,7 @@
 use crate::{
     analysis::{
         chart_page::chart::{ChartOutput, ChartOutputError},
-        metrics::CompletedMetricResult,
+        results::CompletedMetricResult,
     },
     engine::{FlatChart, FlatPage},
 };

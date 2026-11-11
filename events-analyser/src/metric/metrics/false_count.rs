@@ -9,7 +9,6 @@ use crate::metric::utils::GroupDataBy;
 use crate::metric::{FlatMetricShell, PartialMetricShell};
 use crate::metric::{CompleteMetric, FlattenedMetric, JsonMetric, error::MetricResultError, PartialMetric};
 
-
 use crate::{
     metric::{utils::{MeanSD, SumWithSumOfSqrs}, outputs::PartialSeriesOutput},
     eventlists::ChannelDataByTopic,
@@ -23,7 +22,7 @@ pub(crate) struct JsonFalseCount {
     estimate_topic: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FalseCountSettings {
     waveform_radius: u32,

@@ -243,3 +243,79 @@ impl CompleteMetric for CompletedMuonLifetime {
     }
 }
 
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        metric::utils::Histogram,
+        engine::{Interval, MetricTypeHistogram},
+    };
+
+    #[test]
+    fn test1() {
+        let histogram_counts = [
+            17488.0, 4856.0, 1410.0, 554.0, 333.0, 250.0, 225.0, 225.0, 250.0, 237.0,
+        ];
+        let interval = Interval::new(0.0, 30000.0).unwrap();
+        let mut histogram = Histogram::new(&MetricTypeHistogram {
+            num_bins: 10,
+            interval: interval.clone(),
+        });
+        histogram.set(histogram_counts.to_vec());
+
+        let source = FlatMuonLifetime { topic: 1, }.to_shell(MetricTypeHistogram {
+            num_bins: 10,
+            interval,
+        });
+        let partial = PartialMuonLifetime {
+            histogram: [(0, histogram)].into_iter().collect::<HashMap<_, _>>(),
+        }.to_shell(source, vec![]);
+        
+        let result = CompletedMuonLifetime::aggregate(&partial);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert_eq!(
+            result.lifetime.get(&0).unwrap().as_ref().unwrap().mean,
+            2269.633905415749
+        );
+        assert_eq!(
+            result.lifetime.get(&0).unwrap().as_ref().unwrap().sd,
+            8.573260580353312
+        );
+    }
+
+    #[test]
+    fn test2() {
+        let histogram_counts = [
+            7309.0, 2001.0, 542.0, 220.0, 76.0, 74.0, 43.0, 49.0, 47.0, 62.0,
+        ];
+        let interval = Interval::new(0.0, 30000.0).unwrap();
+        let mut histogram = Histogram::new(&MetricTypeHistogram {
+            num_bins: 10,
+            interval: interval.clone(),
+        });
+        histogram.set(histogram_counts.to_vec());
+
+        let source = FlatMuonLifetime { topic: 1, }.to_shell(MetricTypeHistogram {
+            num_bins: 10,
+            interval,
+        });
+        let partial = PartialMuonLifetime {
+            histogram: [(0, histogram)].into_iter().collect::<HashMap<_, _>>(),
+        }.to_shell(source, vec![]);
+
+        let result = CompletedMuonLifetime::aggregate(&partial);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert_eq!(
+            result.lifetime.get(&0).unwrap().as_ref().unwrap().mean,
+            2273.493136014635
+        );
+        assert_eq!(
+            result.lifetime.get(&0).unwrap().as_ref().unwrap().sd,
+            16.381103849818405
+        );
+    }
+}

@@ -116,3 +116,24 @@ impl CompleteMetric for CompletedEventCount {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use crate::event::ChannelData;
+
+    #[test]
+    fn test1() {
+        let _true_data = ChannelData::new(vec![(49, 6), (55, 6), (77, 12)]);
+        let _estimate_data = ChannelData::new(vec![
+            (40, 6),
+            (54, 6),
+            (60, 12),
+            (61, 12),
+            (62, 12),
+            (76, 12),
+            (79, 12),
+        ]);
+        //FIXME
+    }
+}

@@ -1,7 +1,5 @@
 use crate::{
-    analysis::metrics::{
-        results::MetricResultByBucket,
-    },
+    analysis::results::MetricResultByBucket,
     engine::PropertyOfMetric, metric::{CompleteMetric, CompleteSeriesOutput, complete},
     metric::MetricResultError
 };
