@@ -4,11 +4,12 @@ use crate::{
         values::{Interval, ValueError},
     },
     metric::{
-        FlatMetricShell, JsonMetricShell, ListOfMetrics, MetricWrapper, flat, json, properties
+        FlatMetricShell, JsonMetricShell, ListOfMetrics, MetricWrapper, flat, json, properties,
     },
 };
 use serde::{Deserialize, Serialize};
 
+/// Groups together all metric Json types.
 #[derive(Debug, Clone)]
 pub(crate) struct JsonMetricTypes;
 
@@ -20,8 +21,10 @@ impl ListOfMetrics for JsonMetricTypes {
     type PulsePairTimeDiff = JsonMetricShell<json::PulsePairTimeDiff>;
 }
 
+/// Defines a metric type, should only be created by deserializing JSON object.
 pub(crate) type MetricType = MetricWrapper<JsonMetricTypes>;
 
+/// Groups together all metric properties types.
 #[derive(Debug, Clone)]
 pub(crate) struct PropertyMetricTypes;
 
@@ -33,9 +36,10 @@ impl ListOfMetrics for PropertyMetricTypes {
     type PulsePairTimeDiff = properties::PulsePairTimeDiff;
 }
 
+/// Defines a property of a metric, should only be created from deserializing JSON file.
 pub(crate) type PropertyOfMetric = MetricWrapper<PropertyMetricTypes>;
 
-
+/// Groups together all flat metric types.
 #[derive(Debug, Clone)]
 pub(crate) struct FlatMetricTypes;
 
@@ -47,6 +51,7 @@ impl ListOfMetrics for FlatMetricTypes {
     type PulsePairTimeDiff = FlatMetricShell<flat::PulsePairTimeDiff>;
 }
 
+/// Flattened definition of a metric, should only be created by calling [JsonMetricShell::flatten].
 pub(crate) type FlatMetricType = MetricWrapper<FlatMetricTypes>;
 
 impl Flattenable<&[String]> for MetricType {
@@ -74,17 +79,16 @@ impl Flattenable<&[String]> for MetricType {
     }
 }
 
-
-
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Defines a metric type, should only be created by deserializing JSON object.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Metric {
+    /// Name of metric. This should be unique.
     pub(crate) name: String,
+    /// Whether the metric's results should be saved in JSON format.
     #[serde(default)]
     pub(crate) save_to_json: bool,
+    /// Defines the specific type of the metric.
     #[serde(flatten)]
     pub(crate) metric_type: MetricType,
 }
@@ -95,6 +99,7 @@ impl HasName for Metric {
     }
 }
 
+///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct MetricTypeHistogram {

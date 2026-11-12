@@ -8,7 +8,8 @@ use crate::{
     engine::{FlatBucket, FlatMetricType},
     eventlists::ChannelCollection,
     metric::{
-        CompleteMetric, FlatMetricShell, ListOfMetrics, MetricResultError, MetricWrapper, PartialMetric, PartialMetricShell, partial
+        CompleteMetric, FlatMetricShell, ListOfMetrics, MetricResultError, MetricWrapper,
+        PartialMetric, PartialMetricShell, partial,
     },
 };
 

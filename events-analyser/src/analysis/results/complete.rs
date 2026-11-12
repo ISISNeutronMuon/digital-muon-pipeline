@@ -1,7 +1,10 @@
 use crate::{
     analysis::results::MetricResultByBucket,
     engine::PropertyOfMetric,
-    metric::{CompleteMetric, CompleteSeriesOutput, ListOfMetrics, MetricResultError, MetricWrapper, complete},
+    metric::{
+        CompleteMetric, CompleteSeriesOutput, ListOfMetrics, MetricResultError, MetricWrapper,
+        complete,
+    },
 };
 
 impl<C: CompleteMetric> MetricResultByBucket<C> {

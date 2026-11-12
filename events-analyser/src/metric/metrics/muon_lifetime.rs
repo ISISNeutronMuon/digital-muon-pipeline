@@ -5,12 +5,12 @@
 
 use crate::{
     engine::{MetricTypeHistogram, ValueError},
+    eventlists::ChannelDataByTopic,
     metric::{
         CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric,
-        PartialMetricShell, error::FittingError, utils::Histogram,
-        outputs::PartialSeriesOutput, utils::MeanSD
+        PartialMetricShell, error::FittingError, outputs::PartialSeriesOutput, utils::Histogram,
+        utils::MeanSD,
     },
-    eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
 use nalgebra::DVector;
@@ -22,9 +22,12 @@ use varpro::{
     solvers::levmar::LevMarSolver, statistics::FitStatistics,
 };
 
+/// Defines settings for the `MuonLifetime` metric, that require flatteneing,
+/// that is depend on other items defined in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct JsonMuonLifetime {
+    /// The topic name to listen to for eventlist messages.
     topic: String,
 }
 
@@ -43,9 +46,11 @@ impl JsonMetric for JsonMuonLifetime {
     }
 }
 
+/// Equivalent to settings in [JsonMuonLifetime], after their dependencies have been resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatMuonLifetime {
+    /// The topic index to listen to for eventlist messages.
     topic: usize,
 }
 

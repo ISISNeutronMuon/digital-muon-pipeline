@@ -20,13 +20,19 @@ use crate::{
 };
 use digital_muon_common::Channel;
 
+/// Defines settings for the `FalseCount` metric, that require flatteneing,
+/// that is depend on other items defined in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct JsonFalseCount {
+    /// The topic name to listen to for true eventlist messages.
     true_topic: String,
+    /// The topic name to listen to for estimated eventlist messages.
     estimate_topic: String,
 }
 
+/// Defines settings for the `FalseCount` metric, that do not require flatteneing,
+/// that is they do not depend on other items in the configuration file.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FalseCountSettings {
@@ -55,10 +61,13 @@ impl JsonMetric for JsonFalseCount {
     }
 }
 
+/// Equivalent to settings in [JsonFalseCount], after their dependencies have been resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatFalseCount {
+    /// The topic index to listen to for true eventlist messages.
     true_topic: usize,
+    /// The topic index to listen to for estimated eventlist messages.
     estimate_topic: usize,
 }
 

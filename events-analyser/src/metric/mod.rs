@@ -5,19 +5,16 @@ mod utils;
 
 use crate::{
     engine::{Flattenable, ValueError},
-    eventlists::ChannelDataByTopic
+    eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
 pub(crate) use error::{FittingError, MetricResultError};
+pub(crate) use metrics::{ListOfMetrics, MetricWrapper, complete, flat, json, partial, properties};
 pub(crate) use outputs::{CompleteSeriesOutput, HistogramWithBands, Surface};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
-};
-pub(crate) use metrics::{
-    MetricWrapper, complete, flat, json, partial,
-    properties, ListOfMetrics
 };
 
 pub(crate) trait JsonMetric: Clone + Debug {

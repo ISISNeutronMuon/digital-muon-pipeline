@@ -1,10 +1,12 @@
 use crate::{
     engine::{Interval, MetricTypeHistogram, ValueError},
     eventlists::ChannelDataByTopic,
-    metric::{CompleteMetric, FlattenedMetric, JsonMetric, PartialMetric,
-        error::MetricResultError, FlatMetricShell, PartialMetricShell,
-        outputs::{HistogramWithBands, CompleteSeriesOutput, Surface},
-        utils::{Histogram, SumWithSumOfSqrs}
+    metric::{
+        CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric,
+        PartialMetricShell,
+        error::MetricResultError,
+        outputs::{CompleteSeriesOutput, HistogramWithBands, Surface},
+        utils::{Histogram, SumWithSumOfSqrs},
     },
 };
 use digital_muon_common::{Channel, Intensity, Time};
@@ -13,6 +15,8 @@ use num::{Float, Zero};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Defines settings for the `PulsePairTimeDiff` metric, that do not require flatteneing,
+/// that is they do not depend on other items in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PulsePairTimeDiffSettings {
@@ -25,9 +29,12 @@ pub(crate) struct PulsePairTimeDiffSettings {
     normaliser: Interval<usize>,
 }
 
+/// Defines settings for the `PulsePairTimeDiff` metric, that require flatteneing,
+/// that is depend on other items defined in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct JsonPulsePairTimeDiff {
+    /// The topic name to listen to for eventlist messages.
     topic: String,
 }
 
@@ -46,9 +53,11 @@ impl JsonMetric for JsonPulsePairTimeDiff {
     }
 }
 
+/// Equivalent to settings in [JsonPulsePairTimeDiff], after their dependencies have been resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatPulsePairTimeDiff {
+    /// The topic index to listen to for eventlist messages.
     topic: usize,
 }
 

@@ -17,9 +17,12 @@ use crate::{
 };
 use digital_muon_common::Channel;
 
+/// Defines settings for the `EventCount` metric, that require flatteneing,
+/// that is depend on other items defined in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct JsonEventCount {
+    /// The topic name to listen to for eventlist messages.
     topic: String,
 }
 
@@ -38,9 +41,11 @@ impl JsonMetric for JsonEventCount {
     }
 }
 
+/// Equivalent to settings in [JsonEventCount], after their dependencies have been resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatEventCount {
+    /// The topic index to listen to for eventlist messages.
     topic: usize,
 }
 
