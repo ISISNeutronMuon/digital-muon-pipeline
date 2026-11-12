@@ -5,15 +5,13 @@ mod values;
 pub(crate) use crate::{
     engine::{
         elements::{
-            Chart, FlatBucket, FlatBucketBlock, FlatChart,
-            FlatMetric, FlatPage,
-            FlatSeries, Metric, MetricTypeHistogram, Page, PageError,
-            SeriesType,
+            Chart, FlatBucket, FlatBucketBlock, FlatChart, FlatMetric, FlatPage, FlatSeries,
+            Metric, MetricTypeHistogram, Page, PageError, SeriesType,
         },
         settings::{AnalysisSettings, Array, Templates},
-        values::{Interval, ValueError}
+        values::{Interval, ValueError},
     },
-    metric::{PropertyOfMetric, FlatMetricType},
+    metric::{FlatMetricType, PropertyOfMetric},
 };
 
 /// Provides methods for flattening dependencies.

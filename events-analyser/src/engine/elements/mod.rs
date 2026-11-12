@@ -12,9 +12,7 @@ pub(crate) use {
     },
     chart::{Chart, ChartError, FlatChart},
     criteria::CriteriaTemplate,
-    metric::{
-        FlatMetric, Metric, MetricTypeHistogram
-    },
+    metric::{FlatMetric, Metric, MetricTypeHistogram},
     page::{FlatPage, Page, PageError},
     series::{FlatSeries, SeriesType},
 };

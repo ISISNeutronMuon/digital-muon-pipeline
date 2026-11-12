@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) enum PartialSeriesOutput {
     Value(Option<f64>),
     ValueWithErrors(Option<(f64, f64)>),
-    LabelledGroup(Vec<(f64,String)>)
+    LabelledGroup(Vec<(f64, String)>),
 }
 
 impl FromIterator<PartialSeriesOutput> for Option<CompleteSeriesOutput> {
@@ -14,23 +14,34 @@ impl FromIterator<PartialSeriesOutput> for Option<CompleteSeriesOutput> {
             |series: Option<CompleteSeriesOutput>, value: PartialSeriesOutput| match series {
                 Some(mut series) => {
                     match (&mut series, value) {
-                        (CompleteSeriesOutput::Value(vec), PartialSeriesOutput::Value(value)) => vec.push(value),
-                        (CompleteSeriesOutput::ValueWithErrors(vec), PartialSeriesOutput::ValueWithErrors(value)) => vec.push(value),
-                        (CompleteSeriesOutput::LabelledGroup(vec), PartialSeriesOutput::LabelledGroup(value)) => vec.push(Some(value)),
-                        _ => unreachable!()
+                        (CompleteSeriesOutput::Value(vec), PartialSeriesOutput::Value(value)) => {
+                            vec.push(value)
+                        }
+                        (
+                            CompleteSeriesOutput::ValueWithErrors(vec),
+                            PartialSeriesOutput::ValueWithErrors(value),
+                        ) => vec.push(value),
+                        (
+                            CompleteSeriesOutput::LabelledGroup(vec),
+                            PartialSeriesOutput::LabelledGroup(value),
+                        ) => vec.push(Some(value)),
+                        _ => unreachable!(),
                     }
                     Some(series)
                 }
                 None => Some(match value {
                     PartialSeriesOutput::Value(value) => CompleteSeriesOutput::Value(vec![value]),
-                    PartialSeriesOutput::ValueWithErrors(value) => CompleteSeriesOutput::ValueWithErrors(vec![value]),
-                    PartialSeriesOutput::LabelledGroup(value) => CompleteSeriesOutput::LabelledGroup(vec![Some(value)]),
+                    PartialSeriesOutput::ValueWithErrors(value) => {
+                        CompleteSeriesOutput::ValueWithErrors(vec![value])
+                    }
+                    PartialSeriesOutput::LabelledGroup(value) => {
+                        CompleteSeriesOutput::LabelledGroup(vec![Some(value)])
+                    }
                 }),
             },
         )
     }
 }
-
 
 impl FromIterator<CompleteSeriesOutput> for Option<CompleteSeriesOutput> {
     fn from_iter<T: IntoIterator<Item = CompleteSeriesOutput>>(iter: T) -> Self {
@@ -44,14 +55,13 @@ impl FromIterator<CompleteSeriesOutput> for Option<CompleteSeriesOutput> {
     }
 }
 
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) enum CompleteSeriesOutput {
     Value(Vec<Option<f64>>),
     ValueWithErrors(Vec<Option<(f64, f64)>>),
-    LabelledGroup(Vec<Option<Vec<(f64,String)>>>),
+    LabelledGroup(Vec<Option<Vec<(f64, String)>>>),
     Histogram(HistogramWithBands),
-    HeatMap(Surface)
+    HeatMap(Surface),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

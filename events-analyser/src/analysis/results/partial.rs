@@ -2,16 +2,18 @@ use crate::{
     analysis::{
         BucketIndex,
         results::{
-            MetricResultBucketWrapper, MetricResultByBucket,
-            complete::CompletedMetricResult,
+            MetricResultBucketWrapper, MetricResultByBucket, complete::CompletedMetricResult,
         },
     },
     engine::{FlatBucket, FlatMetricType},
-    eventlists::ChannelCollection, metric::{CompleteMetric, FlatMetricShell, MetricResultError, MetricWrapper, PartialMetric, PartialMetricShell, partial},
+    eventlists::ChannelCollection,
+    metric::{
+        CompleteMetric, FlatMetricShell, MetricResultError, MetricWrapper, PartialMetric,
+        PartialMetricShell, partial,
+    },
 };
 
-impl<C: PartialMetric> MetricResultBucketWrapper<PartialMetricShell<C>>
-{
+impl<C: PartialMetric> MetricResultBucketWrapper<PartialMetricShell<C>> {
     /// Create a new and empty partial results storage object.
     pub(crate) fn new(source: &FlatMetricShell<<C as PartialMetric>::Source>) -> Self {
         Self {
@@ -31,7 +33,7 @@ impl<C: PartialMetric> MetricResultBucketWrapper<PartialMetricShell<C>>
     }
 
     /// Create aggregated version of this type.
-    pub(crate) fn aggregate<C2 : CompleteMetric<Partial = C>>(
+    pub(crate) fn aggregate<C2: CompleteMetric<Partial = C>>(
         &self,
     ) -> Result<MetricResultBucketWrapper<C2>, C2::Error> {
         Ok(MetricResultBucketWrapper {
@@ -43,7 +45,7 @@ impl<C: PartialMetric> MetricResultBucketWrapper<PartialMetricShell<C>>
 
 impl<P> MetricResultByBucket<PartialMetricShell<P>>
 where
-    P: PartialMetric
+    P: PartialMetric,
 {
     /// Create new instance from a `Source` instance and a list of the number of buckets in each block.
     ///
@@ -53,7 +55,9 @@ where
     pub(super) fn new(source: FlatMetricShell<P::Source>, bucket_block_sizes: &[usize]) -> Self {
         let by_bucket = bucket_block_sizes
             .iter()
-            .map(|size| vec![MetricResultBucketWrapper::<PartialMetricShell<P>>::new(&source); *size])
+            .map(|size| {
+                vec![MetricResultBucketWrapper::<PartialMetricShell<P>>::new(&source); *size]
+            })
             .collect::<Vec<_>>();
         Self { by_bucket }
     }
@@ -76,7 +80,10 @@ where
     ///
     /// # Parameters
     /// - bucket_index: the bucket to obtain.
-    fn get_bucket_mut(&mut self, bucket_index: BucketIndex) -> &mut MetricResultBucketWrapper<PartialMetricShell<P>> {
+    fn get_bucket_mut(
+        &mut self,
+        bucket_index: BucketIndex,
+    ) -> &mut MetricResultBucketWrapper<PartialMetricShell<P>> {
         self.by_bucket
             .get_mut(bucket_index.block_index)
             .expect("Block index should be valid, this should never fail")
@@ -107,7 +114,7 @@ where
         }
     }
 
-    pub(super) fn aggregate<C : CompleteMetric<Partial = P>>(
+    pub(super) fn aggregate<C: CompleteMetric<Partial = P>>(
         &self,
     ) -> Result<MetricResultByBucket<C>, C::Error> {
         Ok(MetricResultByBucket {
@@ -137,56 +144,51 @@ pub(crate) type PartialMetricResult = MetricWrapper<
 impl PartialMetricResult {
     pub(crate) fn new(source: FlatMetricType, bucket_block_sizes: &[usize]) -> Self {
         source.map(
-            |this|MetricResultByBucket::new(this, bucket_block_sizes),
-            |this|MetricResultByBucket::new(this, bucket_block_sizes),
-            |this|MetricResultByBucket::new(this, bucket_block_sizes),
-            |this|MetricResultByBucket::new(this, bucket_block_sizes),
-            |this|MetricResultByBucket::new(this, bucket_block_sizes)
+            |this| MetricResultByBucket::new(this, bucket_block_sizes),
+            |this| MetricResultByBucket::new(this, bucket_block_sizes),
+            |this| MetricResultByBucket::new(this, bucket_block_sizes),
+            |this| MetricResultByBucket::new(this, bucket_block_sizes),
+            |this| MetricResultByBucket::new(this, bucket_block_sizes),
         )
     }
 
     pub(crate) fn are_buckets_full_enough(&self, block: usize, min: &[FlatBucket]) -> bool {
-        self.as_ref()
-            .fold(
-            |this|this.are_buckets_full_enough(block, min),
-            |this|this.are_buckets_full_enough(block, min),
-            |this|this.are_buckets_full_enough(block, min),
-            |this|this.are_buckets_full_enough(block, min),
-            |this|this.are_buckets_full_enough(block, min)
+        self.as_ref().fold(
+            |this| this.are_buckets_full_enough(block, min),
+            |this| this.are_buckets_full_enough(block, min),
+            |this| this.are_buckets_full_enough(block, min),
+            |this| this.are_buckets_full_enough(block, min),
+            |this| this.are_buckets_full_enough(block, min),
         )
     }
 
     pub(crate) fn push(&mut self, bucket_index: BucketIndex, collection: &ChannelCollection) {
-        self.as_mut()
-            .fold(
-            |this|this.push(bucket_index, collection),
-            |this|this.push(bucket_index, collection),
-            |this|this.push(bucket_index, collection),
-            |this|this.push(bucket_index, collection),
-            |this|this.push(bucket_index, collection)
+        self.as_mut().fold(
+            |this| this.push(bucket_index, collection),
+            |this| this.push(bucket_index, collection),
+            |this| this.push(bucket_index, collection),
+            |this| this.push(bucket_index, collection),
+            |this| this.push(bucket_index, collection),
         )
     }
 
     pub(crate) fn build_aggregate(&self) -> Result<CompletedMetricResult, MetricResultError> {
-        self.as_ref()
-            .try_map(
+        self.as_ref().try_map(
             MetricResultByBucket::aggregate,
             MetricResultByBucket::aggregate,
             MetricResultByBucket::aggregate,
             MetricResultByBucket::aggregate,
-            MetricResultByBucket::aggregate
+            MetricResultByBucket::aggregate,
         )
     }
 
     pub(crate) fn load_data(&mut self, source: &Self) -> Result<(), MetricResultError> {
-        self.as_mut()
-        .zip(source.as_ref())
-        .fold(
-            |(metric_result_by_bucket, source)|metric_result_by_bucket.load_data(source),
-            |(metric_result_by_bucket, source)|metric_result_by_bucket.load_data(source),
-            |(metric_result_by_bucket, source)|metric_result_by_bucket.load_data(source),
-            |(metric_result_by_bucket, source)|metric_result_by_bucket.load_data(source),
-            |(metric_result_by_bucket, source)|metric_result_by_bucket.load_data(source)
+        self.as_mut().zip(source.as_ref()).fold(
+            |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
+            |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
+            |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
+            |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
+            |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
         );
         Ok(())
     }

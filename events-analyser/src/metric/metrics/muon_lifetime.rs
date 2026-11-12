@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     engine::{MetricTypeHistogram, ValueError},
-    metric::{CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric, PartialMetricShell, error::FittingError, utils::Histogram}
+    metric::{
+        CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric,
+        PartialMetricShell, error::FittingError, utils::Histogram,
+    },
 };
 
 use digital_muon_common::Channel;
@@ -15,12 +18,10 @@ use varpro::{
     solvers::levmar::LevMarSolver, statistics::FitStatistics,
 };
 
-
 use crate::{
-    metric::{utils::MeanSD, outputs::PartialSeriesOutput},
     eventlists::ChannelDataByTopic,
+    metric::{outputs::PartialSeriesOutput, utils::MeanSD},
 };
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -38,7 +39,7 @@ impl JsonMetric for JsonMuonLifetime {
                 .iter()
                 .enumerate()
                 .find_map(|(index, this_topic)| (*this_topic == self.topic).then_some(index))
-                .expect("This should never fail.")
+                .expect("This should never fail."),
         })
     }
 }
@@ -62,7 +63,12 @@ pub(crate) struct PartialMuonLifetime {
 impl PartialMetric for PartialMuonLifetime {
     type Source = FlatMuonLifetime;
 
-    fn push(&mut self, source: &FlatMetricShell<Self::Source>, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
+    fn push(
+        &mut self,
+        source: &FlatMetricShell<Self::Source>,
+        channel: Channel,
+        collection_by_topic: &ChannelDataByTopic,
+    ) {
         for (time, _) in collection_by_topic
             .get(source.flat.topic)
             .expect("Topic should exist, this should never fail.")
@@ -75,11 +81,6 @@ impl PartialMetric for PartialMuonLifetime {
         }
     }
 }
-
-
-
-
-
 
 /// Estimates the lifetime of the muon decay process responsible for the event times.
 ///
@@ -195,7 +196,7 @@ impl CompleteMetric for CompletedMuonLifetime {
     type Partial = PartialMuonLifetime;
     type Error = FittingError;
     type Property = MuonLifetimeProperty;
-    
+
     type Output = PartialSeriesOutput;
 
     fn aggregate(source: &PartialMetricShell<Self::Partial>) -> Result<Self, Self::Error> {
@@ -221,16 +222,18 @@ impl CompleteMetric for CompletedMuonLifetime {
                     .ok_or(FittingError::NoValue)?
                     .mean,
             ))),
-            MuonLifetimeProperty::TotalMeanWithSd => Ok(PartialSeriesOutput::ValueWithErrors(Some((
-                self.total_lifetime
-                    .as_ref()
-                    .ok_or(FittingError::NoValue)?
-                    .mean,
-                self.total_lifetime
-                    .as_ref()
-                    .ok_or(FittingError::NoValue)?
-                    .sd,
-            )))),
+            MuonLifetimeProperty::TotalMeanWithSd => {
+                Ok(PartialSeriesOutput::ValueWithErrors(Some((
+                    self.total_lifetime
+                        .as_ref()
+                        .ok_or(FittingError::NoValue)?
+                        .mean,
+                    self.total_lifetime
+                        .as_ref()
+                        .ok_or(FittingError::NoValue)?
+                        .sd,
+                ))))
+            }
             MuonLifetimeProperty::ChannelsBoxPlot => Ok(PartialSeriesOutput::LabelledGroup(
                 self.lifetime
                     .iter()
@@ -243,14 +246,12 @@ impl CompleteMetric for CompletedMuonLifetime {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        metric::utils::Histogram,
         engine::{Interval, MetricTypeHistogram},
+        metric::utils::Histogram,
     };
 
     #[test]
@@ -265,14 +266,15 @@ mod tests {
         });
         histogram.set(histogram_counts.to_vec());
 
-        let source = FlatMuonLifetime { topic: 1, }.to_shell(MetricTypeHistogram {
+        let source = FlatMuonLifetime { topic: 1 }.to_shell(MetricTypeHistogram {
             num_bins: 10,
             interval,
         });
         let partial = PartialMuonLifetime {
             histogram: [(0, histogram)].into_iter().collect::<HashMap<_, _>>(),
-        }.to_shell(source, vec![]);
-        
+        }
+        .to_shell(source, vec![]);
+
         let result = CompletedMuonLifetime::aggregate(&partial);
         assert!(result.is_ok());
         let result = result.unwrap();
@@ -298,13 +300,14 @@ mod tests {
         });
         histogram.set(histogram_counts.to_vec());
 
-        let source = FlatMuonLifetime { topic: 1, }.to_shell(MetricTypeHistogram {
+        let source = FlatMuonLifetime { topic: 1 }.to_shell(MetricTypeHistogram {
             num_bins: 10,
             interval,
         });
         let partial = PartialMuonLifetime {
             histogram: [(0, histogram)].into_iter().collect::<HashMap<_, _>>(),
-        }.to_shell(source, vec![]);
+        }
+        .to_shell(source, vec![]);
 
         let result = CompletedMuonLifetime::aggregate(&partial);
         assert!(result.is_ok());

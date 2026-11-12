@@ -3,38 +3,43 @@ mod metrics;
 mod outputs;
 mod utils;
 
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use crate::{
+    engine::{Flattenable, ValueError},
+    eventlists::ChannelDataByTopic,
+};
 use digital_muon_common::Channel;
-use crate::{engine::{Flattenable, ValueError}, eventlists::ChannelDataByTopic};
-use std::{fmt::Debug, ops::{Deref, DerefMut}};
+pub(crate) use error::{FittingError, MetricResultError};
 pub(crate) use outputs::{CompleteSeriesOutput, HistogramWithBands, Surface};
-pub(crate) use error::{MetricResultError, FittingError};
-
-pub(crate) use metrics::{
-    json, flat, partial, complete, properties,
-    MetricType, MetricWrapper, FlatMetricType, PropertyOfMetric
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::{
+    fmt::Debug,
+    ops::{Deref, DerefMut},
 };
 
-pub(crate) trait JsonMetric : Clone + Debug {
+pub(crate) use metrics::{
+    FlatMetricType, MetricType, MetricWrapper, PropertyOfMetric, complete, flat, json, partial,
+    properties,
+};
+
+pub(crate) trait JsonMetric: Clone + Debug {
     type Flattened: FlattenedMetric<Json = Self>;
-    type Settings : Clone + Debug + Serialize + DeserializeOwned;
+    type Settings: Clone + Debug + Serialize + DeserializeOwned;
 
     fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ValueError>;
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "T: Serialize + DeserializeOwned")]
-pub(crate) struct JsonMetricShell<T : JsonMetric> {
+pub(crate) struct JsonMetricShell<T: JsonMetric> {
     #[serde(flatten)]
     json: T,
     #[serde(flatten)]
     settings: T::Settings,
 }
 
-pub(crate) trait FlattenedMetric : Clone + Debug + Serialize + DeserializeOwned {
+pub(crate) trait FlattenedMetric: Clone + Debug + Serialize + DeserializeOwned {
     type Json: JsonMetric<Flattened = Self>;
-    
+
     #[cfg(test)]
     fn to_shell(self, settings: <Self::Json as JsonMetric>::Settings) -> FlatMetricShell<Self> {
         FlatMetricShell {
@@ -46,13 +51,13 @@ pub(crate) trait FlattenedMetric : Clone + Debug + Serialize + DeserializeOwned 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "T: Serialize + DeserializeOwned")]
-pub(crate) struct FlatMetricShell<T : FlattenedMetric> {
-    flat : T,
+pub(crate) struct FlatMetricShell<T: FlattenedMetric> {
+    flat: T,
     #[serde(flatten)]
     settings: <T::Json as JsonMetric>::Settings,
 }
 
-impl<T : FlattenedMetric> Deref for FlatMetricShell<T> {
+impl<T: FlattenedMetric> Deref for FlatMetricShell<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -60,7 +65,10 @@ impl<T : FlattenedMetric> Deref for FlatMetricShell<T> {
     }
 }
 
-impl<T> Flattenable<&[String]> for JsonMetricShell<T> where T: JsonMetric {
+impl<T> Flattenable<&[String]> for JsonMetricShell<T>
+where
+    T: JsonMetric,
+{
     type Flat = FlatMetricShell<T::Flattened>;
     type Error = ValueError;
 
@@ -75,13 +83,22 @@ impl<T> Flattenable<&[String]> for JsonMetricShell<T> where T: JsonMetric {
 pub(crate) trait PartialMetric: Default + Clone {
     type Source: FlattenedMetric;
 
-    fn push(&mut self, source: &FlatMetricShell<Self::Source>, channel: Channel, collection_by_topic: &ChannelDataByTopic);
+    fn push(
+        &mut self,
+        source: &FlatMetricShell<Self::Source>,
+        channel: Channel,
+        collection_by_topic: &ChannelDataByTopic,
+    );
     fn load_data(&mut self, data_source: &Self) {
         *self = data_source.clone();
     }
 
     #[cfg(test)]
-    fn to_shell(self, source: FlatMetricShell<Self::Source>, notifications: Vec<String>) -> PartialMetricShell<Self> {
+    fn to_shell(
+        self,
+        source: FlatMetricShell<Self::Source>,
+        notifications: Vec<String>,
+    ) -> PartialMetricShell<Self> {
         PartialMetricShell {
             source,
             notifications,
@@ -92,13 +109,13 @@ pub(crate) trait PartialMetric: Default + Clone {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "P: Serialize + DeserializeOwned")]
-pub(crate) struct PartialMetricShell<P : PartialMetric> {
+pub(crate) struct PartialMetricShell<P: PartialMetric> {
     source: FlatMetricShell<P::Source>,
     notifications: Vec<String>,
     inner: P,
 }
 
-impl<P : PartialMetric> PartialMetricShell<P> {
+impl<P: PartialMetric> PartialMetricShell<P> {
     pub(crate) fn make_default(source: &FlatMetricShell<P::Source>) -> Self {
         Self {
             source: source.clone(),
@@ -118,7 +135,7 @@ impl<P : PartialMetric> PartialMetricShell<P> {
     }
 }
 
-impl<P : PartialMetric> Deref for PartialMetricShell<P> {
+impl<P: PartialMetric> Deref for PartialMetricShell<P> {
     type Target = P;
 
     fn deref(&self) -> &Self::Target {
@@ -126,13 +143,13 @@ impl<P : PartialMetric> Deref for PartialMetricShell<P> {
     }
 }
 
-impl<P : PartialMetric> DerefMut for PartialMetricShell<P> {
+impl<P: PartialMetric> DerefMut for PartialMetricShell<P> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-pub(crate) trait CompleteMetric : Sized {
+pub(crate) trait CompleteMetric: Sized {
     /// The corresponding partial results type.
     type Partial: PartialMetric;
     /// Error type.

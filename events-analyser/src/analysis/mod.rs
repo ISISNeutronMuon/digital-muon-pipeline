@@ -5,10 +5,10 @@ mod chart_page;
 mod results;
 
 use crate::{
-    metric::MetricResultError,
-    analysis::{chart_page::PageOutputError},
+    analysis::chart_page::PageOutputError,
     engine::{AnalysisSettings, FlatBucketBlock, FlatPage},
     eventlists::EventlistsCollection,
+    metric::MetricResultError,
 };
 use chrono::{DateTime, ParseError, TimeDelta, Utc};
 use digital_muon_common::{

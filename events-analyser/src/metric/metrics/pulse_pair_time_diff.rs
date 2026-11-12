@@ -5,15 +5,16 @@ use num::{Float, Zero};
 use serde::{Deserialize, Serialize};
 
 use crate::engine::{Interval, MetricTypeHistogram, ValueError};
-use crate::metric::{FlatMetricShell, PartialMetricShell};
 use crate::metric::outputs::{HistogramWithBands, Surface};
 use crate::metric::utils::Histogram;
-use crate::metric::{CompleteMetric, FlattenedMetric, JsonMetric, error::MetricResultError, PartialMetric};
-
+use crate::metric::{
+    CompleteMetric, FlattenedMetric, JsonMetric, PartialMetric, error::MetricResultError,
+};
+use crate::metric::{FlatMetricShell, PartialMetricShell};
 
 use crate::{
-    metric::{utils::SumWithSumOfSqrs, outputs::CompleteSeriesOutput},
     eventlists::ChannelDataByTopic,
+    metric::{outputs::CompleteSeriesOutput, utils::SumWithSumOfSqrs},
 };
 use digital_muon_common::{Channel, Intensity, Time};
 
@@ -28,7 +29,6 @@ pub(crate) struct PulsePairTimeDiffSettings {
     /// Normalise the histogram by the average of values from this interval.
     normaliser: Interval<usize>,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -54,7 +54,7 @@ impl JsonMetric for JsonPulsePairTimeDiff {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatPulsePairTimeDiff {
-    topic: usize
+    topic: usize,
 }
 
 impl FlattenedMetric for FlatPulsePairTimeDiff {
@@ -70,7 +70,12 @@ pub(crate) struct PartialPulsePairTimeDiff {
 impl PartialMetric for PartialPulsePairTimeDiff {
     type Source = FlatPulsePairTimeDiff;
 
-    fn push(&mut self, source: &FlatMetricShell<Self::Source>, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
+    fn push(
+        &mut self,
+        source: &FlatMetricShell<Self::Source>,
+        channel: Channel,
+        collection_by_topic: &ChannelDataByTopic,
+    ) {
         let time_diffs = collection_by_topic
             .get(source.flat.topic)
             .expect("This should never fail.")
@@ -284,24 +289,22 @@ impl CompleteMetric for CompletedPulsePairTimeDiff {
                 central: self.mean.clone(),
                 bands: Some((self.sd.clone(), self.sd.clone())),
             }),
-            Self::Property::MeanBounds => {
-                CompleteSeriesOutput::Histogram(HistogramWithBands {
-                    labels: self.labels.clone(),
-                    central: self.sum.clone(),
-                    bands: Some((
-                        self.upper
-                            .iter()
-                            .zip(self.sum.iter())
-                            .map(|(upper, sum)| upper - sum)
-                            .collect(),
-                        self.lower
-                            .iter()
-                            .zip(self.sd.iter())
-                            .map(|(lower, sum)| sum - lower)
-                            .collect(),
-                    )),
-                })
-            }
+            Self::Property::MeanBounds => CompleteSeriesOutput::Histogram(HistogramWithBands {
+                labels: self.labels.clone(),
+                central: self.sum.clone(),
+                bands: Some((
+                    self.upper
+                        .iter()
+                        .zip(self.sum.iter())
+                        .map(|(upper, sum)| upper - sum)
+                        .collect(),
+                    self.lower
+                        .iter()
+                        .zip(self.sd.iter())
+                        .map(|(lower, sum)| sum - lower)
+                        .collect(),
+                )),
+            }),
             Self::Property::ChannelHeatMap => CompleteSeriesOutput::HeatMap(Surface {
                 x_values: self.labels.clone(),
                 y_values: self.channels.clone(),

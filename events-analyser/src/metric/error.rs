@@ -14,7 +14,6 @@ pub(crate) enum MetricResultError {
     LoadingDataWrongMetrics,
 }
 
-
 #[derive(Debug, Error)]
 pub(crate) enum FittingError {
     #[error("{0}")]

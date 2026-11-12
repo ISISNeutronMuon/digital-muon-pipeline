@@ -26,13 +26,11 @@ subgraph "Metrics"
     metrics["Metrics"]
     metrics_block_store["Metric Block Store"]
     metrics_bucket_store["Metric Bucket Store"]
-    
     subgraph "Buckets"
         bucket_blocks["Bucket Blocks"]
         buckets["Buckets"]
         bucket_blocks ||--|{ buckets : has
     end
-
     metrics ||--|{ metrics_block_store : has
     metrics_block_store ||--|{ metrics_bucket_store : has
 end

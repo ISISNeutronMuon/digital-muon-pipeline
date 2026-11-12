@@ -1,7 +1,12 @@
-use crate::{engine::{
-    Flattenable, HasName,
-    values::{Interval, ValueError},
-}, metric::{FlatMetricShell, FlatMetricType, JsonMetricShell, MetricType, flat, json, properties}};
+use crate::{
+    engine::{
+        Flattenable, HasName,
+        values::{Interval, ValueError},
+    },
+    metric::{
+        FlatMetricShell, FlatMetricType, JsonMetricShell, MetricType, flat, json, properties,
+    },
+};
 use serde::{Deserialize, Serialize};
 
 ///

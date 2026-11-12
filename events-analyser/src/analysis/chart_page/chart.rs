@@ -1,8 +1,7 @@
 use crate::{
-    analysis::{
-        chart_page::TraceExt,
-        results::CompletedMetricResult,
-    }, engine::{FlatChart, FlatSeries, SeriesType}, metric::{Surface, HistogramWithBands, CompleteSeriesOutput, FittingError, MetricResultError}
+    analysis::{chart_page::TraceExt, results::CompletedMetricResult},
+    engine::{FlatChart, FlatSeries, SeriesType},
+    metric::{CompleteSeriesOutput, FittingError, HistogramWithBands, MetricResultError, Surface},
 };
 use num::Integer;
 use plotly::{
@@ -272,13 +271,13 @@ impl ChartOutput {
         series: &FlatSeries,
         surface: &Surface,
     ) -> Box<dyn Trace> {
-            HeatMap::new(
-                surface.x_values.clone(),
-                surface.y_values.clone(),
-                surface.data.clone(),
-            )
-            .apply_settings(series)
-            .transpose(false) as Box<dyn Trace>
+        HeatMap::new(
+            surface.x_values.clone(),
+            surface.y_values.clone(),
+            surface.data.clone(),
+        )
+        .apply_settings(series)
+        .transpose(false) as Box<dyn Trace>
     }
 
     pub(crate) fn build_plotly_trace(

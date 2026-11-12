@@ -6,12 +6,17 @@ use serde::{Deserialize, Serialize};
 use crate::engine::ValueError;
 use crate::event::ChannelData;
 use crate::metric::utils::GroupDataBy;
+use crate::metric::{
+    CompleteMetric, FlattenedMetric, JsonMetric, PartialMetric, error::MetricResultError,
+};
 use crate::metric::{FlatMetricShell, PartialMetricShell};
-use crate::metric::{CompleteMetric, FlattenedMetric, JsonMetric, error::MetricResultError, PartialMetric};
 
 use crate::{
-    metric::{utils::{MeanSD, SumWithSumOfSqrs}, outputs::PartialSeriesOutput},
     eventlists::ChannelDataByTopic,
+    metric::{
+        outputs::PartialSeriesOutput,
+        utils::{MeanSD, SumWithSumOfSqrs},
+    },
 };
 use digital_muon_common::Channel;
 
@@ -42,7 +47,9 @@ impl JsonMetric for JsonFalseCount {
             estimate_topic: library
                 .iter()
                 .enumerate()
-                .find_map(|(index, this_topic)| (*this_topic == self.estimate_topic).then_some(index))
+                .find_map(|(index, this_topic)| {
+                    (*this_topic == self.estimate_topic).then_some(index)
+                })
                 .expect("This should never fail."),
         })
     }
@@ -58,7 +65,6 @@ pub(crate) struct FlatFalseCount {
 impl FlattenedMetric for FlatFalseCount {
     type Json = JsonFalseCount;
 }
-
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 #[serde(bound = "T: Serialize + DeserializeOwned")]
@@ -113,7 +119,6 @@ impl From<&FalseCountValues<SumWithSumOfSqrs>> for FalseCountValues<MeanSD> {
     }
 }
 
-
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PartialFalseCount {
@@ -148,10 +153,16 @@ impl PartialFalseCount {
 impl PartialMetric for PartialFalseCount {
     type Source = FlatFalseCount;
 
-    fn push(&mut self, source: &FlatMetricShell<Self::Source>, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
+    fn push(
+        &mut self,
+        source: &FlatMetricShell<Self::Source>,
+        channel: Channel,
+        collection_by_topic: &ChannelDataByTopic,
+    ) {
         // true_by_estimates is indexed by the detected events, and the corresponding element is the list of true events that have been associated to it
         // rejected_true is the list of all true events that are not associated with any detected events.
-        let (true_by_estimates, rejected_true) = self.sort_true_by_estimates(source, collection_by_topic);
+        let (true_by_estimates, rejected_true) =
+            self.sort_true_by_estimates(source, collection_by_topic);
 
         let ambiguous_true_positives: usize = true_by_estimates
             .iter()
@@ -223,68 +234,82 @@ impl CompleteMetric for CompletedFalseCount {
 
     fn get_property(&self, property: Self::Property) -> Result<Self::Output, Self::Error> {
         match property {
-            FalseCountProperty::TotalFalsePositivesMean => {
-                Ok(PartialSeriesOutput::Value(Some(self.total.false_positives.mean)))
-            }
-            FalseCountProperty::TotalFalsePositivesSd => Ok(PartialSeriesOutput::ValueWithErrors(Some((
+            FalseCountProperty::TotalFalsePositivesMean => Ok(PartialSeriesOutput::Value(Some(
                 self.total.false_positives.mean,
-                self.total.false_positives.sd,
-            )))),
-            FalseCountProperty::TotalFalseNegativesMean => {
-                Ok(PartialSeriesOutput::Value(Some(self.total.false_negatives.mean)))
-            }
-            FalseCountProperty::TotalFalseNegativesSd => Ok(PartialSeriesOutput::ValueWithErrors(Some((
-                self.total.false_negatives.mean,
-                self.total.false_negatives.sd,
-            )))),
-            FalseCountProperty::TotalTruePositivesMean => {
-                Ok(PartialSeriesOutput::Value(Some(self.total.true_positives.mean)))
-            }
-            FalseCountProperty::TotalTruePositivesSd => Ok(PartialSeriesOutput::ValueWithErrors(Some((
-                self.total.true_positives.mean,
-                self.total.true_positives.sd,
-            )))),
-            FalseCountProperty::TotalAmbiguousTruePositivesMean => Ok(PartialSeriesOutput::Value(Some(
-                self.total.ambiguous_true_positives.mean,
             ))),
+            FalseCountProperty::TotalFalsePositivesSd => {
+                Ok(PartialSeriesOutput::ValueWithErrors(Some((
+                    self.total.false_positives.mean,
+                    self.total.false_positives.sd,
+                ))))
+            }
+            FalseCountProperty::TotalFalseNegativesMean => Ok(PartialSeriesOutput::Value(Some(
+                self.total.false_negatives.mean,
+            ))),
+            FalseCountProperty::TotalFalseNegativesSd => {
+                Ok(PartialSeriesOutput::ValueWithErrors(Some((
+                    self.total.false_negatives.mean,
+                    self.total.false_negatives.sd,
+                ))))
+            }
+            FalseCountProperty::TotalTruePositivesMean => Ok(PartialSeriesOutput::Value(Some(
+                self.total.true_positives.mean,
+            ))),
+            FalseCountProperty::TotalTruePositivesSd => Ok(PartialSeriesOutput::ValueWithErrors(
+                Some((self.total.true_positives.mean, self.total.true_positives.sd)),
+            )),
+            FalseCountProperty::TotalAmbiguousTruePositivesMean => Ok(PartialSeriesOutput::Value(
+                Some(self.total.ambiguous_true_positives.mean),
+            )),
             FalseCountProperty::TotalAmbiguousTruePositivesSd => {
                 Ok(PartialSeriesOutput::ValueWithErrors(Some((
                     self.total.ambiguous_true_positives.mean,
                     self.total.ambiguous_true_positives.sd,
                 ))))
             }
-            FalseCountProperty::ChannelsAmbiguousTruePositivesBoxPlot => Ok(PartialSeriesOutput::LabelledGroup(
-                self.channels
-                    .iter()
-                    .map(|(channel, stats)| {
-                        (stats.ambiguous_true_positives.mean, format!("Channel {channel}"))
-                    })
-                    .collect(),
-            )),
-            FalseCountProperty::ChannelsFalseNegativesBoxPlot => Ok(PartialSeriesOutput::LabelledGroup(
-                self.channels
-                    .iter()
-                    .map(|(channel, stats)| {
-                        (stats.false_negatives.mean, format!("Channel {channel}"))
-                    })
-                    .collect(),
-            )),
-            FalseCountProperty::ChannelsFalsePositivesBoxPlot => Ok(PartialSeriesOutput::LabelledGroup(
-                self.channels
-                    .iter()
-                    .map(|(channel, stats)| {
-                        (stats.false_positives.mean, format!("Channel {channel}"))
-                    })
-                    .collect(),
-            )),
-            FalseCountProperty::ChannelsTruePositivesBoxPlot => Ok(PartialSeriesOutput::LabelledGroup(
-                self.channels
-                    .iter()
-                    .map(|(channel, stats)| {
-                        (stats.true_positives.mean, format!("Channel {channel}"))
-                    })
-                    .collect(),
-            )),
+            FalseCountProperty::ChannelsAmbiguousTruePositivesBoxPlot => {
+                Ok(PartialSeriesOutput::LabelledGroup(
+                    self.channels
+                        .iter()
+                        .map(|(channel, stats)| {
+                            (
+                                stats.ambiguous_true_positives.mean,
+                                format!("Channel {channel}"),
+                            )
+                        })
+                        .collect(),
+                ))
+            }
+            FalseCountProperty::ChannelsFalseNegativesBoxPlot => {
+                Ok(PartialSeriesOutput::LabelledGroup(
+                    self.channels
+                        .iter()
+                        .map(|(channel, stats)| {
+                            (stats.false_negatives.mean, format!("Channel {channel}"))
+                        })
+                        .collect(),
+                ))
+            }
+            FalseCountProperty::ChannelsFalsePositivesBoxPlot => {
+                Ok(PartialSeriesOutput::LabelledGroup(
+                    self.channels
+                        .iter()
+                        .map(|(channel, stats)| {
+                            (stats.false_positives.mean, format!("Channel {channel}"))
+                        })
+                        .collect(),
+                ))
+            }
+            FalseCountProperty::ChannelsTruePositivesBoxPlot => {
+                Ok(PartialSeriesOutput::LabelledGroup(
+                    self.channels
+                        .iter()
+                        .map(|(channel, stats)| {
+                            (stats.true_positives.mean, format!("Channel {channel}"))
+                        })
+                        .collect(),
+                ))
+            }
         }
     }
 }

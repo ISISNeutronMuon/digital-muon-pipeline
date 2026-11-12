@@ -1,6 +1,7 @@
 use crate::{
     analysis::results::MetricResultByBucket,
-    engine::PropertyOfMetric, metric::{CompleteMetric, CompleteSeriesOutput, MetricResultError, MetricWrapper, complete}
+    engine::PropertyOfMetric,
+    metric::{CompleteMetric, CompleteSeriesOutput, MetricResultError, MetricWrapper, complete},
 };
 
 impl<C: CompleteMetric> MetricResultByBucket<C> {
@@ -9,7 +10,9 @@ impl<C: CompleteMetric> MetricResultByBucket<C> {
         block: usize,
         property: C::Property,
     ) -> Result<CompleteSeriesOutput, C::Error>
-    where Option<CompleteSeriesOutput>: FromIterator<C::Output> {
+    where
+        Option<CompleteSeriesOutput>: FromIterator<C::Output>,
+    {
         let block = self
             .by_bucket
             .get(block)
@@ -30,7 +33,7 @@ pub(crate) type CompletedMetricResult = MetricWrapper<
     MetricResultByBucket<complete::FalseCount>,
     MetricResultByBucket<complete::MuonLifetime>,
     MetricResultByBucket<complete::PulseHeightSpectra>,
-    MetricResultByBucket<complete::PulsePairTimeDiff>
+    MetricResultByBucket<complete::PulsePairTimeDiff>,
 >;
 
 impl CompletedMetricResult {
@@ -39,14 +42,12 @@ impl CompletedMetricResult {
         block: usize,
         property: PropertyOfMetric,
     ) -> Result<CompleteSeriesOutput, MetricResultError> {
-        self.as_ref()
-            .zip(property)
-            .fold(
-            |(this, that)|Ok(this.get_property(block, that)?),
-            |(this, that)|Ok(this.get_property(block, that)?),
-            |(this, that)|Ok(this.get_property(block, that)?),
-            |(this, that)|Ok(this.get_property(block, that)?),
-            |(this, that)|Ok(this.get_property(block, that)?),
-            )
+        self.as_ref().zip(property).fold(
+            |(this, that)| Ok(this.get_property(block, that)?),
+            |(this, that)| Ok(this.get_property(block, that)?),
+            |(this, that)| Ok(this.get_property(block, that)?),
+            |(this, that)| Ok(this.get_property(block, that)?),
+            |(this, that)| Ok(this.get_property(block, that)?),
+        )
     }
 }

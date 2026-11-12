@@ -3,21 +3,24 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::engine::ValueError;
+use crate::metric::{
+    CompleteMetric, FlattenedMetric, JsonMetric, PartialMetric, error::MetricResultError,
+};
 use crate::metric::{FlatMetricShell, PartialMetricShell};
-use crate::metric::{CompleteMetric, FlattenedMetric, JsonMetric, error::MetricResultError, PartialMetric};
-
 
 use crate::{
-    metric::{utils::{MeanSD, SumWithSumOfSqrs}, outputs::PartialSeriesOutput},
     eventlists::ChannelDataByTopic,
+    metric::{
+        outputs::PartialSeriesOutput,
+        utils::{MeanSD, SumWithSumOfSqrs},
+    },
 };
 use digital_muon_common::Channel;
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct JsonEventCount {
-    topic: String
+    topic: String,
 }
 
 impl JsonMetric for JsonEventCount {
@@ -38,7 +41,7 @@ impl JsonMetric for JsonEventCount {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatEventCount {
-    topic: usize
+    topic: usize,
 }
 
 impl FlattenedMetric for FlatEventCount {
@@ -54,7 +57,12 @@ pub(crate) struct PartialEventCount {
 impl PartialMetric for PartialEventCount {
     type Source = FlatEventCount;
 
-    fn push(&mut self, source: &FlatMetricShell<Self::Source>, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
+    fn push(
+        &mut self,
+        source: &FlatMetricShell<Self::Source>,
+        channel: Channel,
+        collection_by_topic: &ChannelDataByTopic,
+    ) {
         let data = collection_by_topic
             .get(source.flat.topic)
             .expect("Topic should exist, this should never fail.");
@@ -102,11 +110,12 @@ impl CompleteMetric for CompletedEventCount {
 
     fn get_property(&self, property: Self::Property) -> Result<Self::Output, Self::Error> {
         match property {
-            EventCountProperty::TotalMean => Ok(PartialSeriesOutput::Value(Some(self.total_count.mean))),
-            EventCountProperty::TotalMeanWithSd => Ok(PartialSeriesOutput::ValueWithErrors(Some((
-                self.total_count.mean,
-                self.total_count.sd,
-            )))),
+            EventCountProperty::TotalMean => {
+                Ok(PartialSeriesOutput::Value(Some(self.total_count.mean)))
+            }
+            EventCountProperty::TotalMeanWithSd => Ok(PartialSeriesOutput::ValueWithErrors(Some(
+                (self.total_count.mean, self.total_count.sd),
+            ))),
             EventCountProperty::ChannelsBoxPlot => Ok(PartialSeriesOutput::LabelledGroup(
                 self.count
                     .iter()
@@ -116,7 +125,6 @@ impl CompleteMetric for CompletedEventCount {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

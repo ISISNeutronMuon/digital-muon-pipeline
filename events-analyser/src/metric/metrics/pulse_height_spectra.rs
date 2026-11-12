@@ -5,12 +5,17 @@ use num::Float;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    engine::{MetricTypeHistogram, ValueError}, eventlists::ChannelDataByTopic, metric::{
-        CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric, PartialMetricShell, error::MetricResultError, outputs::{CompleteSeriesOutput, HistogramWithBands, Surface}, utils::{Histogram, SumWithSumOfSqrs}
-    }
+    engine::{MetricTypeHistogram, ValueError},
+    eventlists::ChannelDataByTopic,
+    metric::{
+        CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric,
+        PartialMetricShell,
+        error::MetricResultError,
+        outputs::{CompleteSeriesOutput, HistogramWithBands, Surface},
+        utils::{Histogram, SumWithSumOfSqrs},
+    },
 };
 use digital_muon_common::Channel;
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -36,7 +41,7 @@ impl JsonMetric for JsonPulseHeightSpectra {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FlatPulseHeightSpectra {
-    topic: usize
+    topic: usize,
 }
 
 impl FlattenedMetric for FlatPulseHeightSpectra {
@@ -52,7 +57,12 @@ pub(crate) struct PartialPulseHeightSpectra {
 impl PartialMetric for PartialPulseHeightSpectra {
     type Source = FlatPulseHeightSpectra;
 
-    fn push(&mut self, source: &FlatMetricShell<Self::Source>, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
+    fn push(
+        &mut self,
+        source: &FlatMetricShell<Self::Source>,
+        channel: Channel,
+        collection_by_topic: &ChannelDataByTopic,
+    ) {
         for (_, intensity) in collection_by_topic
             .get(source.topic)
             .expect("This should never fail.")
@@ -147,7 +157,7 @@ impl CompleteMetric for CompletedPulseHeightSpectra {
         // Compute statistics.
         for (time_index, sum, mean, sd, upper, lower) in zipped_iterators {
             // Iterator that loops through each normalised histogram's value at `index`.
-            
+
             let counts_iterator = source.histograms.values().map(|histogram| {
                 histogram
                     .get_counts()
@@ -202,24 +212,22 @@ impl CompleteMetric for CompletedPulseHeightSpectra {
                 central: self.mean.clone(),
                 bands: Some((self.sd.clone(), self.sd.clone())),
             }),
-            Self::Property::MeanBounds => {
-                CompleteSeriesOutput::Histogram(HistogramWithBands {
-                    labels: self.labels.clone(),
-                    central: self.sum.clone(),
-                    bands: Some((
-                        self.upper
-                            .iter()
-                            .zip(self.sum.iter())
-                            .map(|(upper, sum)| upper - sum)
-                            .collect(),
-                        self.lower
-                            .iter()
-                            .zip(self.sd.iter())
-                            .map(|(lower, sum)| sum - lower)
-                            .collect(),
-                    )),
-                })
-            }
+            Self::Property::MeanBounds => CompleteSeriesOutput::Histogram(HistogramWithBands {
+                labels: self.labels.clone(),
+                central: self.sum.clone(),
+                bands: Some((
+                    self.upper
+                        .iter()
+                        .zip(self.sum.iter())
+                        .map(|(upper, sum)| upper - sum)
+                        .collect(),
+                    self.lower
+                        .iter()
+                        .zip(self.sd.iter())
+                        .map(|(lower, sum)| sum - lower)
+                        .collect(),
+                )),
+            }),
             Self::Property::ChannelHeatMap => CompleteSeriesOutput::HeatMap(Surface {
                 x_values: self.labels.clone(),
                 y_values: self.channels.clone(),
