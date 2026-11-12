@@ -1,7 +1,7 @@
 use crate::{
     analysis::results::MetricResultByBucket,
     engine::PropertyOfMetric,
-    metric::{CompleteMetric, CompleteSeriesOutput, MetricResultError, MetricWrapper, complete},
+    metric::{CompleteMetric, CompleteSeriesOutput, ListOfMetrics, MetricResultError, MetricWrapper, complete},
 };
 
 impl<C: CompleteMetric> MetricResultByBucket<C> {
@@ -26,15 +26,20 @@ impl<C: CompleteMetric> MetricResultByBucket<C> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct CompleteMetricTypes;
+
+impl ListOfMetrics for CompleteMetricTypes {
+    type EventCount = MetricResultByBucket<complete::EventCount>;
+    type FalseCount = MetricResultByBucket<complete::FalseCount>;
+    type MuonLifetime = MetricResultByBucket<complete::MuonLifetime>;
+    type PulseHeightSpectra = MetricResultByBucket<complete::PulseHeightSpectra>;
+    type PulsePairTimeDiff = MetricResultByBucket<complete::PulsePairTimeDiff>;
+}
+
 /// Stores the complete results of a metric, arranging the results by bucket.
 /// Each variant wraps a different concrete instance of [MetricResultByBucket].
-pub(crate) type CompletedMetricResult = MetricWrapper<
-    MetricResultByBucket<complete::EventCount>,
-    MetricResultByBucket<complete::FalseCount>,
-    MetricResultByBucket<complete::MuonLifetime>,
-    MetricResultByBucket<complete::PulseHeightSpectra>,
-    MetricResultByBucket<complete::PulsePairTimeDiff>,
->;
+pub(crate) type CompletedMetricResult = MetricWrapper<CompleteMetricTypes>;
 
 impl CompletedMetricResult {
     pub(crate) fn get_property(

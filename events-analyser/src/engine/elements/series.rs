@@ -1,6 +1,5 @@
 use crate::{
-    engine::{AnalysisSettings, Flattenable},
-    metric::PropertyOfMetric,
+    engine::{AnalysisSettings, Flattenable, PropertyOfMetric},
 };
 use plotly::common::{DashType, Mode};
 use serde::{Deserialize, Serialize};

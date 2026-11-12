@@ -6,12 +6,11 @@ pub(crate) use crate::{
     engine::{
         elements::{
             Chart, FlatBucket, FlatBucketBlock, FlatChart, FlatMetric, FlatPage, FlatSeries,
-            Metric, MetricTypeHistogram, Page, PageError, SeriesType,
+            Metric, MetricTypeHistogram, Page, PageError, SeriesType, FlatMetricType, PropertyOfMetric
         },
         settings::{AnalysisSettings, Array, Templates},
         values::{Interval, ValueError},
     },
-    metric::{FlatMetricType, PropertyOfMetric},
 };
 
 /// Provides methods for flattening dependencies.

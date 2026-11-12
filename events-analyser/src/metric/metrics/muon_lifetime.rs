@@ -1,26 +1,25 @@
-use std::collections::HashMap;
-
-use serde::{Deserialize, Serialize};
+//! Implements the Muon Lifetime Metric.
+//!
+//! This calculates the estimated lifetime of the muon decay process that results in the given event list times.
+//! The times are placed in a histogram which is then used to fit an exponential decay function.
 
 use crate::{
     engine::{MetricTypeHistogram, ValueError},
     metric::{
         CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric,
         PartialMetricShell, error::FittingError, utils::Histogram,
+        outputs::PartialSeriesOutput, utils::MeanSD
     },
+    eventlists::ChannelDataByTopic,
 };
-
 use digital_muon_common::Channel;
 use nalgebra::DVector;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use tracing::warn;
 use varpro::{
     prelude::SeparableModelBuilder, problem::SeparableProblemBuilder,
     solvers::levmar::LevMarSolver, statistics::FitStatistics,
-};
-
-use crate::{
-    eventlists::ChannelDataByTopic,
-    metric::{outputs::PartialSeriesOutput, utils::MeanSD},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +53,10 @@ impl FlattenedMetric for FlatMuonLifetime {
     type Json = JsonMuonLifetime;
 }
 
+/// Estimates the lifetime of the muon decay process responsible for the event times.
+///
+/// The metric places the event times into a histogram which are used to fit
+/// an exponential decay curve by [CompletedMuonLifetime].
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PartialMuonLifetime {

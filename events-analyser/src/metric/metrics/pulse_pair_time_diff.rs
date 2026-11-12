@@ -1,22 +1,17 @@
-use std::collections::HashMap;
-
+use crate::{
+    engine::{Interval, MetricTypeHistogram, ValueError},
+    eventlists::ChannelDataByTopic,
+    metric::{CompleteMetric, FlattenedMetric, JsonMetric, PartialMetric,
+        error::MetricResultError, FlatMetricShell, PartialMetricShell,
+        outputs::{HistogramWithBands, CompleteSeriesOutput, Surface},
+        utils::{Histogram, SumWithSumOfSqrs}
+    },
+};
+use digital_muon_common::{Channel, Intensity, Time};
 use itertools::Itertools;
 use num::{Float, Zero};
 use serde::{Deserialize, Serialize};
-
-use crate::engine::{Interval, MetricTypeHistogram, ValueError};
-use crate::metric::outputs::{HistogramWithBands, Surface};
-use crate::metric::utils::Histogram;
-use crate::metric::{
-    CompleteMetric, FlattenedMetric, JsonMetric, PartialMetric, error::MetricResultError,
-};
-use crate::metric::{FlatMetricShell, PartialMetricShell};
-
-use crate::{
-    eventlists::ChannelDataByTopic,
-    metric::{outputs::CompleteSeriesOutput, utils::SumWithSumOfSqrs},
-};
-use digital_muon_common::{Channel, Intensity, Time};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -61,9 +56,11 @@ impl FlattenedMetric for FlatPulsePairTimeDiff {
     type Json = JsonPulsePairTimeDiff;
 }
 
+/// Builds up histograms of pulse heights, for each channel.
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PartialPulsePairTimeDiff {
+    /// Per-channel histograms pulse heights.
     histograms: HashMap<Channel, Histogram>,
 }
 
@@ -105,6 +102,7 @@ impl PartialMetric for PartialPulsePairTimeDiff {
     }
 }
 
+/// Aggregates the pulse height histograms into a single histogram.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct CompletedPulsePairTimeDiff {

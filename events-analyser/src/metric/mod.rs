@@ -5,7 +5,7 @@ mod utils;
 
 use crate::{
     engine::{Flattenable, ValueError},
-    eventlists::ChannelDataByTopic,
+    eventlists::ChannelDataByTopic
 };
 use digital_muon_common::Channel;
 pub(crate) use error::{FittingError, MetricResultError};
@@ -15,10 +15,9 @@ use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
-
 pub(crate) use metrics::{
-    FlatMetricType, MetricType, MetricWrapper, PropertyOfMetric, complete, flat, json, partial,
-    properties,
+    MetricWrapper, complete, flat, json, partial,
+    properties, ListOfMetrics
 };
 
 pub(crate) trait JsonMetric: Clone + Debug {

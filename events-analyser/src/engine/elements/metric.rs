@@ -4,10 +4,77 @@ use crate::{
         values::{Interval, ValueError},
     },
     metric::{
-        FlatMetricShell, FlatMetricType, JsonMetricShell, MetricType, flat, json, properties,
+        FlatMetricShell, JsonMetricShell, ListOfMetrics, MetricWrapper, flat, json, properties
     },
 };
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone)]
+pub(crate) struct JsonMetricTypes;
+
+impl ListOfMetrics for JsonMetricTypes {
+    type EventCount = JsonMetricShell<json::EventCount>;
+    type FalseCount = JsonMetricShell<json::FalseCount>;
+    type MuonLifetime = JsonMetricShell<json::MuonLifetime>;
+    type PulseHeightSpectra = JsonMetricShell<json::PulseHeightSpectra>;
+    type PulsePairTimeDiff = JsonMetricShell<json::PulsePairTimeDiff>;
+}
+
+pub(crate) type MetricType = MetricWrapper<JsonMetricTypes>;
+
+#[derive(Debug, Clone)]
+pub(crate) struct PropertyMetricTypes;
+
+impl ListOfMetrics for PropertyMetricTypes {
+    type EventCount = properties::EventCount;
+    type FalseCount = properties::FalseCount;
+    type MuonLifetime = properties::MuonLifetime;
+    type PulseHeightSpectra = properties::PulseHeightSpectra;
+    type PulsePairTimeDiff = properties::PulsePairTimeDiff;
+}
+
+pub(crate) type PropertyOfMetric = MetricWrapper<PropertyMetricTypes>;
+
+
+#[derive(Debug, Clone)]
+pub(crate) struct FlatMetricTypes;
+
+impl ListOfMetrics for FlatMetricTypes {
+    type EventCount = FlatMetricShell<flat::EventCount>;
+    type FalseCount = FlatMetricShell<flat::FalseCount>;
+    type MuonLifetime = FlatMetricShell<flat::MuonLifetime>;
+    type PulseHeightSpectra = FlatMetricShell<flat::PulseHeightSpectra>;
+    type PulsePairTimeDiff = FlatMetricShell<flat::PulsePairTimeDiff>;
+}
+
+pub(crate) type FlatMetricType = MetricWrapper<FlatMetricTypes>;
+
+impl Flattenable<&[String]> for MetricType {
+    type Flat = FlatMetricType;
+    type Error = ValueError;
+
+    fn flatten(&self, library: &[String]) -> Result<Self::Flat, Self::Error> {
+        Ok(match &self {
+            MetricType::EventCount(json_metric_shell) => {
+                FlatMetricType::EventCount(json_metric_shell.flatten(library)?)
+            }
+            MetricType::FalseCount(json_metric_shell) => {
+                FlatMetricType::FalseCount(json_metric_shell.flatten(library)?)
+            }
+            MetricType::MuonLifetime(json_metric_shell) => {
+                FlatMetricType::MuonLifetime(json_metric_shell.flatten(library)?)
+            }
+            MetricType::PulseHeightSpectra(json_metric_shell) => {
+                FlatMetricType::PulseHeightSpectra(json_metric_shell.flatten(library)?)
+            }
+            MetricType::PulsePairTimeDiff(json_metric_shell) => {
+                FlatMetricType::PulsePairTimeDiff(json_metric_shell.flatten(library)?)
+            }
+        })
+    }
+}
+
+
 
 ///
 /// This struct is created from the configuration JSON file.

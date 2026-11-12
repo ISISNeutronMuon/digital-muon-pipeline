@@ -1,8 +1,5 @@
-use crate::{
-    engine::{Flattenable, ValueError},
-    metric::{FlatMetricShell, JsonMetricShell},
-};
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 mod event_count;
 mod false_count;
@@ -50,26 +47,92 @@ pub(crate) mod properties {
     pub(crate) use super::pulse_pair_time_diff::PulsePairTimeDiffProperty as PulsePairTimeDiff;
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "metric-type")]
-pub(crate) enum MetricWrapper<E, F, M, P, D> {
-    #[serde(rename_all = "kebab-case")]
-    EventCount(E),
-    #[serde(rename_all = "kebab-case")]
-    FalseCount(F),
-    #[serde(rename_all = "kebab-case")]
-    MuonLifetime(M),
-    #[serde(rename_all = "kebab-case")]
-    PulseHeightSpectra(P),
-    #[serde(rename_all = "kebab-case")]
-    PulsePairDifferences(D),
+/// Encapsulates a list of all metrics.
+pub(crate) trait ListOfMetrics {
+    type EventCount;
+    type FalseCount;
+    type MuonLifetime;
+    type PulseHeightSpectra;
+    type PulsePairTimeDiff;
 }
 
-impl<E, F, M, P, D> MetricWrapper<E, F, M, P, D> {
-    pub(crate) fn zip<E2, F2, M2, P2, D2>(
+/// Encapsulates an instance of references derived from `Types`.
+pub(crate) struct RefMetricTypes<'a, Types : ListOfMetrics>(PhantomData<&'a Types>);
+
+impl<'a, Types : ListOfMetrics> ListOfMetrics for RefMetricTypes<'a, Types> {
+    type EventCount = &'a Types::EventCount;
+    type FalseCount = &'a Types::FalseCount;
+    type MuonLifetime = &'a Types::MuonLifetime;
+    type PulseHeightSpectra = &'a Types::PulseHeightSpectra;
+    type PulsePairTimeDiff = &'a Types::PulsePairTimeDiff;
+}
+
+/// Encapsulates an instance of mutable references derived from `Types`.
+pub(crate) struct MutMetricTypes<'a, Types : ListOfMetrics>(PhantomData<&'a mut Types>);
+
+impl<'a, Types : ListOfMetrics> ListOfMetrics for MutMetricTypes<'a, Types> {
+    type EventCount = &'a mut Types::EventCount;
+    type FalseCount = &'a mut Types::FalseCount;
+    type MuonLifetime = &'a mut Types::MuonLifetime;
+    type PulseHeightSpectra = &'a mut Types::PulseHeightSpectra;
+    type PulsePairTimeDiff = &'a mut Types::PulsePairTimeDiff;
+}
+
+/// Encapsulates an instance of tuples derived from `Types1` and `Types2`.
+pub(crate) struct ZippedMetricTypes<Types1 : ListOfMetrics, Types2 : ListOfMetrics>(PhantomData<(Types1, Types2)>);
+
+impl<Types1 : ListOfMetrics, Types2 : ListOfMetrics> ListOfMetrics for ZippedMetricTypes<Types1, Types2> {
+    type EventCount = (Types1::EventCount, Types2::EventCount);
+    type FalseCount = (Types1::FalseCount, Types2::FalseCount);
+    type MuonLifetime = (Types1::MuonLifetime, Types2::MuonLifetime);
+    type PulseHeightSpectra = (Types1::PulseHeightSpectra, Types2::PulseHeightSpectra);
+    type PulsePairTimeDiff = (Types1::PulsePairTimeDiff, Types2::PulsePairTimeDiff);
+}
+
+/// A generic enum in which each variant contains the corresponding type encapsulated by `Types`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", tag = "metric-type")]
+pub(crate) enum MetricWrapper<Types : ListOfMetrics> {
+    #[serde(rename_all = "kebab-case")]
+    EventCount(Types::EventCount),
+    #[serde(rename_all = "kebab-case")]
+    FalseCount(Types::FalseCount),
+    #[serde(rename_all = "kebab-case")]
+    MuonLifetime(Types::MuonLifetime),
+    #[serde(rename_all = "kebab-case")]
+    PulseHeightSpectra(Types::PulseHeightSpectra),
+    #[serde(rename_all = "kebab-case")]
+    PulsePairTimeDiff(Types::PulsePairTimeDiff),
+}
+
+impl<Types : ListOfMetrics> MetricWrapper<Types> {
+    /// Converts a reference of a wrapper into a wrapper of references.
+    pub(crate) fn as_ref<'a>(&'a self) -> MetricWrapper<RefMetricTypes<'a, Types>> {
+        match self {
+            MetricWrapper::EventCount(this) => MetricWrapper::EventCount(this),
+            MetricWrapper::FalseCount(this) => MetricWrapper::FalseCount(this),
+            MetricWrapper::MuonLifetime(this) => MetricWrapper::MuonLifetime(this),
+            MetricWrapper::PulseHeightSpectra(this) => MetricWrapper::PulseHeightSpectra(this),
+            MetricWrapper::PulsePairTimeDiff(this) => MetricWrapper::PulsePairTimeDiff(this),
+        }
+    }
+
+    /// Converts a mutable reference of a wrapper into a wrapper of mutable references.
+    pub(crate) fn as_mut<'a>(&'a mut self) -> MetricWrapper<MutMetricTypes<'a, Types>> {
+        match self {
+            MetricWrapper::EventCount(this) => MetricWrapper::EventCount(this),
+            MetricWrapper::FalseCount(this) => MetricWrapper::FalseCount(this),
+            MetricWrapper::MuonLifetime(this) => MetricWrapper::MuonLifetime(this),
+            MetricWrapper::PulseHeightSpectra(this) => MetricWrapper::PulseHeightSpectra(this),
+            MetricWrapper::PulsePairTimeDiff(this) => MetricWrapper::PulsePairTimeDiff(this),
+        }
+    }
+
+    /// Takes two wrappers and returns a wrapper of tuples.
+    pub(crate) fn zip<OtherTypes : ListOfMetrics>(
         self,
-        other: MetricWrapper<E2, F2, M2, P2, D2>,
-    ) -> MetricWrapper<(E, E2), (F, F2), (M, M2), (P, P2), (D, D2)> {
+        other: MetricWrapper<OtherTypes>,
+    ) -> MetricWrapper<ZippedMetricTypes<Types, OtherTypes>> {
         match (self, other) {
             (Self::EventCount(this), MetricWrapper::EventCount(that)) => {
                 MetricWrapper::EventCount((this, that))
@@ -83,147 +146,110 @@ impl<E, F, M, P, D> MetricWrapper<E, F, M, P, D> {
             (Self::PulseHeightSpectra(this), MetricWrapper::PulseHeightSpectra(that)) => {
                 MetricWrapper::PulseHeightSpectra((this, that))
             }
-            (Self::PulsePairDifferences(this), MetricWrapper::PulsePairDifferences(that)) => {
-                MetricWrapper::PulsePairDifferences((this, that))
+            (Self::PulsePairTimeDiff(this), MetricWrapper::PulsePairTimeDiff(that)) => {
+                MetricWrapper::PulsePairTimeDiff((this, that))
             }
             _ => unreachable!(),
         }
     }
 
-    pub(crate) fn as_ref(&self) -> MetricWrapper<&E, &F, &M, &P, &D> {
-        match self {
-            MetricWrapper::EventCount(this) => MetricWrapper::EventCount(this),
-            MetricWrapper::FalseCount(this) => MetricWrapper::FalseCount(this),
-            MetricWrapper::MuonLifetime(this) => MetricWrapper::MuonLifetime(this),
-            MetricWrapper::PulseHeightSpectra(this) => MetricWrapper::PulseHeightSpectra(this),
-            MetricWrapper::PulsePairDifferences(this) => MetricWrapper::PulsePairDifferences(this),
-        }
-    }
-
-    pub(crate) fn as_mut(&mut self) -> MetricWrapper<&mut E, &mut F, &mut M, &mut P, &mut D> {
-        match self {
-            MetricWrapper::EventCount(this) => MetricWrapper::EventCount(this),
-            MetricWrapper::FalseCount(this) => MetricWrapper::FalseCount(this),
-            MetricWrapper::MuonLifetime(this) => MetricWrapper::MuonLifetime(this),
-            MetricWrapper::PulseHeightSpectra(this) => MetricWrapper::PulseHeightSpectra(this),
-            MetricWrapper::PulsePairDifferences(this) => MetricWrapper::PulsePairDifferences(this),
-        }
-    }
-
-    pub(crate) fn map<E2, F2, M2, P2, D2, FE, FF, FM, FP, FD>(
-        self,
-        fe: FE,
-        ff: FF,
-        fm: FM,
-        fp: FP,
-        fd: FD,
-    ) -> MetricWrapper<E2, F2, M2, P2, D2>
+    /// Converts a wrapper into a generic type, with the provided maps applied to each variant.
+    /// 
+    /// # Paramerers
+    /// - event_count_map: function applied to the `EventCount` variant.
+    /// - false_count_map: function applied to the `FalseCount` variant.
+    /// - muon_lifetime_map: function applied to the `MuonLifetime` variant.
+    /// - pulse_height_spectra_map: function applied to the `PulseHeightSpectra` variant.
+    /// - pulse_pair_time_diff_map: function applied to the `PulsePairTimeDiff` variant.
+    pub(crate) fn fold<T, FE, FF, FM, FP, FD>(self,
+        event_count_map: FE,
+        false_count_map: FF,
+        muon_lifetime_map: FM,
+        pulse_height_spectra_map: FP,
+        pulse_pair_time_diff_map: FD,
+    ) -> T
     where
-        FE: Fn(E) -> E2,
-        FF: Fn(F) -> F2,
-        FM: Fn(M) -> M2,
-        FP: Fn(P) -> P2,
-        FD: Fn(D) -> D2,
+        FE: Fn(Types::EventCount) -> T,
+        FF: Fn(Types::FalseCount) -> T,
+        FM: Fn(Types::MuonLifetime) -> T,
+        FP: Fn(Types::PulseHeightSpectra) -> T,
+        FD: Fn(Types::PulsePairTimeDiff) -> T,
+    {
+        match self {
+            Self::EventCount(this) => event_count_map(this),
+            Self::FalseCount(this) => false_count_map(this),
+            Self::MuonLifetime(this) => muon_lifetime_map(this),
+            Self::PulseHeightSpectra(this) => pulse_height_spectra_map(this),
+            Self::PulsePairTimeDiff(this) => pulse_pair_time_diff_map(this),
+        }
+    }
+
+    /// Converts one wrapper into another, with the provided maps applied to each variant.
+    /// 
+    /// # Paramerers
+    /// - event_count_map: function applied to the `EventCount` variant.
+    /// - false_count_map: function applied to the `FalseCount` variant.
+    /// - muon_lifetime_map: function applied to the `MuonLifetime` variant.
+    /// - pulse_height_spectra_map: function applied to the `PulseHeightSpectra` variant.
+    /// - pulse_pair_time_diff_map: function applied to the `PulsePairTimeDiff` variant.
+    pub(crate) fn map<OtherTypes : ListOfMetrics, FE, FF, FM, FP, FD>(
+        self,
+        event_count_map: FE,
+        false_count_map: FF,
+        muon_lifetime_map: FM,
+        pulse_height_spectra_map: FP,
+        pulse_pair_time_diff_map: FD,
+    ) -> MetricWrapper<OtherTypes>
+    where
+        FE: Fn(Types::EventCount) -> OtherTypes::EventCount,
+        FF: Fn(Types::FalseCount) -> OtherTypes::FalseCount,
+        FM: Fn(Types::MuonLifetime) -> OtherTypes::MuonLifetime,
+        FP: Fn(Types::PulseHeightSpectra) -> OtherTypes::PulseHeightSpectra,
+        FD: Fn(Types::PulsePairTimeDiff) -> OtherTypes::PulsePairTimeDiff,
     {
         self.fold(
-            |this| MetricWrapper::EventCount(fe(this)),
-            |this| MetricWrapper::FalseCount(ff(this)),
-            |this| MetricWrapper::MuonLifetime(fm(this)),
-            |this| MetricWrapper::PulseHeightSpectra(fp(this)),
-            |this| MetricWrapper::PulsePairDifferences(fd(this)),
+            |this| MetricWrapper::EventCount(event_count_map(this)),
+            |this| MetricWrapper::FalseCount(false_count_map(this)),
+            |this| MetricWrapper::MuonLifetime(muon_lifetime_map(this)),
+            |this| MetricWrapper::PulseHeightSpectra(pulse_height_spectra_map(this)),
+            |this| MetricWrapper::PulsePairTimeDiff(pulse_pair_time_diff_map(this)),
         )
     }
 
-    pub(crate) fn fold<T, FE, FF, FM, FP, FD>(self, fe: FE, ff: FF, fm: FM, fp: FP, fd: FD) -> T
-    where
-        FE: Fn(E) -> T,
-        FF: Fn(F) -> T,
-        FM: Fn(M) -> T,
-        FP: Fn(P) -> T,
-        FD: Fn(D) -> T,
-    {
-        match self {
-            MetricWrapper::EventCount(this) => fe(this),
-            MetricWrapper::FalseCount(this) => ff(this),
-            MetricWrapper::MuonLifetime(this) => fm(this),
-            MetricWrapper::PulseHeightSpectra(this) => fp(this),
-            MetricWrapper::PulsePairDifferences(this) => fd(this),
-        }
-    }
-
-    pub(crate) fn try_map<E2, F2, M2, P2, D2, FnE, FnF, FnM, FnP, FnD, ERROR, EE, EF, EM, EP, ED>(
+    /// Tries to convert one wrapper into another, with the provided maps applied to each variant.
+    /// 
+    /// # Paramerers
+    /// - event_count_map: function applied to the `EventCount` variant.
+    /// - false_count_map: function applied to the `FalseCount` variant.
+    /// - muon_lifetime_map: function applied to the `MuonLifetime` variant.
+    /// - pulse_height_spectra_map: function applied to the `PulseHeightSpectra` variant.
+    /// - pulse_pair_time_diff_map: function applied to the `PulsePairTimeDiff` variant.
+    pub(crate) fn try_map<OtherTypes : ListOfMetrics, FE, FF, FM, FP, FD, Error, EE, EF, EM, EP, ED>(
         self,
-        fe: FnE,
-        ff: FnF,
-        fm: FnM,
-        fp: FnP,
-        fd: FnD,
-    ) -> Result<MetricWrapper<E2, F2, M2, P2, D2>, ERROR>
+        event_count_map: FE,
+        false_count_map: FF,
+        muon_lifetime_map: FM,
+        pulse_height_spectra_map: FP,
+        pulse_pair_time_diff_map: FD,
+    ) -> Result<MetricWrapper<OtherTypes>, Error>
     where
-        FnE: Fn(E) -> Result<E2, EE>,
-        FnF: Fn(F) -> Result<F2, EF>,
-        FnM: Fn(M) -> Result<M2, EM>,
-        FnP: Fn(P) -> Result<P2, EP>,
-        FnD: Fn(D) -> Result<D2, ED>,
-        ERROR: From<EE> + From<EF> + From<EM> + From<EP> + From<ED>,
+        FE: Fn(Types::EventCount) -> Result<OtherTypes::EventCount, EE>,
+        FF: Fn(Types::FalseCount) -> Result<OtherTypes::FalseCount, EF>,
+        FM: Fn(Types::MuonLifetime) -> Result<OtherTypes::MuonLifetime, EM>,
+        FP: Fn(Types::PulseHeightSpectra) -> Result<OtherTypes::PulseHeightSpectra, EP>,
+        FD: Fn(Types::PulsePairTimeDiff) -> Result<OtherTypes::PulsePairTimeDiff, ED>,
+        EE: Into<Error>,
+        EF: Into<Error>,
+        EM: Into<Error>,
+        EP: Into<Error>,
+        ED: Into<Error>
     {
-        Ok(match self {
-            MetricWrapper::EventCount(this) => MetricWrapper::EventCount(fe(this)?),
-            MetricWrapper::FalseCount(this) => MetricWrapper::FalseCount(ff(this)?),
-            MetricWrapper::MuonLifetime(this) => MetricWrapper::MuonLifetime(fm(this)?),
-            MetricWrapper::PulseHeightSpectra(this) => MetricWrapper::PulseHeightSpectra(fp(this)?),
-            MetricWrapper::PulsePairDifferences(this) => {
-                MetricWrapper::PulsePairDifferences(fd(this)?)
-            }
-        })
-    }
-}
-
-pub(crate) type MetricType = MetricWrapper<
-    JsonMetricShell<json::EventCount>,
-    JsonMetricShell<json::FalseCount>,
-    JsonMetricShell<json::MuonLifetime>,
-    JsonMetricShell<json::PulseHeightSpectra>,
-    JsonMetricShell<json::PulsePairTimeDiff>,
->;
-
-pub(crate) type PropertyOfMetric = MetricWrapper<
-    properties::EventCount,
-    properties::FalseCount,
-    properties::MuonLifetime,
-    properties::PulseHeightSpectra,
-    properties::PulsePairTimeDiff,
->;
-
-pub(crate) type FlatMetricType = MetricWrapper<
-    FlatMetricShell<flat::EventCount>,
-    FlatMetricShell<flat::FalseCount>,
-    FlatMetricShell<flat::MuonLifetime>,
-    FlatMetricShell<flat::PulseHeightSpectra>,
-    FlatMetricShell<flat::PulsePairTimeDiff>,
->;
-
-impl Flattenable<&[String]> for MetricType {
-    type Flat = FlatMetricType;
-    type Error = ValueError;
-
-    fn flatten(&self, library: &[String]) -> Result<Self::Flat, Self::Error> {
-        Ok(match &self {
-            MetricType::EventCount(json_metric_shell) => {
-                FlatMetricType::EventCount(json_metric_shell.flatten(library)?)
-            }
-            MetricType::FalseCount(json_metric_shell) => {
-                FlatMetricType::FalseCount(json_metric_shell.flatten(library)?)
-            }
-            MetricType::MuonLifetime(json_metric_shell) => {
-                FlatMetricType::MuonLifetime(json_metric_shell.flatten(library)?)
-            }
-            MetricType::PulseHeightSpectra(json_metric_shell) => {
-                FlatMetricType::PulseHeightSpectra(json_metric_shell.flatten(library)?)
-            }
-            MetricType::PulsePairDifferences(json_metric_shell) => {
-                FlatMetricType::PulsePairDifferences(json_metric_shell.flatten(library)?)
-            }
-        })
+        self.fold(
+            |this|event_count_map(this).map(MetricWrapper::EventCount).map_err(Into::into),
+            |this|false_count_map(this).map(MetricWrapper::FalseCount).map_err(Into::into),
+            |this|muon_lifetime_map(this).map(MetricWrapper::MuonLifetime).map_err(Into::into),
+            |this|pulse_height_spectra_map(this).map(MetricWrapper::PulseHeightSpectra).map_err(Into::into),
+            |this|pulse_pair_time_diff_map(this).map(MetricWrapper::PulsePairTimeDiff).map_err(Into::into),
+        )
     }
 }

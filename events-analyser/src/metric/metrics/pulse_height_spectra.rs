@@ -48,9 +48,11 @@ impl FlattenedMetric for FlatPulseHeightSpectra {
     type Json = JsonPulseHeightSpectra;
 }
 
+/// Builds up histograms of pulse heights, for each channel.
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PartialPulseHeightSpectra {
+    /// Per-channel histograms pulse heights.
     histograms: HashMap<Channel, Histogram>,
 }
 
@@ -76,6 +78,7 @@ impl PartialMetric for PartialPulseHeightSpectra {
     }
 }
 
+/// Aggregates the pulse height histograms into a single histogram.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct CompletedPulseHeightSpectra {
