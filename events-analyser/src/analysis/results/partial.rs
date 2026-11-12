@@ -7,21 +7,9 @@ use crate::{
         },
     },
     engine::{FlatBucket, FlatMetricType},
-    eventlists::ChannelCollection, metric::{CompleteMetric, MetricResultError, FlatMetricShell, PartialMetric, PartialMetricShell, partial},
+    eventlists::ChannelCollection, metric::{CompleteMetric, FlatMetricShell, MetricResultError, MetricWrapper, PartialMetric, PartialMetricShell, partial},
 };
-use serde::{Deserialize, Serialize};
-/*
-pub(crate) trait PartialMetricResultBucket: Clone + Serialize + DeserializeOwned {
-    type Source;
-    type Complete: CompleteMetricResultBucket<Partial = Self>;
 
-    fn make_default(source: &Self::Source) -> Self;
-    fn load_data(&mut self, source: &Self) {
-        *self = source.clone();
-    }
-    fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic);
-}
- */
 impl<C: PartialMetric> MetricResultBucketWrapper<PartialMetricShell<C>>
 {
     /// Create a new and empty partial results storage object.
@@ -138,122 +126,68 @@ where
 
 /// Stores the partial results of a metric, arranging the results by bucket.
 /// Each variant wraps a different concrete instance of [MetricResultByBucket].
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) enum PartialMetricResult {
-    /// Descriptive statistics on the count of events.
-    EventCount(MetricResultByBucket<PartialMetricShell<partial::EventCount>>),
-    /// Descriptive statistics on the count of true/false positive/negative events.
-    FalseCount(MetricResultByBucket<PartialMetricShell<partial::FalseCount>>),
-    /// Descriptive statistics on the muon-lifetime estimated from the data.
-    MuonLifetime(MetricResultByBucket<PartialMetricShell<partial::MuonLifetime>>),
-    /// Descriptive statistics on the pulse height spectra estimated from the data.
-    PulseHeightSpectra(MetricResultByBucket<PartialMetricShell<partial::PulseHeightSpectra>>),
-    /// Descriptive statistics on the pulse-pair differences estimated from the data.
-    PulsePairDifferences(MetricResultByBucket<PartialMetricShell<partial::PulsePairTimeDiff>>),
-}
+pub(crate) type PartialMetricResult = MetricWrapper<
+    MetricResultByBucket<PartialMetricShell<partial::EventCount>>,
+    MetricResultByBucket<PartialMetricShell<partial::FalseCount>>,
+    MetricResultByBucket<PartialMetricShell<partial::MuonLifetime>>,
+    MetricResultByBucket<PartialMetricShell<partial::PulseHeightSpectra>>,
+    MetricResultByBucket<PartialMetricShell<partial::PulsePairTimeDiff>>,
+>;
 
 impl PartialMetricResult {
     pub(crate) fn new(source: FlatMetricType, bucket_block_sizes: &[usize]) -> Self {
-        match source {
-            FlatMetricType::EventCount(flat_metric_event_count) => Self::EventCount(
-                MetricResultByBucket::new(flat_metric_event_count, bucket_block_sizes),
-            ),
-            FlatMetricType::FalseCount(flat_metric_false_count) => Self::FalseCount(
-                MetricResultByBucket::new(flat_metric_false_count, bucket_block_sizes),
-            ),
-            FlatMetricType::MuonLifetime(flat_metric_muon_lifetime) => Self::MuonLifetime(
-                MetricResultByBucket::new(flat_metric_muon_lifetime, bucket_block_sizes),
-            ),
-            FlatMetricType::PulseHeightSpectra(flat_metric_pulse_height_spectra) => {
-                Self::PulseHeightSpectra(MetricResultByBucket::new(
-                    flat_metric_pulse_height_spectra,
-                    bucket_block_sizes,
-                ))
-            }
-            FlatMetricType::PulsePairDifferences(flat_metric_pulse_pair_differences) => {
-                Self::PulsePairDifferences(MetricResultByBucket::new(
-                    flat_metric_pulse_pair_differences,
-                    bucket_block_sizes,
-                ))
-            }
-        }
+        source.map(
+            |this|MetricResultByBucket::new(this, bucket_block_sizes),
+            |this|MetricResultByBucket::new(this, bucket_block_sizes),
+            |this|MetricResultByBucket::new(this, bucket_block_sizes),
+            |this|MetricResultByBucket::new(this, bucket_block_sizes),
+            |this|MetricResultByBucket::new(this, bucket_block_sizes)
+        )
     }
 
     pub(crate) fn are_buckets_full_enough(&self, block: usize, min: &[FlatBucket]) -> bool {
-        match self {
-            Self::EventCount(patrial_metric_result_class) => {
-                patrial_metric_result_class.are_buckets_full_enough(block, min)
-            }
-            Self::FalseCount(patrial_metric_result_class) => {
-                patrial_metric_result_class.are_buckets_full_enough(block, min)
-            }
-            Self::MuonLifetime(patrial_metric_result_class) => {
-                patrial_metric_result_class.are_buckets_full_enough(block, min)
-            }
-            Self::PulseHeightSpectra(patrial_metric_result_class) => {
-                patrial_metric_result_class.are_buckets_full_enough(block, min)
-            }
-            Self::PulsePairDifferences(patrial_metric_result_class) => {
-                patrial_metric_result_class.are_buckets_full_enough(block, min)
-            }
-        }
+        self.as_ref()
+            .fold(
+            |this|this.are_buckets_full_enough(block, min),
+            |this|this.are_buckets_full_enough(block, min),
+            |this|this.are_buckets_full_enough(block, min),
+            |this|this.are_buckets_full_enough(block, min),
+            |this|this.are_buckets_full_enough(block, min)
+        )
     }
 
     pub(crate) fn push(&mut self, bucket_index: BucketIndex, collection: &ChannelCollection) {
-        match self {
-            Self::EventCount(patrial_metric_result_store) => {
-                patrial_metric_result_store.push(bucket_index, collection)
-            }
-            Self::FalseCount(patrial_metric_result_store) => {
-                patrial_metric_result_store.push(bucket_index, collection)
-            }
-            Self::MuonLifetime(patrial_metric_result_store) => {
-                patrial_metric_result_store.push(bucket_index, collection)
-            }
-            Self::PulseHeightSpectra(patrial_metric_result_store) => {
-                patrial_metric_result_store.push(bucket_index, collection)
-            }
-            Self::PulsePairDifferences(patrial_metric_result_store) => {
-                patrial_metric_result_store.push(bucket_index, collection)
-            }
-        }
+        self.as_mut()
+            .fold(
+            |this|this.push(bucket_index, collection),
+            |this|this.push(bucket_index, collection),
+            |this|this.push(bucket_index, collection),
+            |this|this.push(bucket_index, collection),
+            |this|this.push(bucket_index, collection)
+        )
     }
 
     pub(crate) fn build_aggregate(&self) -> Result<CompletedMetricResult, MetricResultError> {
-        Ok(match self {
-            Self::EventCount(patrial_metric_result_store) => {
-                CompletedMetricResult::EventCount(patrial_metric_result_store.aggregate()?)
-            }
-            Self::FalseCount(patrial_metric_result_store) => {
-                CompletedMetricResult::FalseCount(patrial_metric_result_store.aggregate()?)
-            }
-            Self::MuonLifetime(patrial_metric_result_store) => {
-                CompletedMetricResult::MuonLifetime(patrial_metric_result_store.aggregate()?)
-            }
-            Self::PulseHeightSpectra(patrial_metric_result_store) => {
-                CompletedMetricResult::PulseHeightSpectra(patrial_metric_result_store.aggregate()?)
-            }
-            Self::PulsePairDifferences(patrial_metric_result_store) => {
-                CompletedMetricResult::PulsePairDifferences(
-                    patrial_metric_result_store.aggregate()?,
-                )
-            }
-        })
+        self.as_ref()
+            .try_map(
+            MetricResultByBucket::aggregate,
+            MetricResultByBucket::aggregate,
+            MetricResultByBucket::aggregate,
+            MetricResultByBucket::aggregate,
+            MetricResultByBucket::aggregate
+        )
     }
 
     pub(crate) fn load_data(&mut self, source: &Self) -> Result<(), MetricResultError> {
-        match (self, source) {
-            (Self::EventCount(store), Self::EventCount(source)) => store.load_data(source),
-            (Self::FalseCount(store), Self::FalseCount(source)) => store.load_data(source),
-            (Self::MuonLifetime(store), Self::MuonLifetime(source)) => store.load_data(source),
-            (Self::PulseHeightSpectra(store), Self::PulseHeightSpectra(source)) => {
-                store.load_data(source)
-            }
-            (Self::PulsePairDifferences(store), Self::PulsePairDifferences(source)) => {
-                store.load_data(source)
-            }
-            _ => return Err(MetricResultError::LoadingDataWrongMetrics),
-        }
+        self.as_mut()
+        .zip(source.as_ref())
+        .fold(
+            |(metric_result_by_bucket, source)|metric_result_by_bucket.load_data(source),
+            |(metric_result_by_bucket, source)|metric_result_by_bucket.load_data(source),
+            |(metric_result_by_bucket, source)|metric_result_by_bucket.load_data(source),
+            |(metric_result_by_bucket, source)|metric_result_by_bucket.load_data(source),
+            |(metric_result_by_bucket, source)|metric_result_by_bucket.load_data(source)
+        );
         Ok(())
     }
 }

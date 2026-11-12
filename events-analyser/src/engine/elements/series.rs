@@ -1,4 +1,4 @@
-use crate::engine::{AnalysisSettings, Flattenable, elements::metric::PropertyOfMetric};
+use crate::{engine::{AnalysisSettings, Flattenable}, metric::PropertyOfMetric};
 use plotly::common::{DashType, Mode};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

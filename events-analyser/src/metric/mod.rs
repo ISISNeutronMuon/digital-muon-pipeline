@@ -10,11 +10,10 @@ use std::{fmt::Debug, ops::{Deref, DerefMut}};
 pub(crate) use outputs::{CompleteSeriesOutput, HistogramWithBands, Surface};
 pub(crate) use error::{MetricResultError, FittingError};
 
-pub(crate) use metrics::json;
-pub(crate) use metrics::flat;
-pub(crate) use metrics::partial;
-pub(crate) use metrics::complete;
-pub(crate) use metrics::properties;
+pub(crate) use metrics::{
+    json, flat, partial, complete, properties,
+    MetricType, MetricWrapper, FlatMetricType, PropertyOfMetric
+};
 
 pub(crate) trait JsonMetric : Clone + Debug {
     type Flattened: FlattenedMetric<Json = Self>;
@@ -77,8 +76,8 @@ pub(crate) trait PartialMetric: Default + Clone {
     type Source: FlattenedMetric;
 
     fn push(&mut self, source: &FlatMetricShell<Self::Source>, channel: Channel, collection_by_topic: &ChannelDataByTopic);
-    fn load_data(&mut self, source: &Self) {
-        *self = source.clone();
+    fn load_data(&mut self, data_source: &Self) {
+        *self = data_source.clone();
     }
 
     #[cfg(test)]

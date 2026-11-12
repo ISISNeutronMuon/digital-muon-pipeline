@@ -1,27 +1,8 @@
 use crate::{
     analysis::results::MetricResultByBucket,
-    engine::PropertyOfMetric, metric::{CompleteMetric, CompleteSeriesOutput, complete},
-    metric::MetricResultError
+    engine::PropertyOfMetric, metric::{CompleteMetric, CompleteSeriesOutput, MetricResultError, MetricWrapper, complete}
 };
-use serde::{Deserialize, Serialize};
-use tracing::error;
-/*
-/// Encapsulates the completed results of a metric, aggregated from instances
-/// of objects implementing `PartialMetricResultBucket`.
-pub(crate) trait CompleteMetricResultBucket: Clone + Serialize + DeserializeOwned {
-    /// The corresponding partial results type.
-    type Partial: PartialMetricResultBucket<Complete = Self>;
-    /// Error type.
-    type Error: Into<MetricResultError>;
-    /// Type which specifies a particular property of the metric.
-    type Property: Clone;
 
-    /// Creates an instance of this object by aggregating the results from a partial results object.
-    fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error>;
-    /// Extract a particular property of the results.
-    fn get_property(&self, property: Self::Property) -> Result<MetricOutput, Self::Error>;
-}
- */
 impl<C: CompleteMetric> MetricResultByBucket<C> {
     pub(super) fn get_property(
         &self,
@@ -44,14 +25,13 @@ impl<C: CompleteMetric> MetricResultByBucket<C> {
 
 /// Stores the complete results of a metric, arranging the results by bucket.
 /// Each variant wraps a different concrete instance of [MetricResultByBucket].
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) enum CompletedMetricResult {
-    EventCount(MetricResultByBucket<complete::EventCount>),
-    FalseCount(MetricResultByBucket<complete::FalseCount>),
-    MuonLifetime(MetricResultByBucket<complete::MuonLifetime>),
-    PulseHeightSpectra(MetricResultByBucket<complete::PulseHeightSpectra>),
-    PulsePairDifferences(MetricResultByBucket<complete::PulsePairTimeDiff>),
-}
+pub(crate) type CompletedMetricResult = MetricWrapper<
+    MetricResultByBucket<complete::EventCount>,
+    MetricResultByBucket<complete::FalseCount>,
+    MetricResultByBucket<complete::MuonLifetime>,
+    MetricResultByBucket<complete::PulseHeightSpectra>,
+    MetricResultByBucket<complete::PulsePairTimeDiff>
+>;
 
 impl CompletedMetricResult {
     pub(crate) fn get_property(
@@ -59,28 +39,14 @@ impl CompletedMetricResult {
         block: usize,
         property: PropertyOfMetric,
     ) -> Result<CompleteSeriesOutput, MetricResultError> {
-        Ok(match (self, property.clone()) {
-            (Self::EventCount(completed), PropertyOfMetric::EventCount(property)) => {
-                completed.get_property(block, property)?
-            }
-            (Self::FalseCount(completed), PropertyOfMetric::FalseCount(property)) => {
-                completed.get_property(block, property)?
-            }
-            (Self::MuonLifetime(completed), PropertyOfMetric::MuonLifetime(property)) => {
-                completed.get_property(block, property)?
-            }
-            (
-                Self::PulseHeightSpectra(completed),
-                PropertyOfMetric::PulseHeightSpectra(property),
-            ) => completed.get_property(block, property)?,
-            (
-                Self::PulsePairDifferences(completed),
-                PropertyOfMetric::PulsePairDifferences(property),
-            ) => completed.get_property(block, property)?,
-            _ => {
-                error!("{:?}, {:?}", self, property.clone());
-                unreachable!()
-            }
-        })
+        self.as_ref()
+            .zip(property)
+            .fold(
+            |(this, that)|Ok(this.get_property(block, that)?),
+            |(this, that)|Ok(this.get_property(block, that)?),
+            |(this, that)|Ok(this.get_property(block, that)?),
+            |(this, that)|Ok(this.get_property(block, that)?),
+            |(this, that)|Ok(this.get_property(block, that)?),
+            )
     }
 }
