@@ -1,0 +1,15 @@
+{
+  "polarity": "negative",
+  "baseline": 0,
+  "mode": {
+    "differential-threshold-discriminator": {
+      "begin-threshold": 5.0,
+      "begin-duration": 1,
+      "end-threshold": 2.0,
+      "end-duration": 1,
+      "cool-off": 2,
+      "peak-height-mode": "max-value",
+      "peak-height-basis": "trace-baseline"
+    }
+  }
+}
