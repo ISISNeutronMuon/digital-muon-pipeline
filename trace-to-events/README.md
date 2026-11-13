@@ -40,12 +40,12 @@ The JSON document schema corresponds directly to the structs and enums defined i
 - [`DetectorSettings`](src/parameters.rs): Top-level configuration document containing `mode`, `polarity`, and optional `baseline`.
 - [`Polarity`](src/parameters.rs): Signal polarity (`"positive"`, `"negative"`).
 - [`Mode`](src/parameters.rs): Selected detector algorithm and its parameters:
-  - `FixedThresholdDiscriminator`: Configured by [`FixedThresholdDiscriminatorParameters`](src/parameters.rs).
-  - `DifferentialThresholdDiscriminator`: Configured by [`DifferentialThresholdDiscriminatorParameters`](src/parameters.rs) (along with [`PeakHeightMode`](src/parameters.rs) and [`PeakHeightBasis`](src/parameters.rs)).
-  - `SmoothingDetector`: Configured by [`SmoothingDetectorParameters`](src/parameters.rs).
-  - `Multiscaling`: Configured by [`MultiscalingDetectorParameters`](src/parameters.rs) and [`MultiscalingDetectorMethod`](src/parameters.rs).
+   - `FixedThresholdDiscriminator`: Configured by [`FixedThresholdDiscriminatorParameters`](src/parameters.rs) (see [`examples/fixed-threshold-discriminator.json`](examples/fixed-threshold-discriminator.json)).
+   - `DifferentialThresholdDiscriminator`: Configured by [`DifferentialThresholdDiscriminatorParameters`](src/parameters.rs) along with [`PeakHeightMode`](src/parameters.rs) and [`PeakHeightBasis`](src/parameters.rs) (see [`examples/differential-threshold-discriminator.json`](examples/differential-threshold-discriminator.json)).
+   - `SmoothingDetector`: Configured by [`SmoothingDetectorParameters`](src/parameters.rs) (see [`examples/smoothing-detector.json`](examples/smoothing-detector.json)).
+   - `Multiscaling`: Configured by [`MultiscalingDetectorParameters`](src/parameters.rs) and [`MultiscalingDetectorMethod`](src/parameters.rs) (see [`examples/multiscaling.json`](examples/multiscaling.json)).
 
-Field names and enum variants map to `kebab-case` (with `snake_case` also supported via aliases).
+Field names and enum variants map to `kebab-case`.
 
 ## Configuring the Detector Pipeline
 

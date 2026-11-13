@@ -183,6 +183,7 @@ pub(crate) enum Mode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channels::ChannelState;
 
     #[test]
     fn test_deserialize_fixed_threshold() {
@@ -277,25 +278,10 @@ mod tests {
 
     #[test]
     fn test_deserialize_multiscaling() {
-        let json = r#"{
-            "polarity": "positive",
-            "mode": {
-                "multiscaling": {
-                    "number-of-layers": 4,
-                    "denoise": true,
-                    "method": {
-                        "fixed-threshold-discriminator": {
-                            "threshold": 7.0,
-                            "duration": 1,
-                            "cool-off": 0
-                        }
-                    }
-                }
-            }
-        }"#;
+        let json = include_str!("../examples/multiscaling.json");
 
         let settings: DetectorSettings = serde_json::from_str(json).unwrap();
-        match settings.mode {
+        match &settings.mode {
             Mode::Multiscaling(params) => {
                 assert_eq!(params.number_of_layers, 4);
                 assert!(params.denoise);
@@ -303,14 +289,30 @@ mod tests {
                     params.method,
                     MultiscalingDetectorMethod::FixedThresholdDiscriminator(
                         FixedThresholdDiscriminatorParameters {
-                            threshold: 7.0,
-                            duration: 1,
+                            threshold: 10.0,
+                            duration: 2,
                             cool_off: 0,
                         }
                     )
                 );
             }
             _ => panic!("Expected multiscaling mode"),
+        }
+        let _ = ChannelState::new(&settings);
+    }
+
+    #[test]
+    fn test_deserialize_example_files() {
+        let examples = [
+            include_str!("../examples/fixed-threshold-discriminator.json"),
+            include_str!("../examples/differential-threshold-discriminator.json"),
+            include_str!("../examples/smoothing-detector.json"),
+            include_str!("../examples/multiscaling.json"),
+        ];
+
+        for json in examples {
+            let settings: DetectorSettings = serde_json::from_str(json).unwrap();
+            let _ = ChannelState::new(&settings);
         }
     }
 }

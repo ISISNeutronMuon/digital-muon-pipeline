@@ -1,0 +1,27 @@
+{
+  "polarity": "positive",
+  "baseline": 0,
+  "mode": {
+    "multiscaling": {
+      "downsampling-smoothing": [0.125, 0.5, 0.75, 0.5, 0.125],
+      "smoothing-support": [-2, -1, 0, 1, 2],
+      "fft-padding": 200,
+      "fft-truncation": 5,
+      "number-of-layers": 4,
+      "denoise": true,
+      "denoise-thresholds": [2.0, 5.0, 7.0, 20.0],
+      "enhance": true,
+      "enhance-thresholds": [40.0, 30.0, 35.0, 50.0],
+      "enhance-factors": [1.5, 1.375, 1.25, 1.125],
+      "multiply": true,
+      "multiply-factors": [1.0, 0.7, 0.2, 0.1],
+      "method": {
+        "fixed-threshold-discriminator": {
+          "threshold": 10.0,
+          "duration": 2,
+          "cool-off": 0
+        }
+      }
+    }
+  }
+}
