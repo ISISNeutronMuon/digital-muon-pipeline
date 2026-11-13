@@ -4,7 +4,7 @@ use crate::{
         values::{Interval, ValueError},
     },
     metric::{
-        FlatMetricShell, JsonMetricShell, ListOfMetrics, MetricWrapper, flat, json, properties,
+        FlatMetricShell, JsonMetricShell, ListOfMetrics, MetricWrapper, MetricWrapperWithTag, flat, json, properties
     },
 };
 use serde::{Deserialize, Serialize};
@@ -22,7 +22,7 @@ impl ListOfMetrics for JsonMetricTypes {
 }
 
 /// Defines a metric type, should only be created by deserializing JSON object.
-pub(crate) type MetricType = MetricWrapper<JsonMetricTypes>;
+pub(crate) type MetricType = MetricWrapperWithTag<JsonMetricTypes>;
 
 /// Groups together all metric properties types.
 #[derive(Debug, Clone)]
@@ -99,11 +99,15 @@ impl HasName for Metric {
     }
 }
 
+/// Defines settings for a histogram type metric.
 ///
+/// These do not require flattening.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct MetricTypeHistogram {
+    /// Number of bins to use in the histogram.
     pub(crate) num_bins: usize,
+    /// The upper and lower limits of the histogram.
     pub(crate) interval: Interval<f64>,
 }
 

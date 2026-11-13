@@ -5,7 +5,7 @@ mod pulse_height_spectra;
 mod pulse_pair_time_diff;
 mod wrapper;
 
-pub(crate) use wrapper::{ListOfMetrics, MetricWrapper};
+pub(crate) use wrapper::{ListOfMetrics, MetricWrapper, MetricWrapperWithTag};
 
 pub(crate) mod json {
     pub(crate) use super::event_count::JsonEventCount as EventCount;

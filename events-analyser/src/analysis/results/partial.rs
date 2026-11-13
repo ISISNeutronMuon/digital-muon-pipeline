@@ -91,10 +91,11 @@ where
             .expect("Bucket index should be valid, this should never fail")
     }
 
-    /// Adds data to the metric, pushing it to the given bucket index.
+    /// Pushes a [ChannelCollection] into the metric.
     ///
     /// # Parameters
     /// - bucket_index: the bucket to push to.
+    /// - collection: the channel collection that is being pushed.
     pub(super) fn push(&mut self, bucket_index: BucketIndex, collection: &ChannelCollection) {
         let partial_metric_result = self.get_bucket_mut(bucket_index);
         partial_metric_result.increment_count();
@@ -148,6 +149,11 @@ impl ListOfMetrics for PartialMetricTypes {
 pub(crate) type PartialMetricResult = MetricWrapper<PartialMetricTypes>;
 
 impl PartialMetricResult {
+    /// Create a new [PartialMetricResult] from a [FlatMetricType].
+    /// 
+    /// # Parameters
+    /// - source:
+    /// - bucket_block_sizes:
     pub(crate) fn new(source: FlatMetricType, bucket_block_sizes: &[usize]) -> Self {
         source.map(
             |this| MetricResultByBucket::new(this, bucket_block_sizes),
@@ -158,6 +164,11 @@ impl PartialMetricResult {
         )
     }
 
+    /// Determines if the buckets are sufficiently full.
+    /// 
+    /// # Parameters
+    /// - block:
+    /// - min:
     pub(crate) fn are_buckets_full_enough(&self, block: usize, min: &[FlatBucket]) -> bool {
         self.as_ref().fold(
             |this| this.are_buckets_full_enough(block, min),
@@ -168,6 +179,11 @@ impl PartialMetricResult {
         )
     }
 
+    /// Determines if the buckets are sufficiently full.
+    /// 
+    /// # Parameters
+    /// - block:
+    /// - min:
     pub(crate) fn push(&mut self, bucket_index: BucketIndex, collection: &ChannelCollection) {
         self.as_mut().fold(
             |this| this.push(bucket_index, collection),
@@ -178,6 +194,11 @@ impl PartialMetricResult {
         )
     }
 
+    /// Determines if the buckets are sufficiently full.
+    /// 
+    /// # Parameters
+    /// - block:
+    /// - min:
     pub(crate) fn build_aggregate(&self) -> Result<CompletedMetricResult, MetricResultError> {
         self.as_ref().try_map(
             MetricResultByBucket::aggregate,
@@ -188,14 +209,23 @@ impl PartialMetricResult {
         )
     }
 
+    /// Determines if the buckets are sufficiently full.
+    /// 
+    /// # Parameters
+    /// - block:
+    /// - min:
     pub(crate) fn load_data(&mut self, source: &Self) -> Result<(), MetricResultError> {
-        self.as_mut().zip(source.as_ref()).fold(
-            |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
-            |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
-            |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
-            |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
-            |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
-        );
-        Ok(())
+        if let Some(zip) = self.as_mut().zip(source.as_ref()) {
+            zip.fold(
+                |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
+                |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
+                |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
+                |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
+                |(metric_result_by_bucket, source)| metric_result_by_bucket.load_data(source),
+            );
+            Ok(())
+        } else {
+            Err(MetricResultError::LoadingDataWrongMetrics)
+        }
     }
 }

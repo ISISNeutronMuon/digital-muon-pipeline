@@ -9,7 +9,7 @@ use crate::{
 };
 use digital_muon_common::Channel;
 pub(crate) use error::{FittingError, MetricResultError};
-pub(crate) use metrics::{ListOfMetrics, MetricWrapper, complete, flat, json, partial, properties};
+pub(crate) use metrics::{ListOfMetrics, MetricWrapper, MetricWrapperWithTag, complete, flat, json, partial, properties};
 pub(crate) use outputs::{CompleteSeriesOutput, HistogramWithBands, Surface};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
@@ -120,7 +120,7 @@ impl<P: PartialMetric> PartialMetricShell<P> {
         }
     }
 
-    fn load_data(&mut self, source: &Self) {
+    pub(crate) fn load_data(&mut self, source: &Self) {
         self.source = source.source.clone();
         self.notifications = source.notifications.clone();
         self.inner.load_data(&source.inner);

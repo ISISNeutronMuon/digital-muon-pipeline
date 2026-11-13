@@ -45,17 +45,21 @@ impl ListOfMetrics for CompleteMetricTypes {
 pub(crate) type CompletedMetricResult = MetricWrapper<CompleteMetricTypes>;
 
 impl CompletedMetricResult {
+    /// 
     pub(crate) fn get_property(
         &self,
         block: usize,
         property: PropertyOfMetric,
     ) -> Result<CompleteSeriesOutput, MetricResultError> {
-        self.as_ref().zip(property).fold(
-            |(this, that)| Ok(this.get_property(block, that)?),
-            |(this, that)| Ok(this.get_property(block, that)?),
-            |(this, that)| Ok(this.get_property(block, that)?),
-            |(this, that)| Ok(this.get_property(block, that)?),
-            |(this, that)| Ok(this.get_property(block, that)?),
-        )
+        self.as_ref()
+            .zip(property)
+            .expect("Property type should match metric type, this should never fail.")
+            .fold(
+                |(this, that)| this.get_property(block, that),
+                |(this, that)| this.get_property(block, that),
+                |(this, that)| this.get_property(block, that).map_err(Into::into),
+                |(this, that)| this.get_property(block, that),
+                |(this, that)| this.get_property(block, that),
+            )
     }
 }

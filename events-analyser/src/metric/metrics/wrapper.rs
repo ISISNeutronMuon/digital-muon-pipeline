@@ -13,6 +13,22 @@ pub(crate) trait ListOfMetrics {
 /// Generic enum in which each variant contains the corresponding type encapsulated by `Types`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "metric-type")]
+pub(crate) enum MetricWrapperWithTag<Types: ListOfMetrics> {
+    #[serde(rename_all = "kebab-case")]
+    EventCount(Types::EventCount),
+    #[serde(rename_all = "kebab-case")]
+    FalseCount(Types::FalseCount),
+    #[serde(rename_all = "kebab-case")]
+    MuonLifetime(Types::MuonLifetime),
+    #[serde(rename_all = "kebab-case")]
+    PulseHeightSpectra(Types::PulseHeightSpectra),
+    #[serde(rename_all = "kebab-case")]
+    PulsePairTimeDiff(Types::PulsePairTimeDiff),
+}
+
+/// Generic enum in which each variant contains the corresponding type encapsulated by `Types`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) enum MetricWrapper<Types: ListOfMetrics> {
     #[serde(rename_all = "kebab-case")]
     EventCount(Types::EventCount),
@@ -25,6 +41,7 @@ pub(crate) enum MetricWrapper<Types: ListOfMetrics> {
     #[serde(rename_all = "kebab-case")]
     PulsePairTimeDiff(Types::PulsePairTimeDiff),
 }
+
 
 /// Encapsulates an instance of references derived from `Types`.
 pub(crate) struct RefMetricTypes<'a, Types: ListOfMetrics>(PhantomData<&'a Types>);
@@ -86,12 +103,14 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         }
     }
 
-    /// Takes two wrappers and returns a wrapper of tuples.
+    /// Takes two wrappers (with the same variants) and returns a wrapper of tuples.
+    ///
+    /// Returns [Option::None], if the two wrappers are of different variants.
     pub(crate) fn zip<OtherTypes: ListOfMetrics>(
         self,
         other: MetricWrapper<OtherTypes>,
-    ) -> MetricWrapper<ZippedMetricTypes<Types, OtherTypes>> {
-        match (self, other) {
+    ) -> Option<MetricWrapper<ZippedMetricTypes<Types, OtherTypes>>> {
+        Some(match (self, other) {
             (Self::EventCount(this), MetricWrapper::EventCount(that)) => {
                 MetricWrapper::EventCount((this, that))
             }
@@ -107,8 +126,8 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
             (Self::PulsePairTimeDiff(this), MetricWrapper::PulsePairTimeDiff(that)) => {
                 MetricWrapper::PulsePairTimeDiff((this, that))
             }
-            _ => unreachable!(),
-        }
+            _ => return None,
+        })
     }
 
     /// Converts a wrapper into a generic type, with the provided maps applied to each variant.
