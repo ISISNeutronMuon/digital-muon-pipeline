@@ -8,17 +8,19 @@ use crate::{
     engine::{FlatBucket, FlatMetricType},
     eventlists::ChannelCollection,
     metric::{
-        CompleteMetric, FlatMetricShell, ListOfMetrics, MetricResultError, MetricWrapper,
-        PartialMetric, PartialMetricShell, partial,
+        CompleteMetric, FlatMetricShell, ListOfMetrics, MetricResultError, MetricWrapper, PartialMetric, PartialMetricShell, partial
     },
 };
 
 impl<C: PartialMetric> MetricResultBucketWrapper<PartialMetricShell<C>> {
     /// Create a new and empty partial results storage object.
+    ///
+    /// # Parameters
+    /// - source: the source of the data, namely an instance of [FlatMetricShell].
     pub(crate) fn new(source: &FlatMetricShell<<C as PartialMetric>::Source>) -> Self {
         Self {
             num_messages: Default::default(),
-            object: PartialMetricShell::make_default(source),
+            object: PartialMetricShell::new(source),
         }
     }
 
@@ -150,7 +152,7 @@ pub(crate) type PartialMetricResult = MetricWrapper<PartialMetricTypes>;
 
 impl PartialMetricResult {
     /// Create a new [PartialMetricResult] from a [FlatMetricType].
-    /// 
+    ///
     /// # Parameters
     /// - source:
     /// - bucket_block_sizes:
@@ -165,7 +167,7 @@ impl PartialMetricResult {
     }
 
     /// Determines if the buckets are sufficiently full.
-    /// 
+    ///
     /// # Parameters
     /// - block:
     /// - min:
@@ -180,7 +182,7 @@ impl PartialMetricResult {
     }
 
     /// Determines if the buckets are sufficiently full.
-    /// 
+    ///
     /// # Parameters
     /// - block:
     /// - min:
@@ -195,7 +197,7 @@ impl PartialMetricResult {
     }
 
     /// Determines if the buckets are sufficiently full.
-    /// 
+    ///
     /// # Parameters
     /// - block:
     /// - min:
@@ -210,7 +212,7 @@ impl PartialMetricResult {
     }
 
     /// Determines if the buckets are sufficiently full.
-    /// 
+    ///
     /// # Parameters
     /// - block:
     /// - min:

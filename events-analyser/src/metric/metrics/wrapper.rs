@@ -1,7 +1,41 @@
+//! Defines the central [MetricWrapper] generic enum type.
+//! This type has one variant for each metric and is intended so that most changes
+//! resulting from modifying or adding new metrics are contained withing the [crate::metric::metrics] module.
+//! Any other modifications necessary from adding a new metric are indicated by compiler errors.
+//! 
+//! To add a new metric:
+//! - Add a new `type` into the trait [ListOfMetrics] (and update `Example`).
+//! - Update [RefMetricTypes], [MutMetricTypes], and [ZippedMetricTypes] as needed (including `Example`).
+//! - Add new module in [crate::metric::metrics] defining the necessary types as detailed in the module's documentation.
+//! - Update [crate::engine::elements::metric] as needed.
+//! - Update [crate::analysis::results::partial] and [crate::analysis::results::complete] as needed.
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
-/// Encapsulates a list of all metrics.
+/// Types implementing this encapsulate a list of all metrics.
+/// 
+/// # Example
+/// ```rust
+///    // These do something with each metric.
+///    struct EventCountType;
+///    struct FalseCountType;
+///    struct MuonLifetimeType;
+///    struct PulseHeightSpectraType;
+///    struct PulsePairTimeDiffType;
+///
+///    // This allows all the above types to be grouped together.
+///    struct MetricsList;
+///
+///    impl ListOfMetrics for MetricsList {
+///        type EventCount = EventCountType;
+///        type FalseCount = FalseCountType;
+///        type MuonLifetime = MuonLifetimeType;
+///        type PulseHeightSpectra = PulseHeightSpectraType;
+///        type PulsePairTimeDiff = PulsePairTimeDiffType;
+///    }
+/// ```
+/// 
+/// For an example of how this is used see [MetricWrapper].
 pub(crate) trait ListOfMetrics {
     type EventCount;
     type FalseCount;
@@ -11,22 +45,33 @@ pub(crate) trait ListOfMetrics {
 }
 
 /// Generic enum in which each variant contains the corresponding type encapsulated by `Types`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "metric-type")]
-pub(crate) enum MetricWrapperWithTag<Types: ListOfMetrics> {
-    #[serde(rename_all = "kebab-case")]
-    EventCount(Types::EventCount),
-    #[serde(rename_all = "kebab-case")]
-    FalseCount(Types::FalseCount),
-    #[serde(rename_all = "kebab-case")]
-    MuonLifetime(Types::MuonLifetime),
-    #[serde(rename_all = "kebab-case")]
-    PulseHeightSpectra(Types::PulseHeightSpectra),
-    #[serde(rename_all = "kebab-case")]
-    PulsePairTimeDiff(Types::PulsePairTimeDiff),
-}
-
-/// Generic enum in which each variant contains the corresponding type encapsulated by `Types`.
+/// 
+/// # Example
+/// 
+/// Consider the types defined in the [ListOfMetrics] example.
+/// 
+/// ```rust
+///    struct EventCountType;
+///    struct FalseCountType;
+///    struct MuonLifetimeType;
+///    struct PulseHeightSpectraType;
+///    struct PulsePairTimeDiffType;
+///
+///    struct MetricsList;
+///
+///    impl ListOfMetrics for MetricsList {
+///        type EventCount = EventCountType;
+///        type FalseCount = FalseCountType;
+///        type MuonLifetime = MuonLifetimeType;
+///        type PulseHeightSpectra = PulseHeightSpectraType;
+///        type PulsePairTimeDiff = PulsePairTimeDiffType;
+///    }
+/// 
+///     // This does something different depening on the type of metric.
+///     type MetricType = MetricWrapper<MetricsList>;
+/// ```
+/// 
+/// For an example of how this is used see [MetricWrapper].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum MetricWrapper<Types: ListOfMetrics> {
@@ -42,8 +87,30 @@ pub(crate) enum MetricWrapper<Types: ListOfMetrics> {
     PulsePairTimeDiff(Types::PulsePairTimeDiff),
 }
 
+/// Generic enum in which each variant contains the corresponding type encapsulated by `Types`.
+/// Identical to [MetricWrapper] except for the presence of `#[serde(tag = "metric-type")]` and
+/// the `impl MetricWrapper` block.
+/// This is used exclusively by [MetricType].
+/// 
+/// [MetricType] : crate::engine::elements::metric::MetricType
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", tag = "metric-type")]
+pub(crate) enum MetricWrapperWithTag<Types: ListOfMetrics> {
+    #[serde(rename_all = "kebab-case")]
+    EventCount(Types::EventCount),
+    #[serde(rename_all = "kebab-case")]
+    FalseCount(Types::FalseCount),
+    #[serde(rename_all = "kebab-case")]
+    MuonLifetime(Types::MuonLifetime),
+    #[serde(rename_all = "kebab-case")]
+    PulseHeightSpectra(Types::PulseHeightSpectra),
+    #[serde(rename_all = "kebab-case")]
+    PulsePairTimeDiff(Types::PulsePairTimeDiff),
+}
 
 /// Encapsulates an instance of references derived from `Types`.
+/// [MetricWrapper] instances are able to call [MetricWrapper::as_ref] to obtain
+/// an instance of [RefMetricTypes].
 pub(crate) struct RefMetricTypes<'a, Types: ListOfMetrics>(PhantomData<&'a Types>);
 
 impl<'a, Types: ListOfMetrics> ListOfMetrics for RefMetricTypes<'a, Types> {
@@ -55,6 +122,8 @@ impl<'a, Types: ListOfMetrics> ListOfMetrics for RefMetricTypes<'a, Types> {
 }
 
 /// Encapsulates an instance of mutable references derived from `Types`.
+/// [MetricWrapper] instances are able to call [MetricWrapper::as_mut] to obtain
+/// an instance of [MutMetricTypes].
 pub(crate) struct MutMetricTypes<'a, Types: ListOfMetrics>(PhantomData<&'a mut Types>);
 
 impl<'a, Types: ListOfMetrics> ListOfMetrics for MutMetricTypes<'a, Types> {
@@ -66,6 +135,8 @@ impl<'a, Types: ListOfMetrics> ListOfMetrics for MutMetricTypes<'a, Types> {
 }
 
 /// Encapsulates an instance of tuples derived from `Types1` and `Types2`.
+/// [MetricWrapper] instances are able to call [MetricWrapper::zip] on another
+/// [MetricWrapper] instance to obtain an instance of [ZippedMetricTypes].
 pub(crate) struct ZippedMetricTypes<Types1: ListOfMetrics, Types2: ListOfMetrics>(
     PhantomData<(Types1, Types2)>,
 );
@@ -130,7 +201,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         })
     }
 
-    /// Converts a wrapper into a generic type, with the provided maps applied to each variant.
+    /// Converts a [MetricWrapper] instance into a generic type, with the provided maps applied to each variant.
     ///
     /// # Paramerers
     /// - event_count_map: function applied to the `EventCount` variant.
@@ -138,21 +209,19 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
     /// - muon_lifetime_map: function applied to the `MuonLifetime` variant.
     /// - pulse_height_spectra_map: function applied to the `PulseHeightSpectra` variant.
     /// - pulse_pair_time_diff_map: function applied to the `PulsePairTimeDiff` variant.
-    pub(crate) fn fold<T, FE, FF, FM, FP, FD>(
+    pub(crate) fn fold<T,
+        FE: Fn(Types::EventCount) -> T,
+        FF: Fn(Types::FalseCount) -> T,
+        FM: Fn(Types::MuonLifetime) -> T,
+        FP: Fn(Types::PulseHeightSpectra) -> T,
+        FD: Fn(Types::PulsePairTimeDiff) -> T,>(
         self,
         event_count_map: FE,
         false_count_map: FF,
         muon_lifetime_map: FM,
         pulse_height_spectra_map: FP,
         pulse_pair_time_diff_map: FD,
-    ) -> T
-    where
-        FE: Fn(Types::EventCount) -> T,
-        FF: Fn(Types::FalseCount) -> T,
-        FM: Fn(Types::MuonLifetime) -> T,
-        FP: Fn(Types::PulseHeightSpectra) -> T,
-        FD: Fn(Types::PulsePairTimeDiff) -> T,
-    {
+    ) -> T {
         match self {
             Self::EventCount(this) => event_count_map(this),
             Self::FalseCount(this) => false_count_map(this),
@@ -162,7 +231,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         }
     }
 
-    /// Converts one wrapper into another, with the provided maps applied to each variant.
+    /// Converts one [MetricWrapper] instance into another, with the provided maps applied to each variant.
     ///
     /// # Paramerers
     /// - event_count_map: function applied to the `EventCount` variant.
@@ -170,21 +239,21 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
     /// - muon_lifetime_map: function applied to the `MuonLifetime` variant.
     /// - pulse_height_spectra_map: function applied to the `PulseHeightSpectra` variant.
     /// - pulse_pair_time_diff_map: function applied to the `PulsePairTimeDiff` variant.
-    pub(crate) fn map<OtherTypes: ListOfMetrics, FE, FF, FM, FP, FD>(
+    pub(crate) fn map<
+        OtherTypes: ListOfMetrics,
+        FE: Fn(Types::EventCount) -> OtherTypes::EventCount,
+        FF: Fn(Types::FalseCount) -> OtherTypes::FalseCount,
+        FM: Fn(Types::MuonLifetime) -> OtherTypes::MuonLifetime,
+        FP: Fn(Types::PulseHeightSpectra) -> OtherTypes::PulseHeightSpectra,
+        FD: Fn(Types::PulsePairTimeDiff) -> OtherTypes::PulsePairTimeDiff,
+    >(
         self,
         event_count_map: FE,
         false_count_map: FF,
         muon_lifetime_map: FM,
         pulse_height_spectra_map: FP,
         pulse_pair_time_diff_map: FD,
-    ) -> MetricWrapper<OtherTypes>
-    where
-        FE: Fn(Types::EventCount) -> OtherTypes::EventCount,
-        FF: Fn(Types::FalseCount) -> OtherTypes::FalseCount,
-        FM: Fn(Types::MuonLifetime) -> OtherTypes::MuonLifetime,
-        FP: Fn(Types::PulseHeightSpectra) -> OtherTypes::PulseHeightSpectra,
-        FD: Fn(Types::PulsePairTimeDiff) -> OtherTypes::PulsePairTimeDiff,
-    {
+    ) -> MetricWrapper<OtherTypes> {
         self.fold(
             |this| MetricWrapper::EventCount(event_count_map(this)),
             |this| MetricWrapper::FalseCount(false_count_map(this)),
@@ -194,7 +263,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         )
     }
 
-    /// Tries to convert one wrapper into another, with the provided maps applied to each variant.
+    /// Tries to convert one [MetricWrapper] instance into another, with the provided maps applied to each variant.
     ///
     /// # Paramerers
     /// - event_count_map: function applied to the `EventCount` variant.
@@ -204,17 +273,17 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
     /// - pulse_pair_time_diff_map: function applied to the `PulsePairTimeDiff` variant.
     pub(crate) fn try_map<
         OtherTypes: ListOfMetrics,
-        FE,
-        FF,
-        FM,
-        FP,
-        FD,
+        FE: Fn(Types::EventCount) -> Result<OtherTypes::EventCount, EE>,
+        FF: Fn(Types::FalseCount) -> Result<OtherTypes::FalseCount, EF>,
+        FM: Fn(Types::MuonLifetime) -> Result<OtherTypes::MuonLifetime, EM>,
+        FP: Fn(Types::PulseHeightSpectra) -> Result<OtherTypes::PulseHeightSpectra, EP>,
+        FD: Fn(Types::PulsePairTimeDiff) -> Result<OtherTypes::PulsePairTimeDiff, ED>,
         Error,
-        EE,
-        EF,
-        EM,
-        EP,
-        ED,
+        EE: Into<Error>,
+        EF: Into<Error>,
+        EM: Into<Error>,
+        EP: Into<Error>,
+        ED: Into<Error>,
     >(
         self,
         event_count_map: FE,
@@ -222,19 +291,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         muon_lifetime_map: FM,
         pulse_height_spectra_map: FP,
         pulse_pair_time_diff_map: FD,
-    ) -> Result<MetricWrapper<OtherTypes>, Error>
-    where
-        FE: Fn(Types::EventCount) -> Result<OtherTypes::EventCount, EE>,
-        FF: Fn(Types::FalseCount) -> Result<OtherTypes::FalseCount, EF>,
-        FM: Fn(Types::MuonLifetime) -> Result<OtherTypes::MuonLifetime, EM>,
-        FP: Fn(Types::PulseHeightSpectra) -> Result<OtherTypes::PulseHeightSpectra, EP>,
-        FD: Fn(Types::PulsePairTimeDiff) -> Result<OtherTypes::PulsePairTimeDiff, ED>,
-        EE: Into<Error>,
-        EF: Into<Error>,
-        EM: Into<Error>,
-        EP: Into<Error>,
-        ED: Into<Error>,
-    {
+    ) -> Result<MetricWrapper<OtherTypes>, Error> {
         self.fold(
             |this| {
                 event_count_map(this)

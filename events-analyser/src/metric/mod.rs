@@ -9,7 +9,9 @@ use crate::{
 };
 use digital_muon_common::Channel;
 pub(crate) use error::{FittingError, MetricResultError};
-pub(crate) use metrics::{ListOfMetrics, MetricWrapper, MetricWrapperWithTag, complete, flat, json, partial, properties};
+pub(crate) use metrics::{
+    ListOfMetrics, MetricWrapper, MetricWrapperWithTag, complete, flat, json, partial, properties,
+};
 pub(crate) use outputs::{CompleteSeriesOutput, HistogramWithBands, Surface};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
@@ -24,11 +26,16 @@ pub(crate) trait JsonMetric: Clone + Debug {
     fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ValueError>;
 }
 
+/// Defines a type which describes a metric, and is created by deserialization from the JSON configuaration file.
+/// If consists of two parts, the [Self::json] field, which requires `flattening`, and the [Self::settings] field,
+/// which does not.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "T: Serialize + DeserializeOwned")]
 pub(crate) struct JsonMetricShell<T: JsonMetric> {
+    /// Represents fields which are dependent on other parts of the configuartion file.
     #[serde(flatten)]
     json: T,
+    /// Represents fields which are not dependent on other parts of the configuartion file.
     #[serde(flatten)]
     settings: T::Settings,
 }
@@ -45,10 +52,13 @@ pub(crate) trait FlattenedMetric: Clone + Debug + Serialize + DeserializeOwned {
     }
 }
 
+/// Defines a type, derived from an instance of [FlatMetricShell] which has had its dependencies resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "T: Serialize + DeserializeOwned")]
 pub(crate) struct FlatMetricShell<T: FlattenedMetric> {
+    /// Represents fields which have been flattened to resolve their dependencies on other parts of the configuartion file.
     flat: T,
+    /// Represents fields which are not dependent on other parts of the configuartion file, and have been copied straight from [JsonMetricShell].
     #[serde(flatten)]
     settings: <T::Json as JsonMetric>::Settings,
 }
@@ -112,7 +122,7 @@ pub(crate) struct PartialMetricShell<P: PartialMetric> {
 }
 
 impl<P: PartialMetric> PartialMetricShell<P> {
-    pub(crate) fn make_default(source: &FlatMetricShell<P::Source>) -> Self {
+    pub(crate) fn new(source: &FlatMetricShell<P::Source>) -> Self {
         Self {
             source: source.clone(),
             notifications: Default::default(),

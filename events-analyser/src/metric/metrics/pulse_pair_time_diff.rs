@@ -21,7 +21,7 @@ use std::collections::HashMap;
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PulsePairTimeDiffSettings {
     /// Only include events with this range of intensities.
-    intensity_filter: Interval<Intensity>,
+    intensity_filter: Option<Interval<Intensity>>,
     /// Encapsulates how the histogram is constructed.
     #[serde(flatten)]
     histogram: MetricTypeHistogram,
@@ -92,8 +92,14 @@ impl PartialMetric for PartialPulsePairTimeDiff {
                 let [(first_time, first_intensity), (last_time, last_intensity)] = vec
                     .try_into()
                     .expect("Vector should have length 2, this should never fail.");
-                let range = source.settings.intensity_filter.range_inclusive();
-                (range.contains(first_intensity) || range.contains(last_intensity))
+                source
+                    .settings
+                    .intensity_filter
+                    .as_ref()
+                    .is_none_or(|intensity_filter| {
+                        let range = intensity_filter.range_inclusive();
+                        range.contains(first_intensity) || range.contains(last_intensity)
+                    })
                     .then_some(Time::abs_diff(*first_time, *last_time))
             })
             .collect::<Vec<_>>();

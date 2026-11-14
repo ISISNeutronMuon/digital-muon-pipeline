@@ -1,3 +1,13 @@
+//! This module encapsulates all metric functionality.
+//! 
+//! To create a new metric, begin by following the instructions in [crate::metric::metrics::wrapper].
+//! When creating the new submodule, e.g. `new_metric.rs`, the following steps are needed:
+//! - New Type `Json[NewMetric]` implementing [JsonMetric].
+//! - If necessary, new type `[NewMetric]Settings`.
+//! - New Type `Flat[NewMetric]` implementing [FlatMetric].
+//! - New Type `Partial[NewMetric]` implementing [PartialMetric].
+//! - New Type `Complete[NewMetric]` implementing [CompleteMetric].
+//! - New Enum `[NewMetric]Property`.
 mod event_count;
 mod false_count;
 mod muon_lifetime;

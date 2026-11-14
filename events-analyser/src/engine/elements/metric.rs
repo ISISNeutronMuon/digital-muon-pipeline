@@ -4,7 +4,8 @@ use crate::{
         values::{Interval, ValueError},
     },
     metric::{
-        FlatMetricShell, JsonMetricShell, ListOfMetrics, MetricWrapper, MetricWrapperWithTag, flat, json, properties
+        FlatMetricShell, JsonMetricShell, ListOfMetrics, MetricWrapper, MetricWrapperWithTag, flat,
+        json, properties,
     },
 };
 use serde::{Deserialize, Serialize};
