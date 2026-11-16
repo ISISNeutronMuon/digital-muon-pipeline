@@ -1,5 +1,5 @@
 //! This module encapsulates all metric functionality.
-//! 
+//!
 //! To create a new metric, begin by following the instructions in [crate::metric::metrics::wrapper].
 //! When creating the new submodule, e.g. `new_metric.rs`, the following steps are needed:
 //! - New Type `Json[NewMetric]` implementing [JsonMetric].
@@ -18,19 +18,19 @@ mod wrapper;
 pub(crate) use wrapper::{ListOfMetrics, MetricWrapper, MetricWrapperWithTag};
 
 pub(crate) mod json {
-    pub(crate) use super::event_count::JsonEventCount as EventCount;
-    pub(crate) use super::false_count::JsonFalseCount as FalseCount;
-    pub(crate) use super::muon_lifetime::JsonMuonLifetime as MuonLifetime;
-    pub(crate) use super::pulse_height_spectra::JsonPulseHeightSpectra as PulseHeightSpectra;
-    pub(crate) use super::pulse_pair_time_diff::JsonPulsePairTimeDiff as PulsePairTimeDiff;
+    pub(crate) use super::event_count::DependentEventCount as EventCount;
+    pub(crate) use super::false_count::DependentFalseCount as FalseCount;
+    pub(crate) use super::muon_lifetime::DependentMuonLifetime as MuonLifetime;
+    pub(crate) use super::pulse_height_spectra::DependentPulseHeightSpectra as PulseHeightSpectra;
+    pub(crate) use super::pulse_pair_time_diff::DependentPulsePairTimeDiff as PulsePairTimeDiff;
 }
 
 pub(crate) mod flat {
-    pub(crate) use super::event_count::FlatEventCount as EventCount;
-    pub(crate) use super::false_count::FlatFalseCount as FalseCount;
-    pub(crate) use super::muon_lifetime::FlatMuonLifetime as MuonLifetime;
-    pub(crate) use super::pulse_height_spectra::FlatPulseHeightSpectra as PulseHeightSpectra;
-    pub(crate) use super::pulse_pair_time_diff::FlatPulsePairTimeDiff as PulsePairTimeDiff;
+    pub(crate) use super::event_count::ResolvedEventCount as EventCount;
+    pub(crate) use super::false_count::ResolvedFalseCount as FalseCount;
+    pub(crate) use super::muon_lifetime::ResolvedMuonLifetime as MuonLifetime;
+    pub(crate) use super::pulse_height_spectra::ResolvedPulseHeightSpectra as PulseHeightSpectra;
+    pub(crate) use super::pulse_pair_time_diff::ResolvedPulsePairTimeDiff as PulsePairTimeDiff;
 }
 
 pub(crate) mod partial {

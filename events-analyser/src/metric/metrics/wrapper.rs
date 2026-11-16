@@ -2,7 +2,7 @@
 //! This type has one variant for each metric and is intended so that most changes
 //! resulting from modifying or adding new metrics are contained withing the [crate::metric::metrics] module.
 //! Any other modifications necessary from adding a new metric are indicated by compiler errors.
-//! 
+//!
 //! To add a new metric:
 //! - Add a new `type` into the trait [ListOfMetrics] (and update `Example`).
 //! - Update [RefMetricTypes], [MutMetricTypes], and [ZippedMetricTypes] as needed (including `Example`).
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 /// Types implementing this encapsulate a list of all metrics.
-/// 
+///
 /// # Example
 /// ```rust
 ///    // These do something with each metric.
@@ -34,7 +34,7 @@ use std::marker::PhantomData;
 ///        type PulsePairTimeDiff = PulsePairTimeDiffType;
 ///    }
 /// ```
-/// 
+///
 /// For an example of how this is used see [MetricWrapper].
 pub(crate) trait ListOfMetrics {
     type EventCount;
@@ -45,11 +45,11 @@ pub(crate) trait ListOfMetrics {
 }
 
 /// Generic enum in which each variant contains the corresponding type encapsulated by `Types`.
-/// 
+///
 /// # Example
-/// 
+///
 /// Consider the types defined in the [ListOfMetrics] example.
-/// 
+///
 /// ```rust
 ///    struct EventCountType;
 ///    struct FalseCountType;
@@ -66,11 +66,11 @@ pub(crate) trait ListOfMetrics {
 ///        type PulseHeightSpectra = PulseHeightSpectraType;
 ///        type PulsePairTimeDiff = PulsePairTimeDiffType;
 ///    }
-/// 
+///
 ///     // This does something different depening on the type of metric.
 ///     type MetricType = MetricWrapper<MetricsList>;
 /// ```
-/// 
+///
 /// For an example of how this is used see [MetricWrapper].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -91,7 +91,7 @@ pub(crate) enum MetricWrapper<Types: ListOfMetrics> {
 /// Identical to [MetricWrapper] except for the presence of `#[serde(tag = "metric-type")]` and
 /// the `impl MetricWrapper` block.
 /// This is used exclusively by [MetricType].
-/// 
+///
 /// [MetricType] : crate::engine::elements::metric::MetricType
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "metric-type")]
@@ -209,12 +209,14 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
     /// - muon_lifetime_map: function applied to the `MuonLifetime` variant.
     /// - pulse_height_spectra_map: function applied to the `PulseHeightSpectra` variant.
     /// - pulse_pair_time_diff_map: function applied to the `PulsePairTimeDiff` variant.
-    pub(crate) fn fold<T,
+    pub(crate) fn fold<
+        T,
         FE: Fn(Types::EventCount) -> T,
         FF: Fn(Types::FalseCount) -> T,
         FM: Fn(Types::MuonLifetime) -> T,
         FP: Fn(Types::PulseHeightSpectra) -> T,
-        FD: Fn(Types::PulsePairTimeDiff) -> T,>(
+        FD: Fn(Types::PulsePairTimeDiff) -> T,
+    >(
         self,
         event_count_map: FE,
         false_count_map: FF,

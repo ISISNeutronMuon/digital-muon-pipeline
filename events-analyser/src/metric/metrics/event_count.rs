@@ -2,14 +2,13 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::engine::ValueError;
-use crate::metric::{
-    CompleteMetric, FlattenedMetric, JsonMetric, PartialMetric, error::MetricResultError,
-};
-use crate::metric::{FlatMetricShell, PartialMetricShell};
-
 use crate::{
+    engine::ValueError,
     eventlists::ChannelDataByTopic,
+    metric::{
+        CompleteMetric, DependentMetric, PartialMetric, PartialMetricShell, ResolvedMetric,
+        ResolvedMetricShell, error::MetricResultError,
+    },
     metric::{
         outputs::PartialSeriesOutput,
         utils::{MeanSD, SumWithSumOfSqrs},
@@ -17,21 +16,21 @@ use crate::{
 };
 use digital_muon_common::Channel;
 
-/// Defines settings for the `EventCount` metric, that require flatteneing,
+/// Defines settings for the `EventCount` metric, that require resolving,
 /// that is depend on other items defined in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct JsonEventCount {
+pub(crate) struct DependentEventCount {
     /// The topic name to listen to for eventlist messages.
     topic: String,
 }
 
-impl JsonMetric for JsonEventCount {
-    type Flattened = FlatEventCount;
-    type Settings = ();
+impl DependentMetric for DependentEventCount {
+    type Resolved = ResolvedEventCount;
+    type Independent = ();
 
-    fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ValueError> {
-        Ok(FlatEventCount {
+    fn resolve_metric(&self, library: &[String]) -> Result<Self::Resolved, ValueError> {
+        Ok(ResolvedEventCount {
             topic: library
                 .iter()
                 .enumerate()
@@ -41,16 +40,16 @@ impl JsonMetric for JsonEventCount {
     }
 }
 
-/// Equivalent to settings in [JsonEventCount], after their dependencies have been resolved.
+/// Equivalent to settings in [DependentEventCount], after their dependencies have been resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct FlatEventCount {
+pub(crate) struct ResolvedEventCount {
     /// The topic index to listen to for eventlist messages.
     topic: usize,
 }
 
-impl FlattenedMetric for FlatEventCount {
-    type Json = JsonEventCount;
+impl ResolvedMetric for ResolvedEventCount {
+    type Dependent = DependentEventCount;
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
@@ -60,16 +59,16 @@ pub(crate) struct PartialEventCount {
 }
 
 impl PartialMetric for PartialEventCount {
-    type Source = FlatEventCount;
+    type Source = ResolvedEventCount;
 
     fn push(
         &mut self,
-        source: &FlatMetricShell<Self::Source>,
+        source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
         collection_by_topic: &ChannelDataByTopic,
     ) {
         let data = collection_by_topic
-            .get(source.flat.topic)
+            .get(source.resolved.topic)
             .expect("Topic should exist, this should never fail.");
         self.count
             .entry(channel)

@@ -8,8 +8,8 @@ use crate::{
     engine::{MetricTypeHistogram, ValueError},
     eventlists::ChannelDataByTopic,
     metric::{
-        CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric,
-        PartialMetricShell,
+        CompleteMetric, DependentMetric, PartialMetric, PartialMetricShell, ResolvedMetric,
+        ResolvedMetricShell,
         error::MetricResultError,
         outputs::{CompleteSeriesOutput, HistogramWithBands, Surface},
         utils::{Histogram, SumWithSumOfSqrs},
@@ -17,21 +17,21 @@ use crate::{
 };
 use digital_muon_common::Channel;
 
-/// Defines settings for the `PulseHeightSpectra` metric, that require flatteneing,
+/// Defines settings for the `PulseHeightSpectra` metric, that require resolving,
 /// that is depend on other items defined in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct JsonPulseHeightSpectra {
+pub(crate) struct DependentPulseHeightSpectra {
     /// The topic name to listen to for eventlist messages.
     topic: String,
 }
 
-impl JsonMetric for JsonPulseHeightSpectra {
-    type Flattened = FlatPulseHeightSpectra;
-    type Settings = MetricTypeHistogram;
+impl DependentMetric for DependentPulseHeightSpectra {
+    type Resolved = ResolvedPulseHeightSpectra;
+    type Independent = MetricTypeHistogram;
 
-    fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ValueError> {
-        Ok(FlatPulseHeightSpectra {
+    fn resolve_metric(&self, library: &[String]) -> Result<Self::Resolved, ValueError> {
+        Ok(ResolvedPulseHeightSpectra {
             topic: library
                 .iter()
                 .enumerate()
@@ -41,16 +41,16 @@ impl JsonMetric for JsonPulseHeightSpectra {
     }
 }
 
-/// Equivalent to settings in [JsonPulseHeightSpectra], after their dependencies have been resolved.
+/// Equivalent to settings in [DependentPulseHeightSpectra], after their dependencies have been resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct FlatPulseHeightSpectra {
+pub(crate) struct ResolvedPulseHeightSpectra {
     /// The topic index to listen to for eventlist messages.
     topic: usize,
 }
 
-impl FlattenedMetric for FlatPulseHeightSpectra {
-    type Json = JsonPulseHeightSpectra;
+impl ResolvedMetric for ResolvedPulseHeightSpectra {
+    type Dependent = DependentPulseHeightSpectra;
 }
 
 /// Builds up histograms of pulse heights, for each channel.
@@ -62,11 +62,11 @@ pub(crate) struct PartialPulseHeightSpectra {
 }
 
 impl PartialMetric for PartialPulseHeightSpectra {
-    type Source = FlatPulseHeightSpectra;
+    type Source = ResolvedPulseHeightSpectra;
 
     fn push(
         &mut self,
-        source: &FlatMetricShell<Self::Source>,
+        source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
         collection_by_topic: &ChannelDataByTopic,
     ) {
@@ -77,7 +77,7 @@ impl PartialMetric for PartialPulseHeightSpectra {
         {
             self.histograms
                 .entry(channel)
-                .or_insert(Histogram::new(&source.settings))
+                .or_insert(Histogram::new(&source.independent))
                 .push(*intensity as f64);
         }
     }
@@ -132,7 +132,7 @@ impl CompleteMetric for CompletedPulseHeightSpectra {
             .values()
             .next()
             .map(|hist| hist.get_bin_labels().to_vec())
-            .unwrap_or_else(|| Histogram::generate_bin_labels(&source.source.settings));
+            .unwrap_or_else(|| Histogram::generate_bin_labels(&source.source.independent));
         let histograms = source
             .histograms
             .iter()

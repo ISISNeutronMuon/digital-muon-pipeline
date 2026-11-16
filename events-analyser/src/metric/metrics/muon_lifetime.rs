@@ -7,8 +7,8 @@ use crate::{
     engine::{MetricTypeHistogram, ValueError},
     eventlists::ChannelDataByTopic,
     metric::{
-        CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric,
-        PartialMetricShell, error::FittingError, outputs::PartialSeriesOutput, utils::Histogram,
+        CompleteMetric, DependentMetric, PartialMetric, PartialMetricShell, ResolvedMetric,
+        ResolvedMetricShell, error::FittingError, outputs::PartialSeriesOutput, utils::Histogram,
         utils::MeanSD,
     },
 };
@@ -22,21 +22,21 @@ use varpro::{
     solvers::levmar::LevMarSolver, statistics::FitStatistics,
 };
 
-/// Defines settings for the `MuonLifetime` metric, that require flatteneing,
+/// Defines settings for the `MuonLifetime` metric, that require resolving,
 /// that is depend on other items defined in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct JsonMuonLifetime {
+pub(crate) struct DependentMuonLifetime {
     /// The topic name to listen to for eventlist messages.
     topic: String,
 }
 
-impl JsonMetric for JsonMuonLifetime {
-    type Flattened = FlatMuonLifetime;
-    type Settings = MetricTypeHistogram;
+impl DependentMetric for DependentMuonLifetime {
+    type Resolved = ResolvedMuonLifetime;
+    type Independent = MetricTypeHistogram;
 
-    fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ValueError> {
-        Ok(FlatMuonLifetime {
+    fn resolve_metric(&self, library: &[String]) -> Result<Self::Resolved, ValueError> {
+        Ok(ResolvedMuonLifetime {
             topic: library
                 .iter()
                 .enumerate()
@@ -46,16 +46,16 @@ impl JsonMetric for JsonMuonLifetime {
     }
 }
 
-/// Equivalent to settings in [JsonMuonLifetime], after their dependencies have been resolved.
+/// Equivalent to settings in [DependentMuonLifetime], after their dependencies have been resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct FlatMuonLifetime {
+pub(crate) struct ResolvedMuonLifetime {
     /// The topic index to listen to for eventlist messages.
     topic: usize,
 }
 
-impl FlattenedMetric for FlatMuonLifetime {
-    type Json = JsonMuonLifetime;
+impl ResolvedMetric for ResolvedMuonLifetime {
+    type Dependent = DependentMuonLifetime;
 }
 
 /// Estimates the lifetime of the muon decay process responsible for the event times.
@@ -69,22 +69,22 @@ pub(crate) struct PartialMuonLifetime {
 }
 
 impl PartialMetric for PartialMuonLifetime {
-    type Source = FlatMuonLifetime;
+    type Source = ResolvedMuonLifetime;
 
     fn push(
         &mut self,
-        source: &FlatMetricShell<Self::Source>,
+        source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
         collection_by_topic: &ChannelDataByTopic,
     ) {
         for (time, _) in collection_by_topic
-            .get(source.flat.topic)
+            .get(source.resolved.topic)
             .expect("Topic should exist, this should never fail.")
             .get_time_intensity()
         {
             self.histogram
                 .entry(channel)
-                .or_insert_with(|| Histogram::new(&source.settings))
+                .or_insert_with(|| Histogram::new(&source.independent))
                 .push(*time as f64);
         }
     }
@@ -274,7 +274,7 @@ mod tests {
         });
         histogram.set(histogram_counts.to_vec());
 
-        let source = FlatMuonLifetime { topic: 1 }.to_shell(MetricTypeHistogram {
+        let source = ResolvedMuonLifetime { topic: 1 }.to_shell(MetricTypeHistogram {
             num_bins: 10,
             interval,
         });
@@ -308,7 +308,7 @@ mod tests {
         });
         histogram.set(histogram_counts.to_vec());
 
-        let source = FlatMuonLifetime { topic: 1 }.to_shell(MetricTypeHistogram {
+        let source = ResolvedMuonLifetime { topic: 1 }.to_shell(MetricTypeHistogram {
             num_bins: 10,
             interval,
         });

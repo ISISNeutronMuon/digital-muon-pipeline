@@ -2,8 +2,8 @@ use crate::{
     engine::{Interval, MetricTypeHistogram, ValueError},
     eventlists::ChannelDataByTopic,
     metric::{
-        CompleteMetric, FlatMetricShell, FlattenedMetric, JsonMetric, PartialMetric,
-        PartialMetricShell,
+        CompleteMetric, DependentMetric, PartialMetric, PartialMetricShell, ResolvedMetric,
+        ResolvedMetricShell,
         error::MetricResultError,
         outputs::{CompleteSeriesOutput, HistogramWithBands, Surface},
         utils::{Histogram, SumWithSumOfSqrs},
@@ -15,7 +15,7 @@ use num::{Float, Zero};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Defines settings for the `PulsePairTimeDiff` metric, that do not require flatteneing,
+/// Defines settings for the `PulsePairTimeDiff` metric, that do not require resolving,
 /// that is they do not depend on other items in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -29,21 +29,21 @@ pub(crate) struct PulsePairTimeDiffSettings {
     normaliser: Interval<usize>,
 }
 
-/// Defines settings for the `PulsePairTimeDiff` metric, that require flatteneing,
+/// Defines settings for the `PulsePairTimeDiff` metric, that require resolving,
 /// that is depend on other items defined in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct JsonPulsePairTimeDiff {
+pub(crate) struct DependentPulsePairTimeDiff {
     /// The topic name to listen to for eventlist messages.
     topic: String,
 }
 
-impl JsonMetric for JsonPulsePairTimeDiff {
-    type Flattened = FlatPulsePairTimeDiff;
-    type Settings = PulsePairTimeDiffSettings;
+impl DependentMetric for DependentPulsePairTimeDiff {
+    type Resolved = ResolvedPulsePairTimeDiff;
+    type Independent = PulsePairTimeDiffSettings;
 
-    fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ValueError> {
-        Ok(FlatPulsePairTimeDiff {
+    fn resolve_metric(&self, library: &[String]) -> Result<Self::Resolved, ValueError> {
+        Ok(ResolvedPulsePairTimeDiff {
             topic: library
                 .iter()
                 .enumerate()
@@ -53,16 +53,16 @@ impl JsonMetric for JsonPulsePairTimeDiff {
     }
 }
 
-/// Equivalent to settings in [JsonPulsePairTimeDiff], after their dependencies have been resolved.
+/// Equivalent to settings in [DependentPulsePairTimeDiff], after their dependencies have been resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct FlatPulsePairTimeDiff {
+pub(crate) struct ResolvedPulsePairTimeDiff {
     /// The topic index to listen to for eventlist messages.
     topic: usize,
 }
 
-impl FlattenedMetric for FlatPulsePairTimeDiff {
-    type Json = JsonPulsePairTimeDiff;
+impl ResolvedMetric for ResolvedPulsePairTimeDiff {
+    type Dependent = DependentPulsePairTimeDiff;
 }
 
 /// Builds up histograms of pulse heights, for each channel.
@@ -74,16 +74,16 @@ pub(crate) struct PartialPulsePairTimeDiff {
 }
 
 impl PartialMetric for PartialPulsePairTimeDiff {
-    type Source = FlatPulsePairTimeDiff;
+    type Source = ResolvedPulsePairTimeDiff;
 
     fn push(
         &mut self,
-        source: &FlatMetricShell<Self::Source>,
+        source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
         collection_by_topic: &ChannelDataByTopic,
     ) {
         let time_diffs = collection_by_topic
-            .get(source.flat.topic)
+            .get(source.resolved.topic)
             .expect("This should never fail.")
             .get_time_intensity()
             .iter()
@@ -93,7 +93,7 @@ impl PartialMetric for PartialPulsePairTimeDiff {
                     .try_into()
                     .expect("Vector should have length 2, this should never fail.");
                 source
-                    .settings
+                    .independent
                     .intensity_filter
                     .as_ref()
                     .is_none_or(|intensity_filter| {
@@ -108,7 +108,7 @@ impl PartialMetric for PartialPulsePairTimeDiff {
         let histogram = self
             .histograms
             .entry(channel)
-            .or_insert_with(|| Histogram::new(&source.settings.histogram));
+            .or_insert_with(|| Histogram::new(&source.independent.histogram));
 
         // Enter the time differences into the histogram.
         for time_diff in time_diffs {
@@ -193,7 +193,9 @@ impl CompleteMetric for CompletedPulsePairTimeDiff {
             .values()
             .next()
             .map(|hist| hist.get_bin_labels().to_vec())
-            .unwrap_or_else(|| Histogram::generate_bin_labels(&source.source.settings.histogram));
+            .unwrap_or_else(|| {
+                Histogram::generate_bin_labels(&source.source.independent.histogram)
+            });
         let histograms = source
             .histograms
             .iter()
@@ -228,9 +230,11 @@ impl CompleteMetric for CompletedPulsePairTimeDiff {
         let histograms_with_normalisers = histograms
             .iter()
             .map(|&(_, histogram)| {
-                let normaliser =
-                    get_normaliser(histogram.get_counts(), &source.source.settings.normaliser)
-                        .expect("This should be pre-validated, this should never fail.");
+                let normaliser = get_normaliser(
+                    histogram.get_counts(),
+                    &source.source.independent.normaliser,
+                )
+                .expect("This should be pre-validated, this should never fail.");
                 (histogram, normaliser)
             })
             .collect::<Vec<_>>();

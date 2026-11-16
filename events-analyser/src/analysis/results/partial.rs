@@ -8,7 +8,8 @@ use crate::{
     engine::{FlatBucket, FlatMetricType},
     eventlists::ChannelCollection,
     metric::{
-        CompleteMetric, FlatMetricShell, ListOfMetrics, MetricResultError, MetricWrapper, PartialMetric, PartialMetricShell, partial
+        CompleteMetric, ListOfMetrics, MetricResultError, MetricWrapper, PartialMetric,
+        PartialMetricShell, ResolvedMetricShell, partial,
     },
 };
 
@@ -17,7 +18,7 @@ impl<C: PartialMetric> MetricResultBucketWrapper<PartialMetricShell<C>> {
     ///
     /// # Parameters
     /// - source: the source of the data, namely an instance of [FlatMetricShell].
-    pub(crate) fn new(source: &FlatMetricShell<<C as PartialMetric>::Source>) -> Self {
+    pub(crate) fn new(source: &ResolvedMetricShell<<C as PartialMetric>::Source>) -> Self {
         Self {
             num_messages: Default::default(),
             object: PartialMetricShell::new(source),
@@ -54,7 +55,10 @@ where
     /// # Parameters
     /// - source: the source of the data, namely the type wrapped by a variant of a [FlatMetricType] instance.
     /// - bucket_block_sizes: the number of buckets in each bucket block.
-    pub(super) fn new(source: FlatMetricShell<P::Source>, bucket_block_sizes: &[usize]) -> Self {
+    pub(super) fn new(
+        source: ResolvedMetricShell<P::Source>,
+        bucket_block_sizes: &[usize],
+    ) -> Self {
         let by_bucket = bucket_block_sizes
             .iter()
             .map(|size| {

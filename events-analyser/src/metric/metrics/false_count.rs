@@ -1,21 +1,20 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-
-use crate::engine::ValueError;
-use crate::event::ChannelData;
-use crate::metric::utils::GroupDataBy;
-use crate::metric::{
-    CompleteMetric, FlattenedMetric, JsonMetric, PartialMetric, error::MetricResultError,
+use serde::{
+    de::DeserializeOwned,
+    {Deserialize, Serialize},
 };
-use crate::metric::{FlatMetricShell, PartialMetricShell};
 
 use crate::{
+    engine::ValueError,
+    event::ChannelData,
     eventlists::ChannelDataByTopic,
     metric::{
+        CompleteMetric, DependentMetric, PartialMetric, PartialMetricShell, ResolvedMetric,
+        ResolvedMetricShell,
+        error::MetricResultError,
         outputs::PartialSeriesOutput,
-        utils::{MeanSD, SumWithSumOfSqrs},
+        utils::{GroupDataBy, MeanSD, SumWithSumOfSqrs},
     },
 };
 use digital_muon_common::Channel;
@@ -24,14 +23,14 @@ use digital_muon_common::Channel;
 /// that is depend on other items defined in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct JsonFalseCount {
+pub(crate) struct DependentFalseCount {
     /// The topic name to listen to for true eventlist messages.
     true_topic: String,
     /// The topic name to listen to for estimated eventlist messages.
     estimate_topic: String,
 }
 
-/// Defines settings for the `FalseCount` metric, that do not require flatteneing,
+/// Defines settings for the `FalseCount` metric, that do not require resolving,
 /// that is they do not depend on other items in the configuration file.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -39,12 +38,12 @@ pub(crate) struct FalseCountSettings {
     waveform_radius: u32,
 }
 
-impl JsonMetric for JsonFalseCount {
-    type Flattened = FlatFalseCount;
-    type Settings = FalseCountSettings;
+impl DependentMetric for DependentFalseCount {
+    type Resolved = ResolvedFalseCount;
+    type Independent = FalseCountSettings;
 
-    fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ValueError> {
-        Ok(FlatFalseCount {
+    fn resolve_metric(&self, library: &[String]) -> Result<Self::Resolved, ValueError> {
+        Ok(ResolvedFalseCount {
             true_topic: library
                 .iter()
                 .enumerate()
@@ -61,18 +60,18 @@ impl JsonMetric for JsonFalseCount {
     }
 }
 
-/// Equivalent to settings in [JsonFalseCount], after their dependencies have been resolved.
+/// Equivalent to settings in [DependentFalseCount], after their dependencies have been resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct FlatFalseCount {
+pub(crate) struct ResolvedFalseCount {
     /// The topic index to listen to for true eventlist messages.
     true_topic: usize,
     /// The topic index to listen to for estimated eventlist messages.
     estimate_topic: usize,
 }
 
-impl FlattenedMetric for FlatFalseCount {
-    type Json = JsonFalseCount;
+impl ResolvedMetric for ResolvedFalseCount {
+    type Dependent = DependentFalseCount;
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
@@ -138,7 +137,7 @@ pub(crate) struct PartialFalseCount {
 impl PartialFalseCount {
     pub(crate) fn sort_true_by_estimates(
         &self,
-        source: &FlatMetricShell<<Self as PartialMetric>::Source>,
+        source: &ResolvedMetricShell<<Self as PartialMetric>::Source>,
         collection_by_topic: &[ChannelData],
     ) -> (Vec<Vec<usize>>, Vec<usize>) {
         let true_data = collection_by_topic
@@ -147,7 +146,7 @@ impl PartialFalseCount {
         let estimate_data = collection_by_topic
             .get(source.estimate_topic)
             .expect("Topic should exist, this should never fail.");
-        let radius = source.settings.waveform_radius;
+        let radius = source.independent.waveform_radius;
 
         let filter = |true_data: &ChannelData, index, detected_time, _detected_intensity| {
             let dist = true_data.get_temporal_distance_from(index, detected_time);
@@ -160,11 +159,11 @@ impl PartialFalseCount {
 }
 
 impl PartialMetric for PartialFalseCount {
-    type Source = FlatFalseCount;
+    type Source = ResolvedFalseCount;
 
     fn push(
         &mut self,
-        source: &FlatMetricShell<Self::Source>,
+        source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
         collection_by_topic: &ChannelDataByTopic,
     ) {

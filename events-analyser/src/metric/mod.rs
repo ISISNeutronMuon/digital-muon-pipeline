@@ -19,11 +19,11 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-pub(crate) trait JsonMetric: Clone + Debug {
-    type Flattened: FlattenedMetric<Json = Self>;
-    type Settings: Clone + Debug + Serialize + DeserializeOwned;
+pub(crate) trait DependentMetric: Clone + Debug {
+    type Resolved: ResolvedMetric<Dependent = Self>;
+    type Independent: Clone + Debug + Serialize + DeserializeOwned;
 
-    fn flatten_metric(&self, library: &[String]) -> Result<Self::Flattened, ValueError>;
+    fn resolve_metric(&self, library: &[String]) -> Result<Self::Resolved, ValueError>;
 }
 
 /// Defines a type which describes a metric, and is created by deserialization from the JSON configuaration file.
@@ -31,67 +31,71 @@ pub(crate) trait JsonMetric: Clone + Debug {
 /// which does not.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "T: Serialize + DeserializeOwned")]
-pub(crate) struct JsonMetricShell<T: JsonMetric> {
+pub(crate) struct DependentMetricShell<T: DependentMetric> {
     /// Represents fields which are dependent on other parts of the configuartion file.
     #[serde(flatten)]
-    json: T,
+    dependent: T,
     /// Represents fields which are not dependent on other parts of the configuartion file.
     #[serde(flatten)]
-    settings: T::Settings,
+    independent: T::Independent,
 }
 
-pub(crate) trait FlattenedMetric: Clone + Debug + Serialize + DeserializeOwned {
-    type Json: JsonMetric<Flattened = Self>;
+pub(crate) trait ResolvedMetric: Clone + Debug + Serialize + DeserializeOwned {
+    type Dependent: DependentMetric<Resolved = Self>;
 
     #[cfg(test)]
-    fn to_shell(self, settings: <Self::Json as JsonMetric>::Settings) -> FlatMetricShell<Self> {
-        FlatMetricShell {
-            flat: self,
-            settings,
+    /// Used for testing.
+    fn to_shell(
+        self,
+        independent: <Self::Dependent as DependentMetric>::Independent,
+    ) -> ResolvedMetricShell<Self> {
+        ResolvedMetricShell {
+            resolved: self,
+            independent,
         }
     }
 }
 
-/// Defines a type, derived from an instance of [FlatMetricShell] which has had its dependencies resolved.
+/// Defines a type, derived from an instance of [ResolvedMetricShell] which has had its dependencies resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "T: Serialize + DeserializeOwned")]
-pub(crate) struct FlatMetricShell<T: FlattenedMetric> {
+pub(crate) struct ResolvedMetricShell<T: ResolvedMetric> {
     /// Represents fields which have been flattened to resolve their dependencies on other parts of the configuartion file.
-    flat: T,
-    /// Represents fields which are not dependent on other parts of the configuartion file, and have been copied straight from [JsonMetricShell].
+    resolved: T,
+    /// Represents fields which are not dependent on other parts of the configuartion file, and have been copied straight from [DependentMetricShell].
     #[serde(flatten)]
-    settings: <T::Json as JsonMetric>::Settings,
+    independent: <T::Dependent as DependentMetric>::Independent,
 }
 
-impl<T: FlattenedMetric> Deref for FlatMetricShell<T> {
+impl<T: ResolvedMetric> Deref for ResolvedMetricShell<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.flat
+        &self.resolved
     }
 }
 
-impl<T> Flattenable<&[String]> for JsonMetricShell<T>
+impl<T> Flattenable<&[String]> for DependentMetricShell<T>
 where
-    T: JsonMetric,
+    T: DependentMetric,
 {
-    type Flat = FlatMetricShell<T::Flattened>;
+    type Flat = ResolvedMetricShell<T::Resolved>;
     type Error = ValueError;
 
     fn flatten(&self, library: &[String]) -> Result<Self::Flat, Self::Error> {
-        Ok(FlatMetricShell {
-            flat: self.json.flatten_metric(library)?,
-            settings: self.settings.clone(),
+        Ok(ResolvedMetricShell {
+            resolved: self.dependent.resolve_metric(library)?,
+            independent: self.independent.clone(),
         })
     }
 }
 
 pub(crate) trait PartialMetric: Default + Clone {
-    type Source: FlattenedMetric;
+    type Source: ResolvedMetric;
 
     fn push(
         &mut self,
-        source: &FlatMetricShell<Self::Source>,
+        source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
         collection_by_topic: &ChannelDataByTopic,
     );
@@ -102,7 +106,7 @@ pub(crate) trait PartialMetric: Default + Clone {
     #[cfg(test)]
     fn to_shell(
         self,
-        source: FlatMetricShell<Self::Source>,
+        source: ResolvedMetricShell<Self::Source>,
         notifications: Vec<String>,
     ) -> PartialMetricShell<Self> {
         PartialMetricShell {
@@ -116,13 +120,13 @@ pub(crate) trait PartialMetric: Default + Clone {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "P: Serialize + DeserializeOwned")]
 pub(crate) struct PartialMetricShell<P: PartialMetric> {
-    source: FlatMetricShell<P::Source>,
+    source: ResolvedMetricShell<P::Source>,
     notifications: Vec<String>,
     inner: P,
 }
 
 impl<P: PartialMetric> PartialMetricShell<P> {
-    pub(crate) fn new(source: &FlatMetricShell<P::Source>) -> Self {
+    pub(crate) fn new(source: &ResolvedMetricShell<P::Source>) -> Self {
         Self {
             source: source.clone(),
             notifications: Default::default(),

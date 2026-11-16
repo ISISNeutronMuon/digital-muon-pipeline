@@ -4,8 +4,8 @@ use crate::{
         values::{Interval, ValueError},
     },
     metric::{
-        FlatMetricShell, JsonMetricShell, ListOfMetrics, MetricWrapper, MetricWrapperWithTag, flat,
-        json, properties,
+        DependentMetricShell, ListOfMetrics, MetricWrapper, MetricWrapperWithTag,
+        ResolvedMetricShell, flat, json, properties,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -15,11 +15,11 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct JsonMetricTypes;
 
 impl ListOfMetrics for JsonMetricTypes {
-    type EventCount = JsonMetricShell<json::EventCount>;
-    type FalseCount = JsonMetricShell<json::FalseCount>;
-    type MuonLifetime = JsonMetricShell<json::MuonLifetime>;
-    type PulseHeightSpectra = JsonMetricShell<json::PulseHeightSpectra>;
-    type PulsePairTimeDiff = JsonMetricShell<json::PulsePairTimeDiff>;
+    type EventCount = DependentMetricShell<json::EventCount>;
+    type FalseCount = DependentMetricShell<json::FalseCount>;
+    type MuonLifetime = DependentMetricShell<json::MuonLifetime>;
+    type PulseHeightSpectra = DependentMetricShell<json::PulseHeightSpectra>;
+    type PulsePairTimeDiff = DependentMetricShell<json::PulsePairTimeDiff>;
 }
 
 /// Defines a metric type, should only be created by deserializing JSON object.
@@ -45,11 +45,11 @@ pub(crate) type PropertyOfMetric = MetricWrapper<PropertyMetricTypes>;
 pub(crate) struct FlatMetricTypes;
 
 impl ListOfMetrics for FlatMetricTypes {
-    type EventCount = FlatMetricShell<flat::EventCount>;
-    type FalseCount = FlatMetricShell<flat::FalseCount>;
-    type MuonLifetime = FlatMetricShell<flat::MuonLifetime>;
-    type PulseHeightSpectra = FlatMetricShell<flat::PulseHeightSpectra>;
-    type PulsePairTimeDiff = FlatMetricShell<flat::PulsePairTimeDiff>;
+    type EventCount = ResolvedMetricShell<flat::EventCount>;
+    type FalseCount = ResolvedMetricShell<flat::FalseCount>;
+    type MuonLifetime = ResolvedMetricShell<flat::MuonLifetime>;
+    type PulseHeightSpectra = ResolvedMetricShell<flat::PulseHeightSpectra>;
+    type PulsePairTimeDiff = ResolvedMetricShell<flat::PulsePairTimeDiff>;
 }
 
 /// Flattened definition of a metric, should only be created by calling [JsonMetricShell::flatten].
