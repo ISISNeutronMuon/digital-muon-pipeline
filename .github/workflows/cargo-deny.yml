@@ -1,0 +1,54 @@
+---
+name: Scheduled cargo-deny
+
+on:
+  schedule:
+    - cron: "0 20 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  cargo-deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: DeterminateSystems/nix-installer-action@v23
+
+      - name: cargo-deny
+        run: nix develop --command cargo deny check
+
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const title = "cargo-deny check failed";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const { data: search } = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}" author:github-actions[bot]`,
+              per_page: 1,
+            });
+
+            const existingIssue = search.items?.[0];
+
+            if (existingIssue) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `Scheduled \`cargo deny check\` failed again: [View workflow run](${runUrl})`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: `The scheduled \`cargo deny check\` workflow failed.\n\nPlease review the [workflow run](${runUrl}) for details.`,
+              });
+            }
