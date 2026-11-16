@@ -1,9 +1,8 @@
 mod complete;
 mod partial;
 
-use std::ops::Deref;
-
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::ops::Deref;
 
 pub(crate) use complete::CompletedMetricResult;
 pub(crate) use partial::PartialMetricResult;

@@ -1,8 +1,6 @@
-use std::iter::once;
-
-use digital_muon_common::{Intensity, Time};
-
 use crate::event::ChannelData;
+use digital_muon_common::{Intensity, Time};
+use std::iter::once;
 
 pub(crate) struct GroupDataBy<'a, F>
 where

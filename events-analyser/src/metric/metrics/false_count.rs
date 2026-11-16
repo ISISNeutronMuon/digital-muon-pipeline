@@ -1,10 +1,3 @@
-use std::{collections::HashMap, fmt::Debug};
-
-use serde::{
-    de::DeserializeOwned,
-    {Deserialize, Serialize},
-};
-
 use crate::{
     engine::ValueError,
     event::ChannelData,
@@ -18,6 +11,8 @@ use crate::{
     },
 };
 use digital_muon_common::Channel;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::{collections::HashMap, fmt::Debug};
 
 /// Defines settings for the `FalseCount` metric, that require flatteneing,
 /// that is depend on other items defined in the configuration file.

@@ -8,16 +8,17 @@ use crate::{
     eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
-pub(crate) use error::{FittingError, MetricResultError};
-pub(crate) use metrics::{
-    ListOfMetrics, MetricWrapper, MetricWrapperWithTag, complete, flat, json, partial, properties,
-};
-pub(crate) use outputs::{CompleteSeriesOutput, HistogramWithBands, Surface};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
+
+pub(crate) use error::{FittingError, MetricResultError};
+pub(crate) use metrics::{
+    ListOfMetrics, MetricWrapper, MetricWrapperWithTag, complete, flat, json, partial, properties,
+};
+pub(crate) use outputs::{CompleteSeriesOutput, HistogramWithBands, LabelledGroupData, Surface};
 
 pub(crate) trait DependentMetric: Clone + Debug {
     type Resolved: ResolvedMetric<Dependent = Self>;

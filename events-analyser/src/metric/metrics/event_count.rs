@@ -1,20 +1,17 @@
-use std::collections::HashMap;
-
-use serde::{Deserialize, Serialize};
-
 use crate::{
     engine::ValueError,
     eventlists::ChannelDataByTopic,
     metric::{
         CompleteMetric, DependentMetric, PartialMetric, PartialMetricShell, ResolvedMetric,
-        ResolvedMetricShell, error::MetricResultError,
-    },
-    metric::{
+        ResolvedMetricShell,
+        error::MetricResultError,
         outputs::PartialSeriesOutput,
         utils::{MeanSD, SumWithSumOfSqrs},
     },
 };
 use digital_muon_common::Channel;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Defines settings for the `EventCount` metric, that require resolving,
 /// that is depend on other items defined in the configuration file.

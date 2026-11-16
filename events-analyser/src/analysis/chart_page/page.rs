@@ -20,6 +20,7 @@ pub(crate) enum PageOutputError {
     IO(#[from] std::io::Error),
 }
 
+/// 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PageOutput {
@@ -68,7 +69,7 @@ impl PageOutput {
             .with_script_link(PLOTLY_JS_SCRIPT)
             .with_header(1, &self.page.settings.title);
         let html = self.charts.iter().fold(html, |html, chart| {
-            html.with_raw(chart.build_plotly_graph().to_inline_html(None))
+            html.with_raw(chart.build().to_inline_html(None))
         });
 
         let mut path = path.to_owned();

@@ -1,9 +1,3 @@
-use std::collections::HashMap;
-
-use itertools::Itertools;
-use num::Float;
-use serde::{Deserialize, Serialize};
-
 use crate::{
     engine::{MetricTypeHistogram, ValueError},
     eventlists::ChannelDataByTopic,
@@ -16,6 +10,10 @@ use crate::{
     },
 };
 use digital_muon_common::Channel;
+use itertools::Itertools;
+use num::Float;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Defines settings for the `PulseHeightSpectra` metric, that require resolving,
 /// that is depend on other items defined in the configuration file.

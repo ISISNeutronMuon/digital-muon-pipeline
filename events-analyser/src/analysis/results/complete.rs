@@ -71,6 +71,7 @@ impl CompletedMetricResult {
     /// The caller must ensure:
     /// - the block index is not greater than the number of blocks,
     /// - and that the property is of the correct type for the metric,
+    ///
     /// otherwise the method panics.
     pub(crate) fn get_property(
         &self,
