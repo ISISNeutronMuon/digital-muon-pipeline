@@ -19,8 +19,11 @@ rayon.workspace = true
 rdkafka.workspace = true
 digital-muon-common.workspace = true
 digital-muon-streaming-types.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
 assert_approx_eq.workspace = true

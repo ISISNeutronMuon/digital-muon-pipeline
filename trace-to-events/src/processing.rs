@@ -53,6 +53,15 @@ impl DigitiserMessageProcessor {
         }
     }
 
+    /// Reconfigures all channels with the provided detector settings.
+    /// # Parameters
+    /// - settings: the new `DetectorSettings` to apply.
+    pub(crate) fn reconfigure(&mut self, settings: &DetectorSettings) {
+        for channel in &mut self.channels {
+            *channel = ChannelState::new(settings);
+        }
+    }
+
     /// Extracts a flatbuffer trace message, converts its contents into events using the provided settings,
     /// and creates a flatbuffer eventlist message.
     ///
@@ -150,7 +159,7 @@ impl DigitiserMessageProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Mode, Polarity, parameters::FixedThresholdDiscriminatorParameters};
+    use crate::parameters::{FixedThresholdDiscriminatorParameters, Mode, Polarity};
     use chrono::Utc;
     use digital_muon_common::Intensity;
     use digital_muon_streaming_types::{
@@ -229,8 +238,8 @@ mod tests {
         DigitiserMessageProcessor::new(
             1,
             &DetectorSettings {
-                mode: &Mode::FixedThresholdDiscriminator(test_parameters),
-                polarity: &Polarity::Positive,
+                mode: Mode::FixedThresholdDiscriminator(test_parameters),
+                polarity: Polarity::Positive,
                 baseline: Intensity::default(),
             },
         )
@@ -279,8 +288,8 @@ mod tests {
         DigitiserMessageProcessor::new(
             2,
             &DetectorSettings {
-                mode: &Mode::FixedThresholdDiscriminator(test_parameters),
-                polarity: &Polarity::Positive,
+                mode: Mode::FixedThresholdDiscriminator(test_parameters),
+                polarity: Polarity::Positive,
                 baseline: Intensity::default(),
             },
         )
@@ -326,8 +335,8 @@ mod tests {
         DigitiserMessageProcessor::new(
             1,
             &DetectorSettings {
-                mode: &Mode::FixedThresholdDiscriminator(test_parameters),
-                polarity: &Polarity::Positive,
+                mode: Mode::FixedThresholdDiscriminator(test_parameters),
+                polarity: Polarity::Positive,
                 baseline: 3,
             },
         )
@@ -373,8 +382,8 @@ mod tests {
         DigitiserMessageProcessor::new(
             1,
             &DetectorSettings {
-                mode: &Mode::FixedThresholdDiscriminator(test_parameters),
-                polarity: &Polarity::Negative,
+                mode: Mode::FixedThresholdDiscriminator(test_parameters),
+                polarity: Polarity::Negative,
                 baseline: 10,
             },
         )
@@ -399,5 +408,48 @@ mod tests {
             vec![2, 2],
             event_message.voltage().unwrap().iter().collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn reconfigure_processor() {
+        let mut fbb = FlatBufferBuilder::new();
+
+        let time: GpsTime = Utc::now().into();
+        let channel0: Vec<u16> = vec![0, 1, 2, 1, 0, 1, 2, 1, 8, 0, 2, 8, 3, 1, 2];
+        create_message(&mut fbb, &[channel0.as_slice()], &time);
+        let message = fbb.finished_data().to_vec();
+        let message = root_as_digitizer_analog_trace_message(&message).unwrap();
+
+        let initial_settings = DetectorSettings {
+            mode: Mode::FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters {
+                threshold: 5.0,
+                duration: 1,
+                cool_off: 0,
+            }),
+            polarity: Polarity::Positive,
+            baseline: 0,
+        };
+
+        let mut processor = DigitiserMessageProcessor::new(1, &initial_settings);
+
+        let mut fbb = FlatBufferBuilder::new();
+        let count1 = processor.process(&mut fbb, &message);
+        assert_eq!(count1, 2);
+
+        // Reconfigure to threshold 10 (no events should be found)
+        let new_settings = DetectorSettings {
+            mode: Mode::FixedThresholdDiscriminator(FixedThresholdDiscriminatorParameters {
+                threshold: 10.0,
+                duration: 1,
+                cool_off: 0,
+            }),
+            polarity: Polarity::Positive,
+            baseline: 0,
+        };
+        processor.reconfigure(&new_settings);
+
+        let mut fbb = FlatBufferBuilder::new();
+        let count2 = processor.process(&mut fbb, &message);
+        assert_eq!(count2, 0);
     }
 }

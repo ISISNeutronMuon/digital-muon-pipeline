@@ -1,0 +1,11 @@
+{
+  "polarity": "positive",
+  "baseline": 0,
+  "mode": {
+    "fixed-threshold-discriminator": {
+      "threshold": 10.0,
+      "duration": 1,
+      "cool-off": 0
+    }
+  }
+}

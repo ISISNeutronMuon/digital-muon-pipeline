@@ -114,7 +114,7 @@ impl PartialEvent {
 }
 
 /// Detects pulses in a trace by analysing the differential of the trace.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub(crate) struct DifferentialThresholdDetector {
     /// The detection parameters.
     parameters: DifferentialThresholdParameters,
@@ -136,7 +136,8 @@ impl DifferentialThresholdDetector {
         Self {
             parameters: parameters.clone(),
             peak_height_mode,
-            ..Default::default()
+            state: Default::default(),
+            partial_event: None,
         }
     }
 
@@ -298,7 +299,7 @@ mod tests {
                 begin_duration: 2 as DetectorTime,
                 ..Default::default()
             },
-            Default::default(),
+            PeakHeightMode::MaxValue,
         );
         let mut iter = pipeline(&data, detector);
         assert_eq!(iter.next(), None);
@@ -333,7 +334,7 @@ mod tests {
             end_threshold: 0.0,
             ..Default::default()
         };
-        let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+        let detector = DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
         let data = INPUT
             .iter()
             .map(|x| (x * 1000.0) as Intensity)
@@ -365,7 +366,8 @@ mod tests {
                 begin_duration: 3 as DetectorTime,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
             let mut iter = pipeline(&DATA, detector);
 
             assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
@@ -380,7 +382,8 @@ mod tests {
                 begin_duration: 2 as DetectorTime,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
             let mut iter = pipeline(&DATA, detector);
 
             assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
@@ -395,7 +398,8 @@ mod tests {
                 begin_duration: 1 as DetectorTime,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
 
             let mut iter = pipeline(&DATA, detector);
             assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
@@ -411,7 +415,8 @@ mod tests {
                 end_threshold: 0.0,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
 
             let mut iter = pipeline(&DATA, detector);
             assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
@@ -435,7 +440,8 @@ mod tests {
                 end_duration: 3 as DetectorTime,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
             let mut iter = pipeline(&DATA, detector);
 
             assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
@@ -450,7 +456,8 @@ mod tests {
                 end_duration: 2 as DetectorTime,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
             let mut iter = pipeline(&DATA, detector);
 
             assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
@@ -466,7 +473,8 @@ mod tests {
                 end_duration: 1 as DetectorTime,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
 
             let mut iter = pipeline(&DATA, detector);
             assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
@@ -482,7 +490,8 @@ mod tests {
                 end_duration: 0 as DetectorTime,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
 
             let mut iter = pipeline(&DATA, detector);
             assert_eq!(iter.next(), some_new_event(5 as DetectorTime, 2.0, 12.0));
@@ -513,7 +522,8 @@ mod tests {
                 cool_off: 3,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
             let mut iter = pipeline(&DATA, detector);
 
             assert_eq!(iter.next(), some_new_event(3 as DetectorTime, 2.0, 5.0));
@@ -529,7 +539,8 @@ mod tests {
                 cool_off: 2,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
             let mut iter = pipeline(&DATA, detector);
 
             assert_eq!(iter.next(), some_new_event(3 as DetectorTime, 2.0, 5.0));
@@ -546,7 +557,8 @@ mod tests {
                 cool_off: 1,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
 
             let mut iter = pipeline(&DATA, detector);
             assert_eq!(iter.next(), some_new_event(3 as DetectorTime, 2.0, 5.0));
@@ -562,7 +574,8 @@ mod tests {
                 end_threshold: 0.0,
                 ..Default::default()
             };
-            let detector = DifferentialThresholdDetector::new(&parameters, Default::default());
+            let detector =
+                DifferentialThresholdDetector::new(&parameters, PeakHeightMode::MaxValue);
 
             let mut iter = pipeline(&DATA, detector);
             assert_eq!(iter.next(), some_new_event(3 as DetectorTime, 2.0, 5.0));
@@ -596,7 +609,7 @@ mod tests {
                     end_threshold: 0.0,
                     ..Default::default()
                 },
-                Default::default(),
+                PeakHeightMode::MaxValue,
             );
             let mut iter = pipeline(&data, detector);
             assert_eq!(iter.next(), some_new_event(17 as DetectorTime, 3.0, 112.0));

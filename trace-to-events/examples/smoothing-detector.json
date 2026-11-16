@@ -1,0 +1,13 @@
+{
+  "polarity": "positive",
+  "baseline": 0,
+  "mode": {
+    "smoothing-detector": {
+      "noise-centile": 50.0,
+      "kernel-sigma": 1.5,
+      "nsig-noise": 3.0,
+      "min-size": 4,
+      "use-local-for-sizes-ge": 12
+    }
+  }
+}
