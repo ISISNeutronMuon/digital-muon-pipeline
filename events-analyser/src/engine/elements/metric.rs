@@ -3,80 +3,51 @@ use crate::{
         Flattenable, HasName,
         values::{Interval, ValueError},
     },
+    impl_list_of_metrics,
     metric::{
         DependentMetricShell, ListOfMetrics, MetricWrapper, MetricWrapperWithTag,
-        ResolvedMetricShell, flat, json, properties,
+        ResolvedMetricShell, dependent, properties, resolved,
     },
 };
 use serde::{Deserialize, Serialize};
 
 /// Groups together all metric Json types.
 #[derive(Debug, Clone)]
-pub(crate) struct JsonMetricTypes;
-
-impl ListOfMetrics for JsonMetricTypes {
-    type EventCount = DependentMetricShell<json::EventCount>;
-    type FalseCount = DependentMetricShell<json::FalseCount>;
-    type MuonLifetime = DependentMetricShell<json::MuonLifetime>;
-    type PulseHeightSpectra = DependentMetricShell<json::PulseHeightSpectra>;
-    type PulsePairTimeDiff = DependentMetricShell<json::PulsePairTimeDiff>;
-}
+pub(crate) struct DependentMetricTypes;
+impl_list_of_metrics!(DependentMetricTypes => DependentMetricShell<dependent>);
 
 /// Defines a metric type, should only be created by deserializing JSON object.
-pub(crate) type MetricType = MetricWrapperWithTag<JsonMetricTypes>;
+pub(crate) type MetricType = MetricWrapperWithTag<DependentMetricTypes>;
 
 /// Groups together all metric properties types.
 #[derive(Debug, Clone)]
 pub(crate) struct PropertyMetricTypes;
 
-impl ListOfMetrics for PropertyMetricTypes {
-    type EventCount = properties::EventCount;
-    type FalseCount = properties::FalseCount;
-    type MuonLifetime = properties::MuonLifetime;
-    type PulseHeightSpectra = properties::PulseHeightSpectra;
-    type PulsePairTimeDiff = properties::PulsePairTimeDiff;
-}
+impl_list_of_metrics!(PropertyMetricTypes => properties);
 
 /// Defines a property of a metric, should only be created from deserializing JSON file.
 pub(crate) type PropertyOfMetric = MetricWrapper<PropertyMetricTypes>;
 
 /// Groups together all flat metric types.
 #[derive(Debug, Clone)]
-pub(crate) struct FlatMetricTypes;
+pub(crate) struct ResolvedMetricTypes;
+impl_list_of_metrics!(ResolvedMetricTypes => ResolvedMetricShell<resolved>);
 
-impl ListOfMetrics for FlatMetricTypes {
-    type EventCount = ResolvedMetricShell<flat::EventCount>;
-    type FalseCount = ResolvedMetricShell<flat::FalseCount>;
-    type MuonLifetime = ResolvedMetricShell<flat::MuonLifetime>;
-    type PulseHeightSpectra = ResolvedMetricShell<flat::PulseHeightSpectra>;
-    type PulsePairTimeDiff = ResolvedMetricShell<flat::PulsePairTimeDiff>;
-}
-
-/// Flattened definition of a metric, should only be created by calling [JsonMetricShell::flatten].
-pub(crate) type FlatMetricType = MetricWrapper<FlatMetricTypes>;
+/// Resolved definition of a metric, should only be created by calling [DependentMetricShell::flatten].
+pub(crate) type ResolvedMetricType = MetricWrapper<ResolvedMetricTypes>;
 
 impl Flattenable<&[String]> for MetricType {
-    type Flat = FlatMetricType;
+    type Flat = ResolvedMetricType;
     type Error = ValueError;
 
     fn flatten(&self, library: &[String]) -> Result<Self::Flat, Self::Error> {
-        Ok(match &self {
-            MetricType::EventCount(json_metric_shell) => {
-                FlatMetricType::EventCount(json_metric_shell.flatten(library)?)
-            }
-            MetricType::FalseCount(json_metric_shell) => {
-                FlatMetricType::FalseCount(json_metric_shell.flatten(library)?)
-            }
-            MetricType::MuonLifetime(json_metric_shell) => {
-                FlatMetricType::MuonLifetime(json_metric_shell.flatten(library)?)
-            }
-            MetricType::PulseHeightSpectra(json_metric_shell) => {
-                FlatMetricType::PulseHeightSpectra(json_metric_shell.flatten(library)?)
-            }
-            MetricType::PulsePairTimeDiff(json_metric_shell) => {
-                FlatMetricType::PulsePairTimeDiff(json_metric_shell.flatten(library)?)
-            }
-        })
+        self.as_ref().try_map(
+            |this| this.flatten(library),
+            |this| this.flatten(library),
+            |this| this.flatten(library),
+            |this| this.flatten(library),
+            |this| this.flatten(library),
+        )
     }
 }
 
@@ -131,7 +102,7 @@ pub(crate) struct FlatMetric {
     pub(crate) name: String,
     pub(crate) save_to_json: bool,
     #[serde(flatten)]
-    pub(crate) metric_type: FlatMetricType,
+    pub(crate) metric_type: ResolvedMetricType,
 }
 
 impl HasName for FlatMetric {

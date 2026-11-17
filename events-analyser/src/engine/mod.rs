@@ -4,8 +4,8 @@ mod values;
 
 pub(crate) use crate::engine::{
     elements::{
-        Chart, FlatBucket, FlatBucketBlock, FlatChart, FlatMetric, FlatMetricType, FlatPage,
-        FlatSeries, Metric, MetricTypeHistogram, Page, PageError, PropertyOfMetric, SeriesType,
+        Chart, FlatBucket, FlatBucketBlock, FlatChart, FlatMetric, FlatPage, FlatSeries, Metric,
+        MetricTypeHistogram, Page, PageError, PropertyOfMetric, ResolvedMetricType, SeriesType,
     },
     settings::{AnalysisSettings, Array, Templates},
     values::{Interval, ValueError},

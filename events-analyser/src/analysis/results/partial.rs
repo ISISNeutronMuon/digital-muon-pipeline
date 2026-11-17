@@ -5,8 +5,9 @@ use crate::{
             MetricResultBucketWrapper, MetricResultByBucket, complete::CompletedMetricResult,
         },
     },
-    engine::{FlatBucket, FlatMetricType},
+    engine::{FlatBucket, ResolvedMetricType},
     eventlists::ChannelCollection,
+    impl_list_of_metrics,
     metric::{
         CompleteMetric, ListOfMetrics, MetricResultError, MetricWrapper, PartialMetric,
         PartialMetricShell, ResolvedMetricShell, partial,
@@ -142,13 +143,8 @@ where
 #[derive(Debug, Clone)]
 pub(crate) struct PartialMetricTypes;
 
-impl ListOfMetrics for PartialMetricTypes {
-    type EventCount = MetricResultByBucket<PartialMetricShell<partial::EventCount>>;
-    type FalseCount = MetricResultByBucket<PartialMetricShell<partial::FalseCount>>;
-    type MuonLifetime = MetricResultByBucket<PartialMetricShell<partial::MuonLifetime>>;
-    type PulseHeightSpectra = MetricResultByBucket<PartialMetricShell<partial::PulseHeightSpectra>>;
-    type PulsePairTimeDiff = MetricResultByBucket<PartialMetricShell<partial::PulsePairTimeDiff>>;
-}
+type PartialMetricShellByBucket<T> = MetricResultByBucket<PartialMetricShell<T>>;
+impl_list_of_metrics!(PartialMetricTypes => PartialMetricShellByBucket<partial>);
 
 /// Stores the partial results of a metric, arranging the results by bucket.
 /// Each variant wraps a different concrete instance of [MetricResultByBucket].
@@ -160,7 +156,7 @@ impl PartialMetricResult {
     /// # Parameters
     /// - source:
     /// - bucket_block_sizes:
-    pub(crate) fn new(source: FlatMetricType, bucket_block_sizes: &[usize]) -> Self {
+    pub(crate) fn new(source: ResolvedMetricType, bucket_block_sizes: &[usize]) -> Self {
         source.map(
             |this| MetricResultByBucket::new(this, bucket_block_sizes),
             |this| MetricResultByBucket::new(this, bucket_block_sizes),

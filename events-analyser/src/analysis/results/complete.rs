@@ -1,6 +1,7 @@
 use crate::{
     analysis::results::MetricResultByBucket,
     engine::PropertyOfMetric,
+    impl_list_of_metrics,
     metric::{
         CompleteMetric, CompleteSeriesOutput, ListOfMetrics, MetricResultError, MetricWrapper,
         complete,
@@ -43,13 +44,7 @@ impl<C: CompleteMetric> MetricResultByBucket<C> {
 #[derive(Debug, Clone)]
 pub(crate) struct CompleteMetricTypes;
 
-impl ListOfMetrics for CompleteMetricTypes {
-    type EventCount = MetricResultByBucket<complete::EventCount>;
-    type FalseCount = MetricResultByBucket<complete::FalseCount>;
-    type MuonLifetime = MetricResultByBucket<complete::MuonLifetime>;
-    type PulseHeightSpectra = MetricResultByBucket<complete::PulseHeightSpectra>;
-    type PulsePairTimeDiff = MetricResultByBucket<complete::PulsePairTimeDiff>;
-}
+impl_list_of_metrics!(CompleteMetricTypes => MetricResultByBucket<complete>);
 
 /// Stores the complete results of a metric, arranging the results by bucket.
 /// Each variant wraps a different concrete instance of [MetricResultByBucket].

@@ -16,7 +16,8 @@ use std::{
 
 pub(crate) use error::{FittingError, MetricResultError};
 pub(crate) use metrics::{
-    ListOfMetrics, MetricWrapper, MetricWrapperWithTag, complete, flat, json, partial, properties,
+    ListOfMetrics, MetricWrapper, MetricWrapperWithTag, complete, dependent, partial, properties,
+    resolved,
 };
 pub(crate) use outputs::{CompleteSeriesOutput, HistogramWithBands, LabelledGroupData, Surface};
 

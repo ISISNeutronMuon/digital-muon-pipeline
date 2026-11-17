@@ -44,6 +44,70 @@ pub(crate) trait ListOfMetrics {
     type PulsePairTimeDiff;
 }
 
+/// Creates an impl block implementing trait [ListOfMetrics] for an empty type.
+/// For each associated type a type of the same name, within a module should be provided.
+///
+/// # Example
+///
+/// ```rust
+///     mod my_module {
+///         struct EventCount;
+///         struct FalseCount;
+///         struct MuonLifetime;
+///         struct PulseHeightSpectra;
+///         struct PulsePairTimeDiff;
+///     }
+///     struct MetricsList;
+///     impl_list_of_metrics!(MetricsList => my_module)
+/// ```
+/// expands to
+/// ```rust
+///     impl ListOfMetrics for MetricsList {
+///         type EventCount = my_module::EventCount;
+///         type FalseCount = my_module::FalseCount;
+///         type MuonLifetime = my_module::MuonLifetime;
+///         type PulseHeightSpectra = my_module::PulseHeightSpectra;
+///         type PulsePairTimeDiff = my_module::PulsePairTimeDiff;
+///     }
+/// ```
+///
+/// The module can be wrapped in a type as a parameter, for instance:
+/// ```rust
+///     struct MyType<T>;
+///     impl_list_of_metrics!(MetricsList => MyType<my_module>)
+/// ```
+/// expands to
+/// ```rust
+///     impl ListOfMetrics for MetricsList {
+///         type EventCount = MyType<my_module::EventCount>;
+///         type FalseCount = MyType<my_module::FalseCount>;
+///         type MuonLifetime = MyType<my_module::MuonLifetime>;
+///         type PulseHeightSpectra = MyType<my_module::PulseHeightSpectra>;
+///         type PulsePairTimeDiff = MyType<my_module::PulsePairTimeDiff>;
+///     }
+/// ```
+#[macro_export]
+macro_rules! impl_list_of_metrics {
+    ($type:ty => $module:ident) => {
+        impl ListOfMetrics for $type {
+            type EventCount = $module::EventCount;
+            type FalseCount = $module::FalseCount;
+            type MuonLifetime = $module::MuonLifetime;
+            type PulseHeightSpectra = $module::PulseHeightSpectra;
+            type PulsePairTimeDiff = $module::PulsePairTimeDiff;
+        }
+    };
+    ($type:ty => $prefix:ident<$module:ident>) => {
+        impl ListOfMetrics for $type {
+            type EventCount = $prefix<$module::EventCount>;
+            type FalseCount = $prefix<$module::FalseCount>;
+            type MuonLifetime = $prefix<$module::MuonLifetime>;
+            type PulseHeightSpectra = $prefix<$module::PulseHeightSpectra>;
+            type PulsePairTimeDiff = $prefix<$module::PulsePairTimeDiff>;
+        }
+    };
+}
+
 /// Generic enum in which each variant contains the corresponding type encapsulated by `Types`.
 ///
 /// # Example
@@ -75,27 +139,6 @@ pub(crate) trait ListOfMetrics {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum MetricWrapper<Types: ListOfMetrics> {
-    #[serde(rename_all = "kebab-case")]
-    EventCount(Types::EventCount),
-    #[serde(rename_all = "kebab-case")]
-    FalseCount(Types::FalseCount),
-    #[serde(rename_all = "kebab-case")]
-    MuonLifetime(Types::MuonLifetime),
-    #[serde(rename_all = "kebab-case")]
-    PulseHeightSpectra(Types::PulseHeightSpectra),
-    #[serde(rename_all = "kebab-case")]
-    PulsePairTimeDiff(Types::PulsePairTimeDiff),
-}
-
-/// Generic enum in which each variant contains the corresponding type encapsulated by `Types`.
-/// Identical to [MetricWrapper] except for the presence of `#[serde(tag = "metric-type")]` and
-/// the `impl MetricWrapper` block.
-/// This is used exclusively by [MetricType].
-///
-/// [MetricType] : crate::engine::elements::metric::MetricType
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "metric-type")]
-pub(crate) enum MetricWrapperWithTag<Types: ListOfMetrics> {
     #[serde(rename_all = "kebab-case")]
     EventCount(Types::EventCount),
     #[serde(rename_all = "kebab-case")]
@@ -321,5 +364,41 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
                     .map_err(Into::into)
             },
         )
+    }
+}
+
+/// Generic enum in which each variant contains the corresponding type encapsulated by `Types`.
+/// Identical to [MetricWrapper] except for the presence of `#[serde(tag = "metric-type")]` and
+/// the `impl MetricWrapper` block.
+/// This is used exclusively by [MetricType].
+///
+/// [MetricType] : crate::engine::elements::metric::MetricType
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", tag = "metric-type")]
+pub(crate) enum MetricWrapperWithTag<Types: ListOfMetrics> {
+    #[serde(rename_all = "kebab-case")]
+    EventCount(Types::EventCount),
+    #[serde(rename_all = "kebab-case")]
+    FalseCount(Types::FalseCount),
+    #[serde(rename_all = "kebab-case")]
+    MuonLifetime(Types::MuonLifetime),
+    #[serde(rename_all = "kebab-case")]
+    PulseHeightSpectra(Types::PulseHeightSpectra),
+    #[serde(rename_all = "kebab-case")]
+    PulsePairTimeDiff(Types::PulsePairTimeDiff),
+}
+
+impl<T: ListOfMetrics> MetricWrapperWithTag<T> {
+    /// Converts a reference of a wrapper into a wrapper of references.
+    pub(crate) fn as_ref<'a>(&'a self) -> MetricWrapper<RefMetricTypes<'a, T>> {
+        match self {
+            MetricWrapperWithTag::EventCount(this) => MetricWrapper::EventCount(this),
+            MetricWrapperWithTag::FalseCount(this) => MetricWrapper::FalseCount(this),
+            MetricWrapperWithTag::MuonLifetime(this) => MetricWrapper::MuonLifetime(this),
+            MetricWrapperWithTag::PulseHeightSpectra(this) => {
+                MetricWrapper::PulseHeightSpectra(this)
+            }
+            MetricWrapperWithTag::PulsePairTimeDiff(this) => MetricWrapper::PulsePairTimeDiff(this),
+        }
     }
 }
