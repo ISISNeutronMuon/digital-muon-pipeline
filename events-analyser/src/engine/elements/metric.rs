@@ -47,6 +47,7 @@ impl Flattenable<&[String]> for MetricType {
             |this| this.flatten(library),
             |this| this.flatten(library),
             |this| this.flatten(library),
+            |this| this.flatten(library),
         )
     }
 }

@@ -82,6 +82,7 @@ impl CompletedMetricResult {
                 |(this, that)| this.get_property(block, that).map_err(Into::into),
                 |(this, that)| this.get_property(block, that),
                 |(this, that)| this.get_property(block, that),
+                |(this, that)| this.get_property(block, that),
             )
     }
 }
