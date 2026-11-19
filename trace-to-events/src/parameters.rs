@@ -1,9 +1,10 @@
 //! Defines the parameters used by the various detectors defined in this component.
 use crate::pulse_detection::Real;
 use digital_muon_common::Intensity;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct DetectorSettings {
     /// The type of detector to use.
@@ -16,7 +17,7 @@ pub(crate) struct DetectorSettings {
 }
 
 /// Defines the polarity of the signal, i.e. whether events cause positive or negative signals.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Polarity {
     /// Detection events register as positive signals.
@@ -26,7 +27,7 @@ pub(crate) enum Polarity {
 }
 
 /// Encapsulates the parameters specific to the Fixed Threshold Discriminator detector.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct FixedThresholdDiscriminatorParameters {
     /// If the detector is armed, an event is registered when the trace passes this value for the given duration.
@@ -40,7 +41,7 @@ pub(crate) struct FixedThresholdDiscriminatorParameters {
 }
 
 /// Determines how the peak height is calculated.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum PeakHeightMode {
     /// Take the maximum trace value between begin trigger time and end trigger time.
@@ -52,7 +53,7 @@ pub(crate) enum PeakHeightMode {
 }
 
 /// Determines the peak height baseline.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum PeakHeightBasis {
     /// The peak height is relative to the trace's baseline.
@@ -62,7 +63,7 @@ pub(crate) enum PeakHeightBasis {
 }
 
 /// Encapsulates the parameters specific to the Differential Threshold Discriminator detector.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct DifferentialThresholdDiscriminatorParameters {
     /// If the detector is armed, an event is registered when the trace derivative passes this value for the given duration.
@@ -88,7 +89,7 @@ pub(crate) struct DifferentialThresholdDiscriminatorParameters {
 }
 
 /// Encapsulates the parameters specific to the Smoothing detector.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct SmoothingDetectorParameters {
     /// Centile of x to use for noise estimation.
@@ -104,7 +105,7 @@ pub(crate) struct SmoothingDetectorParameters {
 }
 
 /// Encapsulates the parameters specific to the Multiscaling detector.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct MultiscalingDetectorParameters {
     /// Coefficients of the smoothing kernel to apply on downsampling.
@@ -136,7 +137,7 @@ pub(crate) struct MultiscalingDetectorParameters {
 }
 
 /// Encapsulates the parameters specific to the Smoothing detector.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum MultiscalingDetectorMethod {
     /// Detects events using a fixed threshold discriminator. Event lists consist of time and voltage values.
@@ -157,7 +158,7 @@ pub(crate) enum MultiscalingDetectorMethod {
 }
 
 /// Specifies which detector is to be used, and wraps the detector-specific options in each variant.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Mode {
     /// Detects events using a fixed threshold discriminator. Event lists consist of time and voltage values.
@@ -314,5 +315,12 @@ mod tests {
             let settings: DetectorSettings = serde_json::from_str(json).unwrap();
             let _ = ChannelState::new(&settings);
         }
+    }
+
+    #[test]
+    fn test_generate_json_schema() {
+        let schema = schemars::schema_for!(DetectorSettings);
+        let schema_json = serde_json::to_string_pretty(&schema).unwrap();
+        assert!(schema_json.contains("\"DetectorSettings\""));
     }
 }
