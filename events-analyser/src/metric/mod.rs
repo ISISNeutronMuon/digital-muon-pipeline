@@ -144,8 +144,14 @@ impl<P: PartialMetric> PartialMetricShell<P> {
         self.inner.load_data(&source.inner);
     }
 
-    pub(crate) fn push(&mut self, channel: Channel, metadata: &FrameMetadata, collection_by_topic: &ChannelDataByTopic) {
-        self.inner.push(&self.source, channel, metadata, collection_by_topic)
+    pub(crate) fn push(
+        &mut self,
+        channel: Channel,
+        metadata: &FrameMetadata,
+        collection_by_topic: &ChannelDataByTopic,
+    ) {
+        self.inner
+            .push(&self.source, channel, metadata, collection_by_topic)
     }
 }
 

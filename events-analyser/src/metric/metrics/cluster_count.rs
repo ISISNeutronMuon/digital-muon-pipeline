@@ -3,9 +3,7 @@ use crate::{
     eventlists::ChannelDataByTopic,
     metric::{
         CompleteMetric, DependentMetric, PartialMetric, PartialMetricShell, ResolvedMetric,
-        ResolvedMetricShell,
-        error::MetricResultError,
-        outputs::PartialSeriesOutput,
+        ResolvedMetricShell, error::MetricResultError, outputs::PartialSeriesOutput,
     },
 };
 use chrono::{DateTime, Utc};
@@ -15,7 +13,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Defines settings for the `PulsePairTimeDiff` metric, that do not require resolving,
+/// Defines settings for the `ClusterCount` metric, that do not require resolving,
 /// that is they do not depend on other items in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -30,7 +28,7 @@ pub(crate) struct ClusterCountSettings {
     intensity_filter: Option<Interval<Intensity>>,
 }
 
-/// Defines settings for the `PulsePairTimeDiff` metric, that require resolving,
+/// Defines settings for the `ClusterCount` metric, that require resolving,
 /// that is depend on other items defined in the configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -54,7 +52,7 @@ impl DependentMetric for DependentClusterCount {
     }
 }
 
-/// Equivalent to settings in [DependentPulsePairTimeDiff], after their dependencies have been resolved.
+/// Equivalent to settings in [DependentClusterCount], after their dependencies have been resolved.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct ResolvedClusterCount {
@@ -66,20 +64,23 @@ impl ResolvedMetric for ResolvedClusterCount {
     type Dependent = DependentClusterCount;
 }
 
-/// Builds up histograms of pulse heights, for each channel.
+/// Encapsulates the clusters within a trace.
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct ClusterReport {
+    /// Time the trace occurred.
     timestamp: DateTime<Utc>,
+    /// Frame number of the trace.
     frame_number: FrameNumber,
+    /// How many clusters were counted in the trace.
     cluster_count: usize,
 }
 
-/// Builds up histograms of pulse heights, for each channel.
+/// Collects cluster reports as they are found.
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PartialClusterCount {
-    /// Per-channel histograms pulse heights.
+    /// Per-channel list of cluster reports.
     cluster_reports: HashMap<Channel, Vec<ClusterReport>>,
 }
 
@@ -93,31 +94,28 @@ impl PartialMetric for PartialClusterCount {
         metadata: &FrameMetadata,
         collection_by_topic: &ChannelDataByTopic,
     ) {
-        // Gets the time difference of a pair if it is within the cluster radius, and at least one intensity is in range.
-        let pairs = |pair: Vec<&&(_,_)>| {
+        // Tests whether the time difference of a pair if it is within the cluster radius, and at least one intensity is in range.
+        let test_pair = |pair: Vec<&&(_, _)>| {
             let [(first_time, first_intensity), (last_time, last_intensity)] = pair
                 .try_into()
                 .expect("Vector should have length 2, this should never fail.");
-        
-            let is_in_filter = source
-                .independent
-                .intensity_filter
-                .as_ref()
-                .is_none_or(|intensity_filter| {
-                    let range = intensity_filter.range_inclusive();
-                    range.contains(first_intensity) || range.contains(last_intensity)
-                });
+
+            let is_in_filter =
+                source
+                    .independent
+                    .intensity_filter
+                    .as_ref()
+                    .is_none_or(|intensity_filter: &Interval<u16>| {
+                        let range = intensity_filter.range_inclusive();
+                        range.contains(first_intensity) || range.contains(last_intensity)
+                    });
 
             let time_diff = Time::abs_diff(*first_time, *last_time);
             is_in_filter && time_diff <= source.independent.cluster_radius as Time
         };
 
-        // Gets the 
-        let clusters = |cluster: &Vec<&(_,_)>| {
-            cluster.into_iter()
-                .permutations(2)
-                .all(pairs)
-        };
+        // Determines whether all pairs within the cluster pass `test_pair`.
+        let test_cluster = |cluster: &Vec<&(_, _)>| cluster.iter().permutations(2).all(test_pair);
 
         let cluster_count = collection_by_topic
             .get(source.resolved.topic)
@@ -125,31 +123,27 @@ impl PartialMetric for PartialClusterCount {
             .get_time_intensity()
             .iter()
             .permutations(source.independent.cluster_size)
-            .filter(clusters)
+            .filter(test_cluster)
             .count();
 
-        // Obtain the channel's histogram.
-        let cluster_reports = self
-            .cluster_reports
-            .entry(channel)
-            .or_default();
-
         if cluster_count >= source.independent.cluster_number {
+            // Obtain the channel's list of cluster reports.
+            let cluster_reports = self.cluster_reports.entry(channel).or_default();
             cluster_reports.push(ClusterReport {
-                timestamp: metadata.timestamp.clone(),
+                timestamp: metadata.timestamp,
                 frame_number: metadata.frame_number,
-                cluster_count
+                cluster_count,
             })
         }
     }
 }
 
-/// Aggregates the pulse height histograms into a single histogram.
+/// Stores cluster reports.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct CompletedClusterCount {
     /// Histogram bin labels.
-    cluster_reports: HashMap<Channel, Vec<ClusterReport>>
+    cluster_reports: HashMap<Channel, Vec<ClusterReport>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,20 +170,21 @@ impl CompleteMetric for CompletedClusterCount {
             Self::Property::BoxPlot => PartialSeriesOutput::LabelledGroup(
                 self.cluster_reports
                     .iter()
-                    .map(|(channel,reports)|
-                        reports.iter().map(move |report| (
-                            report.cluster_count as f64,
-                            format!(
-                                "Frame: {}, DateTime: {}, Channel: {}",
-                                report.frame_number,
-                                report.timestamp.to_rfc3339(),
-                                channel
+                    .flat_map(|(channel, reports)| {
+                        reports.iter().map(move |report| {
+                            (
+                                report.cluster_count as f64,
+                                format!(
+                                    "Frame: {}, DateTime: {}, Channel: {}",
+                                    report.frame_number,
+                                    report.timestamp.to_rfc3339(),
+                                    channel
+                                ),
                             )
-                        ))
-                     )
-                     .flatten()
-                     .collect()
-            )
+                        })
+                    })
+                    .collect(),
+            ),
         })
     }
 }

@@ -105,16 +105,23 @@ where
     /// # Parameters
     /// - bucket_index: the bucket to push to.
     /// - collection: the channel collection that is being pushed.
-    pub(super) fn push(&mut self, bucket_index: BucketIndex, metadata: &FrameMetadata, collection: &ChannelCollection) {
+    pub(super) fn push(
+        &mut self,
+        bucket_index: BucketIndex,
+        metadata: &FrameMetadata,
+        collection: &ChannelCollection,
+    ) {
         let partial_metric_result = self.get_bucket_mut(bucket_index);
         partial_metric_result.increment_count();
         for (&channel, collection_by_topic) in collection.iter() {
-            partial_metric_result.object.push(channel, metadata, collection_by_topic);
+            partial_metric_result
+                .object
+                .push(channel, metadata, collection_by_topic);
         }
     }
 
     /// Loads the results from an external source.
-    /// 
+    ///
     /// # Parameters
     /// - source: the source of the data to load.
     pub(crate) fn load_data(&mut self, source: &Self) {
@@ -169,7 +176,7 @@ impl PartialMetricResult {
             |this| MetricResultByBucket::new(this, bucket_block_sizes),
             |this| MetricResultByBucket::new(this, bucket_block_sizes),
             |this| MetricResultByBucket::new(this, bucket_block_sizes),
-            |this| MetricResultByBucket::new(this, bucket_block_sizes)
+            |this| MetricResultByBucket::new(this, bucket_block_sizes),
         )
     }
 
@@ -194,7 +201,12 @@ impl PartialMetricResult {
     /// # Parameters
     /// - bucket_index: the bucket to push to.
     /// - collection: the channel collection that is being pushed.
-    pub(crate) fn push(&mut self, bucket_index: BucketIndex, metadata: &FrameMetadata, collection: &ChannelCollection) {
+    pub(crate) fn push(
+        &mut self,
+        bucket_index: BucketIndex,
+        metadata: &FrameMetadata,
+        collection: &ChannelCollection,
+    ) {
         self.as_mut().fold(
             |this| this.push(bucket_index, metadata, collection),
             |this| this.push(bucket_index, metadata, collection),
@@ -218,7 +230,7 @@ impl PartialMetricResult {
     }
 
     /// Loads the results from an external source.
-    /// 
+    ///
     /// # Parameters
     /// - source: the source of the data to load.
     pub(crate) fn load_data(&mut self, source: &Self) -> Result<(), MetricResultError> {
