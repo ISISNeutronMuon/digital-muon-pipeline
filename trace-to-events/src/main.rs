@@ -42,7 +42,7 @@ use digital_muon_streaming_types::{
 use metrics::{counter, describe_counter, describe_gauge, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use miette::IntoDiagnostic;
-use parameters::DetectorSettings;
+use parameters::{DetectorSettings, validate_config_schema};
 use rdkafka::{
     Message, Offset, TopicPartitionList,
     consumer::{CommitMode, Consumer, StreamConsumer},
@@ -50,7 +50,7 @@ use rdkafka::{
     producer::{DeliveryFuture, FutureProducer, FutureRecord},
     util::Timeout,
 };
-use std::{net::SocketAddr, time::Duration};
+use std::{fs::File, io::BufReader, net::SocketAddr, path::PathBuf, time::Duration};
 use tokio::{
     select,
     signal::unix::{Signal, SignalKind, signal},
@@ -91,6 +91,11 @@ enum Commands {
     Run(RunArgs),
     /// Print the JSON Schema for the event formation configuration and exit
     ConfigSchema,
+    /// Validate a configuration JSON file against the event formation JSON Schema and exit
+    ConfigVerify {
+        /// Path to the configuration JSON file to validate
+        file: PathBuf,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -255,6 +260,12 @@ async fn main() -> miette::Result<()> {
                 "{}",
                 serde_json::to_string_pretty(&schema).into_diagnostic()?
             );
+            return Ok(());
+        }
+        Commands::ConfigVerify { file } => {
+            let reader = BufReader::new(File::open(&file).into_diagnostic()?);
+            let instance: serde_json::Value = serde_json::from_reader(reader).into_diagnostic()?;
+            validate_config_schema(&instance)?;
             return Ok(());
         }
     };

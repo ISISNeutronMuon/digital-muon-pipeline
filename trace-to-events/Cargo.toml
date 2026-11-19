@@ -10,6 +10,7 @@ chrono.workspace = true
 clap.workspace = true
 const_format.workspace = true
 git-version.workspace = true
+jsonschema.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 libm.workspace = true
