@@ -7,12 +7,12 @@ Traces are consumed from a kafka broker, processed into events and the resulting
 
 ## Command Line Interface
 
-`trace-to-events [OPTIONS] --broker <BROKER> --consumer-group <CONSUMER_GROUP> --trace-topic <TRACE_TOPIC> --event-topic <EVENT_TOPIC> --config-topic <CONFIG_TOPIC>`
+`trace-to-events run [OPTIONS] --broker <BROKER> --consumer-group <CONSUMER_GROUP> --trace-topic <TRACE_TOPIC> --event-topic <EVENT_TOPIC> --config-topic <CONFIG_TOPIC>`
 
 For instance:
 
 ```shell
-trace-to-events --broker localhost:19092 --consumer-group trace-to-events --trace-topic Traces --event-topic Events --config-topic Config
+trace-to-events run --broker localhost:19092 --consumer-group trace-to-events --trace-topic Traces --event-topic Events --config-topic Config
 ```
 
 - `--trace-topic`: The Kafka topic from which trace messages are consumed.
@@ -34,6 +34,12 @@ Event formation parameters are configured by publishing a JSON document to the K
 - **Unconfigured State:** If no configuration is currently applied (e.g. before any configuration has been published to `--config-topic`), `trace-to-events` discards incoming trace messages until a valid configuration is received.
 
 ### Configuration Schema
+
+To print the JSON Schema for the event formation configuration document:
+
+```shell
+trace-to-events config-schema
+```
 
 The JSON document schema corresponds directly to the structs and enums defined in [`src/parameters.rs`](src/parameters.rs):
 

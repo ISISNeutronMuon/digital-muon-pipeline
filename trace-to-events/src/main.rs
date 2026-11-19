@@ -15,7 +15,7 @@ mod test_data;
 
 use crate::processing::DigitiserMessageProcessor;
 use chrono::{DateTime, Utc};
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use const_format::concatcp;
 use digital_muon_common::{
     CommonKafkaOpts, init_tracer,
@@ -80,6 +80,21 @@ struct SenderParameters<'a> {
 #[derive(Debug, Parser)]
 #[clap(author, version = digital_muon_common::version!(), about)]
 struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Debug, Subcommand)]
+#[allow(clippy::large_enum_variant)]
+enum Commands {
+    /// Run the trace-to-events service
+    Run(RunArgs),
+    /// Print the JSON Schema for the event formation configuration and exit
+    ConfigSchema,
+}
+
+#[derive(Debug, Args)]
+struct RunArgs {
     #[clap(flatten)]
     common_kafka_options: CommonKafkaOpts,
 
@@ -230,7 +245,19 @@ async fn fetch_latest_config(
 
 #[tokio::main]
 async fn main() -> miette::Result<()> {
-    let args = Cli::parse();
+    let cli = Cli::parse();
+
+    let args = match cli.command {
+        Commands::Run(args) => args,
+        Commands::ConfigSchema => {
+            let schema = schemars::schema_for!(DetectorSettings);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&schema).into_diagnostic()?
+            );
+            return Ok(());
+        }
+    };
 
     let tracer = init_tracer!(TracerOptions::new(
         args.otel_endpoint.as_deref(),
