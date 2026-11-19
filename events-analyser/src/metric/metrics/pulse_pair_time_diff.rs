@@ -10,6 +10,7 @@ use crate::{
     },
 };
 use digital_muon_common::{Channel, Intensity, Time};
+use digital_muon_streaming_types::FrameMetadata;
 use itertools::Itertools;
 use num::{Float, Zero};
 use serde::{Deserialize, Serialize};
@@ -80,6 +81,7 @@ impl PartialMetric for PartialPulsePairTimeDiff {
         &mut self,
         source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
+        _metadata: &FrameMetadata,
         collection_by_topic: &ChannelDataByTopic,
     ) {
         let time_diffs = collection_by_topic

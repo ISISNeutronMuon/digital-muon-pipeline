@@ -11,6 +11,7 @@ use crate::{
     },
 };
 use digital_muon_common::Channel;
+use digital_muon_streaming_types::FrameMetadata;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{collections::HashMap, fmt::Debug};
 
@@ -160,6 +161,7 @@ impl PartialMetric for PartialFalseCount {
         &mut self,
         source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
+        _metadata: &FrameMetadata,
         collection_by_topic: &ChannelDataByTopic,
     ) {
         // true_by_estimates is indexed by the detected events, and the corresponding element is the list of true events that have been associated to it
