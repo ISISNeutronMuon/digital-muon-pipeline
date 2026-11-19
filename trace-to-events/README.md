@@ -41,6 +41,12 @@ To print the JSON Schema for the event formation configuration document:
 trace-to-events config-schema
 ```
 
+To validate a configuration JSON file against the JSON Schema:
+
+```shell
+trace-to-events config-verify path/to/config.json
+```
+
 The JSON document schema corresponds directly to the structs and enums defined in [`src/parameters.rs`](src/parameters.rs):
 
 - [`DetectorSettings`](src/parameters.rs): Top-level configuration document containing `mode`, `polarity`, and optional `baseline`.

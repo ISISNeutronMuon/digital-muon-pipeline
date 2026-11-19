@@ -1,6 +1,7 @@
 //! Defines the parameters used by the various detectors defined in this component.
 use crate::pulse_detection::Real;
 use digital_muon_common::Intensity;
+use miette::{IntoDiagnostic, miette};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -181,6 +182,34 @@ pub(crate) enum Mode {
     Multiscaling(MultiscalingDetectorParameters),
 }
 
+/// Validates a JSON value against the [`DetectorSettings`] JSON Schema.
+pub(crate) fn validate_config_schema(instance: &serde_json::Value) -> miette::Result<()> {
+    let schema = schemars::schema_for!(DetectorSettings);
+    let schema_value = serde_json::to_value(&schema).into_diagnostic()?;
+    let validator = jsonschema::validator_for(&schema_value).into_diagnostic()?;
+
+    let errors: Vec<String> = validator
+        .iter_errors(instance)
+        .map(|err| {
+            let path = err.instance_path().to_string();
+            if path.is_empty() {
+                format!("- {err}")
+            } else {
+                format!("- {path}: {err}")
+            }
+        })
+        .collect();
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(miette!(
+            "Configuration failed JSON Schema validation:\n{}",
+            errors.join("\n")
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,5 +351,46 @@ mod tests {
         let schema = schemars::schema_for!(DetectorSettings);
         let schema_json = serde_json::to_string_pretty(&schema).unwrap();
         assert!(schema_json.contains("\"DetectorSettings\""));
+    }
+
+    #[test]
+    fn test_validate_example_files_against_schema() {
+        let examples = [
+            include_str!("../examples/fixed-threshold-discriminator.json"),
+            include_str!("../examples/differential-threshold-discriminator.json"),
+            include_str!("../examples/smoothing-detector.json"),
+            include_str!("../examples/multiscaling.json"),
+        ];
+
+        for json in examples {
+            let instance: serde_json::Value = serde_json::from_str(json).unwrap();
+            assert!(validate_config_schema(&instance).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_validate_invalid_config_against_schema() {
+        let invalid_polarity: serde_json::Value = serde_json::from_str(
+            r#"{
+                "polarity": "invalid-polarity",
+                "mode": {
+                    "fixed-threshold-discriminator": {
+                        "threshold": 5.5,
+                        "duration": 2,
+                        "cool-off": 3
+                    }
+                }
+            }"#,
+        )
+        .unwrap();
+        assert!(validate_config_schema(&invalid_polarity).is_err());
+
+        let missing_required_field: serde_json::Value = serde_json::from_str(
+            r#"{
+                "polarity": "positive"
+            }"#,
+        )
+        .unwrap();
+        assert!(validate_config_schema(&missing_required_field).is_err());
     }
 }
