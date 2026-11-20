@@ -1,7 +1,7 @@
 use crate::{
     analysis::{
         chart_page::chart::{ChartOutput, ChartOutputError},
-        metrics::CompletedMetricResult,
+        results::CompletedMetricResult,
     },
     engine::{FlatChart, FlatPage},
 };
@@ -20,6 +20,8 @@ pub(crate) enum PageOutputError {
     IO(#[from] std::io::Error),
 }
 
+/// Encapsulates all settings and data needed to generate a html file
+/// consisting of one or more charts.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct PageOutput {
@@ -28,6 +30,11 @@ pub(crate) struct PageOutput {
 }
 
 impl PageOutput {
+    /// Create a new [PageOutput],
+    ///
+    /// # Parameters
+    /// - page: the object describing the page.
+    /// - metrics: slice of [CompletedMetricResult]s from which the data for the charts is obtained.
     pub(crate) fn new(
         page: &FlatPage,
         metrics: &[CompletedMetricResult],
@@ -44,13 +51,22 @@ impl PageOutput {
         })
     }
 
-    pub(crate) fn load_json(path: &Path, chart_name: &str) -> Result<Self, PageOutputError> {
+    /// Load an instance of [PageOutput] from a json file.
+    ///
+    /// # Parameters
+    /// - path: directory in which the json file is located.
+    /// - page_name: name of the json file (without extension).
+    pub(crate) fn load_json(path: &Path, page_name: &str) -> Result<Self, PageOutputError> {
         let mut path = path.to_path_buf();
-        path.push(chart_name);
+        path.push(page_name);
         path.add_extension("json");
         Ok(serde_json::from_reader(File::open(&path)?)?)
     }
 
+    /// Saves the instance of [PageOutput] to a json file. The file name is the page's title.
+    ///
+    /// # Parameters
+    /// - path: directory in which the json file it to be saved.
     pub(crate) fn save_json(&self, path: &Path) -> Result<(), PageOutputError> {
         let mut path = path.to_owned();
         path.push(&self.page.settings.title);
@@ -60,6 +76,10 @@ impl PageOutput {
         Ok(())
     }
 
+    /// Generates a graphical plotly html file from the page.
+    ///
+    /// # Parameters
+    /// - path: directory in which the html file it to be saved.
     pub(crate) fn save_plotly(&self, path: &Path) -> Result<(), PageOutputError> {
         const PLOTLY_JS_SCRIPT: &str = "https://cdn.plot.ly/plotly-3.7.0.min.js";
 
@@ -68,7 +88,7 @@ impl PageOutput {
             .with_script_link(PLOTLY_JS_SCRIPT)
             .with_header(1, &self.page.settings.title);
         let html = self.charts.iter().fold(html, |html, chart| {
-            html.with_raw(chart.build_plotly_graph().to_inline_html(None))
+            html.with_raw(chart.build().to_inline_html(None))
         });
 
         let mut path = path.to_owned();

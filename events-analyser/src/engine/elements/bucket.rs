@@ -38,13 +38,13 @@ pub(crate) struct BucketBlockProperties {
     pub(crate) limits: Option<Interval<Value<usize>>>,
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Encapsulates a reusable set of properties used to build many [BucketBlock] instances.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct BucketBlockTemplate {
+    /// Name of the template.
     pub(crate) name: String,
+    /// Underlying properties.
     #[serde(flatten)]
     pub(crate) properties: BucketBlockProperties,
 }
@@ -63,9 +63,8 @@ impl Deref for BucketBlockTemplate {
     }
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Encapsulates fields describing a Bucket Block, that is a collection of buckets
+/// some of whose properties can be defined via a linear function.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct BucketBlock {
@@ -100,9 +99,7 @@ impl Deref for BucketBlock {
     }
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Derived from [BucketBlock] object, by resolving its dependencies.
 pub(crate) struct FlatBucketBlock {
     /// Name of this bucket block.
     pub(crate) name: String,
@@ -125,6 +122,10 @@ impl Debug for FlatBucketBlock {
 }
 
 impl FlatBucketBlock {
+    /// Find the first bucket in the block whose criteria matches the given collection.
+    ///
+    /// # Parameters
+    /// - collection: The eventlists collection to match the bucket to.
     pub(crate) fn find_bucket_matching(
         &mut self,
         collection: &EventlistsCollection,
@@ -137,9 +138,7 @@ impl FlatBucketBlock {
     }
 }
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Derived from [BucketBlock], by resolving its dependencies and apply a linear function to some of its fields.
 pub(crate) struct FlatBucket {
     span: SpanOnce,
     /// The crieria that is required for an eventlist collection to belong to one of these buckets.
@@ -196,6 +195,7 @@ impl FlatBucket {
         self.count += 1;
     }
 
+    /// If this bucket has space to spare.
     fn is_bucket_available(&self) -> bool {
         self.limits.get_max() > self.count
     }

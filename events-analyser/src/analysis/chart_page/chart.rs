@@ -1,19 +1,16 @@
 use crate::{
-    analysis::{
-        chart_page::TraceExt,
-        metrics::{
-            CompletedMetricResult, FittingError, HistogramWithBands, MetricOutputSeries,
-            MetricResultError, Surface,
-        },
-    },
+    analysis::{chart_page::plotly_trace_ext::TraceExt, results::CompletedMetricResult},
     engine::{FlatChart, FlatSeries, SeriesType},
+    metric::{
+        CompleteSeriesOutput, FittingError, HistogramWithBands, LabelledGroupData,
+        MetricResultError, Surface,
+    },
 };
 use num::Integer;
 use plotly::{
     Bar, BoxPlot, HeatMap, Layout, Plot, Scatter, Trace,
     box_plot::{BoxMean, BoxPoints},
-    common::{ErrorData, ErrorType, LegendGroupTitle, Line},
-    heat_map::Smoothing,
+    common::{ErrorData, ErrorType},
     layout::{
         Axis, GridPattern, GroupClick, ItemClick, LayoutGrid, Legend, ModeBar, TraceOrder, VAlign,
     },
@@ -21,121 +18,26 @@ use plotly::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-impl<X, Y> TraceExt for Box<Scatter<X, Y>>
-where
-    X: Clone + Serialize,
-    Y: Clone + Serialize,
-{
-    fn apply_settings(self, series: &FlatSeries) -> Self {
-        let mut line = Line::new();
-        if let Some(line_style) = &series.settings.line.line_style {
-            line = line.dash(line_style.into());
-        }
-        if let Some(line_colour) = &series.settings.line.line_colour {
-            line = line.color(line_colour.to_string());
-        }
-
-        self.name(&series.settings.name)
-            .line(line)
-            .x_axis(&series.settings.axis.x_axis)
-            .y_axis(&series.settings.axis.y_axis)
-            .legend_group(format!(
-                "x{0}y{1}",
-                series.settings.axis.x_axis, series.settings.axis.y_axis
-            ))
-            .legend_group_title(
-                LegendGroupTitle::new().text(
-                    series
-                        .settings
-                        .axis
-                        .legend_group_title
-                        .as_ref()
-                        .unwrap_or(&series.settings.name),
-                ),
-            )
-    }
-}
-
-impl<X, Y, Z> TraceExt for Box<HeatMap<X, Y, Z>>
-where
-    X: Clone + Serialize,
-    Y: Clone + Serialize,
-    Z: Clone + Serialize,
-{
-    fn apply_settings(self, series: &FlatSeries) -> Self {
-        self.name(&series.settings.name)
-            .x_axis(&series.settings.axis.x_axis)
-            .y_axis(&series.settings.axis.y_axis)
-            .zsmooth(Smoothing::Best)
-    }
-}
-
-impl<X, Y> TraceExt for Box<Bar<X, Y>>
-where
-    X: Clone + Serialize,
-    Y: Clone + Serialize,
-{
-    fn apply_settings(self, series: &FlatSeries) -> Self {
-        self.name(&series.settings.name)
-            .x_axis(&series.settings.axis.x_axis)
-            .y_axis(&series.settings.axis.y_axis)
-            .legend_group(format!(
-                "x{0}y{1}",
-                series.settings.axis.x_axis, series.settings.axis.y_axis
-            ))
-            .legend_group_title(
-                LegendGroupTitle::new().text(
-                    series
-                        .settings
-                        .axis
-                        .legend_group_title
-                        .as_ref()
-                        .unwrap_or(&series.settings.name),
-                ),
-            )
-    }
-}
-
-impl<X, Y> TraceExt for Box<BoxPlot<X, Y>>
-where
-    X: Clone + Serialize,
-    Y: Clone + Serialize,
-{
-    fn apply_settings(self, series: &FlatSeries) -> Self {
-        self.name(&series.settings.name)
-            .x_axis(&series.settings.axis.x_axis)
-            .y_axis(&series.settings.axis.y_axis)
-            .legend_group(format!(
-                "x{0}y{1}",
-                series.settings.axis.x_axis, series.settings.axis.y_axis
-            ))
-            .legend_group_title(
-                LegendGroupTitle::new().text(
-                    series
-                        .settings
-                        .axis
-                        .legend_group_title
-                        .as_ref()
-                        .unwrap_or(&series.settings.name),
-                ),
-            )
-    }
-}
-
 #[derive(Debug, Error)]
 pub(crate) enum ChartOutputError {
     #[error("Metric Result Error: {0}")]
     Metric(#[from] MetricResultError),
 }
 
+/// Encapsulates the settings and data needed to build a chart.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct ChartOutput {
     chart: FlatChart,
-    data: Vec<Option<MetricOutputSeries>>,
+    data: Vec<Option<CompleteSeriesOutput>>,
 }
 
 impl ChartOutput {
+    /// Create a new [ChartOutput],
+    ///
+    /// # Parameters
+    /// - chart: the object describing the chart.
+    /// - metrics: slice of [CompletedMetricResult]s from which the chart data is obtained.
     pub(crate) fn new(
         chart: &FlatChart,
         metrics: &[CompletedMetricResult],
@@ -145,7 +47,9 @@ impl ChartOutput {
             .series
             .iter()
             .map(|series: &FlatSeries| {
-                let metric = metrics.get(series.metric).expect("This should never fail");
+                let metric = metrics
+                    .get(series.metric)
+                    .expect("Metric should exist, this should never fail");
                 match metric.get_property(series.from_bucket_block, series.property.clone()) {
                     Ok(value) => Ok(Some(value)),
                     Err(MetricResultError::Fitting(FittingError::NoValue)) => Ok(None),
@@ -159,6 +63,11 @@ impl ChartOutput {
         })
     }
 
+    /// Takes the default [FlatChart::x_axis] and constructs a new `x_axis` vector by selecting
+    /// only the elements which correspond to the elements of [data] which are [Some].
+    ///
+    /// # Parameters
+    /// - data: slice of optional data items, i.e. that are either [Some] or [None].
     fn build_scalar_x_axis<T>(&self, data: &[Option<T>]) -> Vec<f64> {
         self.chart
             .x_axis
@@ -209,15 +118,15 @@ impl ChartOutput {
         }
     }
 
-    /// Builds a trace [TODO]
+    /// Builds a trace composed of a sequence of box plots.
     ///
     /// # Arguments
-    /// - series: Source of series settings
-    /// - data: FIXME: TODO
+    /// - series: Source of series settings.
+    /// - data: a sequence of optional labelled groups.
     fn build_box_plot_plotly_trace(
         &self,
         series: &FlatSeries,
-        data: &[Option<Vec<(f64, String)>>],
+        data: &[Option<LabelledGroupData>],
     ) -> Box<dyn Trace> {
         let x_axis = self
             .chart
@@ -242,84 +151,51 @@ impl ChartOutput {
             .apply_settings(series)
     }
 
-    /// Builds a trace [TODO]
+    /// Builds a trace consisting of a single histogram.
     ///
     /// # Arguments
     /// - series: Source of series settings
-    /// - data: FIXME: TODO
+    /// - data: histogram data.
     fn build_histograms_plotly_trace(
         &self,
         series: &FlatSeries,
-        data: &[HistogramWithBands],
-    ) -> Vec<Box<dyn Trace>> {
-        data.iter()
-            .map(|histogram| {
-                let mut error_y = ErrorData::new(ErrorType::Data).thickness(0.5);
-                if let Some((upper, lower)) = histogram.bands.as_ref() {
-                    error_y = error_y
-                        .symmetric(false)
-                        .array(upper.clone())
-                        .array_minus(lower.clone())
-                }
-                let scatter = Scatter::new(histogram.labels.clone(), histogram.central.clone())
-                    .error_y(error_y)
-                    .apply_settings(series);
+        histogram: &HistogramWithBands,
+    ) -> Box<dyn Trace> {
+        let mut error_y = ErrorData::new(ErrorType::Data).thickness(0.5);
+        if let Some((upper, lower)) = histogram.bands.as_ref() {
+            error_y = error_y
+                .symmetric(false)
+                .array(upper.clone())
+                .array_minus(lower.clone())
+        }
+        let scatter = Scatter::new(histogram.labels.clone(), histogram.central.clone())
+            .error_y(error_y)
+            .apply_settings(series);
 
-                match &series.settings.line.series_type {
-                    SeriesType::Scatter(scatter_type) => {
-                        scatter.mode(scatter_type.into()) as Box<dyn Trace>
-                    }
-                    SeriesType::Bar => scatter as Box<dyn Trace>,
-                }
-            })
-            .collect::<Vec<_>>()
-    }
-
-    pub(crate) fn build_surface_plotly_trace(
-        &self,
-        series: &FlatSeries,
-        surfaces: &[Surface],
-    ) -> Vec<Box<dyn Trace>> {
-        surfaces
-            .iter()
-            .map(|surface| {
-                HeatMap::new(
-                    surface.x_values.clone(),
-                    surface.y_values.clone(),
-                    surface.data.clone(),
-                )
-                .apply_settings(series)
-                .transpose(false) as Box<dyn Trace>
-            })
-            .collect::<Vec<_>>()
-    }
-
-    pub(crate) fn build_plotly_trace(
-        &self,
-        series: &FlatSeries,
-        data: Option<&MetricOutputSeries>,
-    ) -> Vec<Box<dyn Trace>> {
-        match data {
-            Some(MetricOutputSeries::Value(data)) => vec![self.build_scalar_trace(series, data)],
-            Some(MetricOutputSeries::WithErrors(data)) => {
-                vec![self.build_scalar_with_errors_trace(series, data)]
+        match &series.settings.line.series_type {
+            SeriesType::Scatter(scatter_type) => {
+                scatter.mode(scatter_type.into()) as Box<dyn Trace>
             }
-            Some(MetricOutputSeries::Group(data)) => {
-                vec![self.build_box_plot_plotly_trace(series, data)]
-            }
-            Some(MetricOutputSeries::Histograms(data)) => {
-                self.build_histograms_plotly_trace(series, data)
-            }
-            Some(MetricOutputSeries::Surface(data)) => {
-                self.build_surface_plotly_trace(series, data)
-            }
-            None => vec![
-                Scatter::<f64, f64>::new(Default::default(), Default::default())
-                    .name(format!("{} - values missing.", series.settings.name)),
-            ],
+            SeriesType::Bar => scatter as Box<dyn Trace>,
         }
     }
 
+    /// Builds a trace consisting of a single heatmap.
+    ///
+    /// # Arguments
+    /// - series: Source of series settings
+    /// - data: heatmap data.
+    fn build_heatmap_plotly_trace(&self, series: &FlatSeries, data: &Surface) -> Box<dyn Trace> {
+        HeatMap::new(
+            data.x_values.clone(),
+            data.y_values.clone(),
+            data.data.clone(),
+        )
+        .apply_settings(series)
+        .transpose(false) as Box<dyn Trace>
+    }
+
+    /// Build the [LayoutGrid] object, used in [Self::build_plotly_layout].
     fn build_plotly_grid(&self) -> LayoutGrid {
         let mut grid = LayoutGrid::new()
             .columns(self.chart.settings.multiplot.num_cols)
@@ -334,6 +210,7 @@ impl ChartOutput {
         grid
     }
 
+    /// Build the legend object, used in [Self::build_plotly_layout].
     fn build_plotly_legend(&self) -> Legend {
         Legend::new()
             .item_click(ItemClick::Toggle)
@@ -344,6 +221,7 @@ impl ChartOutput {
             .valign(VAlign::Middle)
     }
 
+    /// Build the [Layout] object, used in [Self::build_plotly_plot].
     fn build_plotly_layout(&self) -> Layout {
         let mut layout = Layout::new()
             .title(&self.chart.settings.title)
@@ -417,14 +295,44 @@ impl ChartOutput {
         layout
     }
 
-    pub(crate) fn build_plotly_graph(&self) -> Plot {
+    /// Builds a trace depending on the variant of [CompleteSeriesOutput].
+    ///
+    /// # Arguments
+    /// - series: Source of series settings
+    /// - data: series data, if present, otherwise returns a default trace.
+    fn build_plotly_trace(
+        &self,
+        series: &FlatSeries,
+        data: Option<&CompleteSeriesOutput>,
+    ) -> Box<dyn Trace> {
+        match data {
+            Some(CompleteSeriesOutput::Value(data)) => self.build_scalar_trace(series, data),
+            Some(CompleteSeriesOutput::ValueWithErrors(data)) => {
+                self.build_scalar_with_errors_trace(series, data)
+            }
+            Some(CompleteSeriesOutput::LabelledGroup(data)) => {
+                self.build_box_plot_plotly_trace(series, data)
+            }
+            Some(CompleteSeriesOutput::Histogram(data)) => {
+                self.build_histograms_plotly_trace(series, data)
+            }
+            Some(CompleteSeriesOutput::HeatMap(data)) => {
+                self.build_heatmap_plotly_trace(series, data)
+            }
+            None => Scatter::<f64, f64>::new(Default::default(), Default::default())
+                .name(format!("{} - values missing.", series.settings.name)),
+        }
+    }
+
+    /// Build the [Plot] object.
+    pub(crate) fn build(&self) -> Plot {
         let mut plot = Plot::new();
         plot.set_layout(self.build_plotly_layout());
 
         // Using `fold`` rather than `for` as this fixes some compiler type-checking issues.
         let add_traces = |mut plot: Plot, (series, series_data): (_, &Option<_>)| {
             let traces = self.build_plotly_trace(series, series_data.as_ref());
-            plot.add_traces(traces);
+            plot.add_trace(traces);
             plot
         };
         Iterator::zip(self.chart.series.iter(), self.data.iter()).fold(plot, add_traces)

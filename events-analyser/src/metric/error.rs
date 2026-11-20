@@ -1,12 +1,3 @@
-mod event_counts;
-mod false_counts;
-mod muon_lifetime;
-mod output;
-mod pulse_height_spectra;
-mod pulse_pair_differences;
-mod results;
-mod utils;
-
 use thiserror::Error;
 use varpro::{
     fit::FitResult,
@@ -15,10 +6,13 @@ use varpro::{
     statistics::Error as StatisticsError,
 };
 
-pub(crate) use output::{HistogramWithBands, MetricOutput, MetricOutputSeries, Surface};
-pub(crate) use results::{CompletedMetricResult, MetricResultError, PartialMetricResult};
-#[cfg(test)]
-pub(crate) use utils::Histogram;
+#[derive(Debug, Error)]
+pub(crate) enum MetricResultError {
+    #[error("{0}")]
+    Fitting(#[from] FittingError),
+    #[error("Unable to load data from saved metrics file.")]
+    LoadingDataWrongMetrics,
+}
 
 #[derive(Debug, Error)]
 pub(crate) enum FittingError {

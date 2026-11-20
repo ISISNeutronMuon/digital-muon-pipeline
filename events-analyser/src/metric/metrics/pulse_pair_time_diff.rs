@@ -1,47 +1,89 @@
 use crate::{
-    analysis::metrics::{
-        MetricOutput, MetricResultError,
-        output::{HistogramWithBands, Surface},
-        results::{CompleteMetricResultBucket, PartialMetricResultBucket},
+    engine::{Interval, MetricTypeHistogram, ValueError},
+    eventlists::ChannelDataByTopic,
+    metric::{
+        CompleteMetric, DependentMetric, PartialMetric, PartialMetricShell, ResolvedMetric,
+        ResolvedMetricShell,
+        error::MetricResultError,
+        outputs::{CompleteSeriesOutput, HistogramWithBands, Surface},
         utils::{Histogram, SumWithSumOfSqrs},
     },
-    engine::{FlatMetricPulsePairDifferences, Interval, PulsePairDifferencesProperty},
-    eventlists::ChannelDataByTopic,
 };
-use digital_muon_common::{Channel, Time};
+use digital_muon_common::{Channel, Intensity, Time};
 use itertools::Itertools;
 use num::{Float, Zero};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Builds up histograms of pulse heights, for each channel.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// Defines settings for the `PulsePairTimeDiff` metric, that do not require resolving,
+/// that is they do not depend on other items in the configuration file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) struct PartialPulsePairDifferences {
-    /// Metric settings.
-    source: FlatMetricPulsePairDifferences,
-    /// Per-channel histograms pulse heights.
-    histogram: HashMap<Channel, Histogram>,
+pub(crate) struct PulsePairTimeDiffSettings {
+    /// Only include events with this range of intensities.
+    intensity_filter: Option<Interval<Intensity>>,
+    /// Encapsulates how the histogram is constructed.
+    #[serde(flatten)]
+    histogram: MetricTypeHistogram,
+    /// Normalise the histogram by the average of values from this interval.
+    normaliser: Interval<usize>,
 }
 
-impl PartialMetricResultBucket for PartialPulsePairDifferences {
-    type Source = FlatMetricPulsePairDifferences;
-    type Complete = CompletedPulsePairDifferences;
+/// Defines settings for the `PulsePairTimeDiff` metric, that require resolving,
+/// that is depend on other items defined in the configuration file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct DependentPulsePairTimeDiff {
+    /// The topic name to listen to for eventlist messages.
+    topic: String,
+}
 
-    fn make_default(source: &FlatMetricPulsePairDifferences) -> Self {
-        Self {
-            source: source.clone(),
-            histogram: Default::default(),
-        }
+impl DependentMetric for DependentPulsePairTimeDiff {
+    type Resolved = ResolvedPulsePairTimeDiff;
+    type Independent = PulsePairTimeDiffSettings;
+
+    fn resolve_metric(&self, library: &[String]) -> Result<Self::Resolved, ValueError> {
+        Ok(ResolvedPulsePairTimeDiff {
+            topic: library
+                .iter()
+                .enumerate()
+                .find_map(|(index, this_topic)| (*this_topic == self.topic).then_some(index))
+                .expect("This should never fail."),
+        })
     }
+}
 
-    fn load_data(&mut self, source: &Self) {
-        self.histogram = source.histogram.clone();
-    }
+/// Equivalent to settings in [DependentPulsePairTimeDiff], after their dependencies have been resolved.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct ResolvedPulsePairTimeDiff {
+    /// The topic index to listen to for eventlist messages.
+    topic: usize,
+}
 
-    fn push(&mut self, channel: Channel, by_topic: &ChannelDataByTopic) {
-        let time_diffs = by_topic
-            .get(self.source.topic)
+impl ResolvedMetric for ResolvedPulsePairTimeDiff {
+    type Dependent = DependentPulsePairTimeDiff;
+}
+
+/// Builds up histograms of pulse heights, for each channel.
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct PartialPulsePairTimeDiff {
+    /// Per-channel histograms pulse heights.
+    histograms: HashMap<Channel, Histogram>,
+}
+
+impl PartialMetric for PartialPulsePairTimeDiff {
+    type Source = ResolvedPulsePairTimeDiff;
+
+    fn push(
+        &mut self,
+        source: &ResolvedMetricShell<Self::Source>,
+        channel: Channel,
+        collection_by_topic: &ChannelDataByTopic,
+    ) {
+        let time_diffs = collection_by_topic
+            .get(source.resolved.topic)
             .expect("This should never fail.")
             .get_time_intensity()
             .iter()
@@ -50,17 +92,23 @@ impl PartialMetricResultBucket for PartialPulsePairDifferences {
                 let [(first_time, first_intensity), (last_time, last_intensity)] = vec
                     .try_into()
                     .expect("Vector should have length 2, this should never fail.");
-                let range = self.source.settings.intensity_filter.range_inclusive();
-                (range.contains(first_intensity) || range.contains(last_intensity))
+                source
+                    .independent
+                    .intensity_filter
+                    .as_ref()
+                    .is_none_or(|intensity_filter| {
+                        let range = intensity_filter.range_inclusive();
+                        range.contains(first_intensity) || range.contains(last_intensity)
+                    })
                     .then_some(Time::abs_diff(*first_time, *last_time))
             })
             .collect::<Vec<_>>();
 
         // Obtain the channel's histogram.
         let histogram = self
-            .histogram
+            .histograms
             .entry(channel)
-            .or_insert_with(|| Histogram::new(&self.source.settings.histogram));
+            .or_insert_with(|| Histogram::new(&source.independent.histogram));
 
         // Enter the time differences into the histogram.
         for time_diff in time_diffs {
@@ -71,7 +119,8 @@ impl PartialMetricResultBucket for PartialPulsePairDifferences {
 
 /// Aggregates the pulse height histograms into a single histogram.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct CompletedPulsePairDifferences {
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct CompletedPulsePairTimeDiff {
     /// Histogram bin labels.
     labels: Vec<f64>,
     /// Values of the histogram formed by summing all per-channel histograms together.
@@ -117,20 +166,38 @@ fn get_normaliser(slice: &[f64], range: &Interval<usize>) -> Result<Option<f64>,
     Ok(Some(1.0 / mean))
 }
 
-impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
-    type Partial = PartialPulsePairDifferences;
-    type Error = MetricResultError;
-    type Property = PulsePairDifferencesProperty;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum PulsePairTimeDiffProperty {
+    /// Display histogram whose counts are the sums of the per-channel counts.
+    Sum,
+    /// Display histogram whose counts are the mean of the per-channel counts.
+    Mean,
+    /// Display histogram whose counts are the mean of the per-channel counts, along with the standard deviation bands.
+    MeanSd,
+    /// Display histogram whose counts are the mean of the per-channel counts, along with the minimum and maximum count bands.
+    MeanBounds,
+    /// Display counts as a per-channel heatmap.
+    ChannelHeatMap,
+}
 
-    fn aggregate(source: &Self::Partial) -> Result<Self, Self::Error> {
+impl CompleteMetric for CompletedPulsePairTimeDiff {
+    type Partial = PartialPulsePairTimeDiff;
+    type Error = MetricResultError;
+    type Property = PulsePairTimeDiffProperty;
+    type Output = CompleteSeriesOutput;
+
+    fn aggregate(source: &PartialMetricShell<Self::Partial>) -> Result<Self, MetricResultError> {
         let labels = source
-            .histogram
+            .histograms
             .values()
             .next()
             .map(|hist| hist.get_bin_labels().to_vec())
-            .unwrap_or_else(|| Histogram::generate_bin_labels(&source.source.settings.histogram));
+            .unwrap_or_else(|| {
+                Histogram::generate_bin_labels(&source.source.independent.histogram)
+            });
         let histograms = source
-            .histogram
+            .histograms
             .iter()
             .sorted_by(|(a, _), (b, _)| u32::cmp(a, b))
             .collect::<Vec<_>>();
@@ -163,9 +230,11 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
         let histograms_with_normalisers = histograms
             .iter()
             .map(|&(_, histogram)| {
-                let normaliser =
-                    get_normaliser(histogram.get_counts(), &source.source.settings.normaliser)
-                        .expect("This should be pre-validated, this should never fail.");
+                let normaliser = get_normaliser(
+                    histogram.get_counts(),
+                    &source.source.independent.normaliser,
+                )
+                .expect("This should be pre-validated, this should never fail.");
                 (histogram, normaliser)
             })
             .collect::<Vec<_>>();
@@ -208,11 +277,11 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
             *sd = mean_sd.sd;
         }
 
-        Ok(CompletedPulsePairDifferences {
+        Ok(CompletedPulsePairTimeDiff {
             labels,
+            sum,
             mean,
             sd,
-            sum,
             upper,
             lower,
             channels,
@@ -220,47 +289,44 @@ impl CompleteMetricResultBucket for CompletedPulsePairDifferences {
         })
     }
 
-    fn get_property(&self, property: Self::Property) -> Result<MetricOutput, Self::Error> {
-        let metric_output = match property {
-            PulsePairDifferencesProperty::Sum => MetricOutput::Histograms(HistogramWithBands {
+    fn get_property(&self, property: Self::Property) -> Result<Self::Output, Self::Error> {
+        Ok(match property {
+            Self::Property::Sum => CompleteSeriesOutput::Histogram(HistogramWithBands {
                 labels: self.labels.clone(),
                 central: self.sum.clone(),
                 bands: None,
             }),
-            PulsePairDifferencesProperty::Mean => MetricOutput::Histograms(HistogramWithBands {
+            Self::Property::Mean => CompleteSeriesOutput::Histogram(HistogramWithBands {
                 labels: self.labels.clone(),
                 central: self.mean.clone(),
                 bands: None,
             }),
-            PulsePairDifferencesProperty::MeanSd => MetricOutput::Histograms(HistogramWithBands {
+            Self::Property::MeanSd => CompleteSeriesOutput::Histogram(HistogramWithBands {
                 labels: self.labels.clone(),
                 central: self.mean.clone(),
                 bands: Some((self.sd.clone(), self.sd.clone())),
             }),
-            PulsePairDifferencesProperty::MeanBounds => {
-                MetricOutput::Histograms(HistogramWithBands {
-                    labels: self.labels.clone(),
-                    central: self.sum.clone(),
-                    bands: Some((
-                        self.upper
-                            .iter()
-                            .zip(self.sum.iter())
-                            .map(|(upper, sum)| upper - sum)
-                            .collect(),
-                        self.lower
-                            .iter()
-                            .zip(self.sd.iter())
-                            .map(|(lower, sum)| sum - lower)
-                            .collect(),
-                    )),
-                })
-            }
-            PulsePairDifferencesProperty::ChannelHeatMap => MetricOutput::Surface(Surface {
+            Self::Property::MeanBounds => CompleteSeriesOutput::Histogram(HistogramWithBands {
+                labels: self.labels.clone(),
+                central: self.sum.clone(),
+                bands: Some((
+                    self.upper
+                        .iter()
+                        .zip(self.sum.iter())
+                        .map(|(upper, sum)| upper - sum)
+                        .collect(),
+                    self.lower
+                        .iter()
+                        .zip(self.sd.iter())
+                        .map(|(lower, sum)| sum - lower)
+                        .collect(),
+                )),
+            }),
+            Self::Property::ChannelHeatMap => CompleteSeriesOutput::HeatMap(Surface {
                 x_values: self.labels.clone(),
                 y_values: self.channels.clone(),
                 data: self.surface.clone(),
             }),
-        };
-        Ok(metric_output)
+        })
     }
 }

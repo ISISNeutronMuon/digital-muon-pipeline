@@ -2,12 +2,13 @@
 //!
 //! [FrameCache]: crate::frame::FrameCache
 mod chart_page;
-mod metrics;
+mod results;
 
 use crate::{
-    analysis::{chart_page::PageOutputError, metrics::MetricResultError},
+    analysis::chart_page::PageOutputError,
     engine::{AnalysisSettings, FlatBucketBlock, FlatPage},
     eventlists::EventlistsCollection,
+    metric::MetricResultError,
 };
 use chrono::{DateTime, ParseError, TimeDelta, Utc};
 use digital_muon_common::{
@@ -23,7 +24,7 @@ use thiserror::Error;
 use tracing::{info, info_span, trace};
 
 pub(crate) use chart_page::PageOutput;
-pub(crate) use metrics::PartialMetricResult;
+pub(crate) use results::PartialMetricResult;
 
 #[derive(Debug, Error)]
 pub(crate) enum AnalysisError {

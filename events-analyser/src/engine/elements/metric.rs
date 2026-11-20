@@ -1,19 +1,66 @@
-use crate::engine::{
-    Flattenable, HasName,
-    values::{Interval, ValueError},
+use crate::{
+    engine::{
+        Flattenable, HasName,
+        values::{Interval, ValueError},
+    },
+    impl_list_of_metrics,
+    metric::{
+        DependentMetricShell, ListOfMetrics, MetricWrapper, MetricWrapperWithTag,
+        ResolvedMetricShell, dependent, properties, resolved,
+    },
 };
-use digital_muon_common::Intensity;
 use serde::{Deserialize, Serialize};
 
-///
-/// This struct is created from the configuration JSON file.
-///
+/// Groups together all metric Json types.
+#[derive(Debug, Clone)]
+pub(crate) struct DependentMetricTypes;
+impl_list_of_metrics!(DependentMetricTypes => DependentMetricShell<dependent>);
+
+/// Defines a metric type, should only be created by deserializing JSON object.
+pub(crate) type MetricType = MetricWrapperWithTag<DependentMetricTypes>;
+
+/// Groups together all metric properties types.
+#[derive(Debug, Clone)]
+pub(crate) struct PropertyMetricTypes;
+
+impl_list_of_metrics!(PropertyMetricTypes => properties);
+
+/// Defines a property of a metric, should only be created from deserializing JSON file.
+pub(crate) type PropertyOfMetric = MetricWrapper<PropertyMetricTypes>;
+
+/// Groups together all flat metric types.
+#[derive(Debug, Clone)]
+pub(crate) struct ResolvedMetricTypes;
+impl_list_of_metrics!(ResolvedMetricTypes => ResolvedMetricShell<resolved>);
+
+/// Resolved definition of a metric, should only be created by calling [DependentMetricShell::flatten].
+pub(crate) type ResolvedMetricType = MetricWrapper<ResolvedMetricTypes>;
+
+impl Flattenable<&[String]> for MetricType {
+    type Flat = ResolvedMetricType;
+    type Error = ValueError;
+
+    fn flatten(&self, library: &[String]) -> Result<Self::Flat, Self::Error> {
+        self.as_ref().try_map(
+            |this| this.flatten(library),
+            |this| this.flatten(library),
+            |this| this.flatten(library),
+            |this| this.flatten(library),
+            |this| this.flatten(library),
+        )
+    }
+}
+
+/// Defines a metric type, should only be created by deserializing JSON object.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct Metric {
+    /// Name of metric. This should be unique.
     pub(crate) name: String,
+    /// Whether the metric's results should be saved in JSON format.
     #[serde(default)]
     pub(crate) save_to_json: bool,
+    /// Defines the specific type of the metric.
     #[serde(flatten)]
     pub(crate) metric_type: MetricType,
 }
@@ -24,132 +71,16 @@ impl HasName for Metric {
     }
 }
 
+/// Defines settings for a histogram type metric.
+///
+/// These do not require flattening.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct MetricTypeHistogram {
+    /// Number of bins to use in the histogram.
     pub(crate) num_bins: usize,
+    /// The upper and lower limits of the histogram.
     pub(crate) interval: Interval<f64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) struct MetricTypePulsePairDifferences {
-    /// Only include events with this range of intensities.
-    pub(crate) intensity_filter: Interval<Intensity>,
-    /// Encapsulates how the histogram is constructed.
-    #[serde(flatten)]
-    pub(crate) histogram: MetricTypeHistogram,
-    /// Normalise the histogram by the average of values from this interval.
-    pub(crate) normaliser: Interval<usize>,
-}
-
-///
-/// This struct is created from the configuration JSON file.
-///
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "metric-type")]
-pub(crate) enum MetricType {
-    #[serde(rename_all = "kebab-case")]
-    EventCount { topic: String },
-    #[serde(rename_all = "kebab-case")]
-    FalseCount {
-        true_topic: String,
-        estimate_topic: String,
-        waveform_radius: u32,
-    },
-    #[serde(rename_all = "kebab-case")]
-    MuonLifetime {
-        topic: String,
-        #[serde(flatten)]
-        histogram: MetricTypeHistogram,
-    },
-    #[serde(rename_all = "kebab-case")]
-    PulseHeightSpectra {
-        /// The topic to listen for eventlist messages.
-        topic: String,
-        /// Encapsulates how the histogram is constructed.
-        #[serde(flatten)]
-        histogram: MetricTypeHistogram,
-    },
-    #[serde(rename_all = "kebab-case")]
-    PulsePairDifferences {
-        /// The topic to listen for eventlist messages.
-        topic: String,
-        /// Encapsulates how the pulse pair differences metric is constructed.
-        #[serde(flatten)]
-        settings: MetricTypePulsePairDifferences,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum PropertyOfMetric {
-    EventCount(EventCountProperty),
-    FalseCount(FalseCountProperty),
-    MuonLifetime(MuonLifetimeProperty),
-    PulseHeightSpectra(PulseHeightSpectraProperty),
-    PulsePairDifferences(PulsePairDifferencesProperty),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum EventCountProperty {
-    TotalMean,
-    TotalMeanWithSd,
-    ChannelsBoxPlot,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum FalseCountProperty {
-    TotalFalsePositivesMean,
-    TotalFalsePositivesSd,
-    TotalFalseNegativesMean,
-    TotalFalseNegativesSd,
-    TotalTruePositivesMean,
-    TotalTruePositivesSd,
-    TotalAmbiguousTruePositivesMean,
-    TotalAmbiguousTruePositivesSd,
-    ChannelsFalsePositivesBoxPlot,
-    ChannelsFalseNegativesBoxPlot,
-    ChannelsTruePositivesBoxPlot,
-    ChannelsAmbiguousTruePositivesBoxPlot,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum MuonLifetimeProperty {
-    TotalMean,
-    TotalMeanWithSd,
-    ChannelsBoxPlot,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum PulseHeightSpectraProperty {
-    /// Display histogram whose counts are the sums of the per-channel counts.
-    Sum,
-    /// Display histogram whose counts are the mean of the per-channel counts.
-    Mean,
-    /// Display histogram whose counts are the mean of the per-channel counts, along with the standard deviation bands.
-    MeanSd,
-    /// Display histogram whose counts are the mean of the per-channel counts, along with the minimum and maximum count bands.
-    MeanBounds,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum PulsePairDifferencesProperty {
-    /// Display histogram whose counts are the sums of the per-channel counts.
-    Sum,
-    /// Display histogram whose counts are the mean of the per-channel counts.
-    Mean,
-    /// Display histogram whose counts are the mean of the per-channel counts, along with the standard deviation bands.
-    MeanSd,
-    /// Display histogram whose counts are the mean of the per-channel counts, along with the minimum and maximum count bands.
-    MeanBounds,
-    /// Display counts as a per-channel heatmap.
-    ChannelHeatMap,
 }
 
 impl Flattenable<&[String]> for Metric {
@@ -157,66 +88,10 @@ impl Flattenable<&[String]> for Metric {
     type Error = ValueError;
 
     fn flatten(&self, library: &[String]) -> Result<Self::Flat, Self::Error> {
-        let metric_type = match &self.metric_type {
-            MetricType::EventCount { topic } => FlatMetricType::EventCount(FlatMetricEventCount {
-                topic: library
-                    .iter()
-                    .enumerate()
-                    .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
-                    .expect("This should never fail."),
-            }),
-            MetricType::FalseCount {
-                true_topic,
-                estimate_topic,
-                waveform_radius,
-            } => FlatMetricType::FalseCount(FlatMetricFalseCount {
-                true_topic: library
-                    .iter()
-                    .enumerate()
-                    .find_map(|(index, topic)| (topic == true_topic).then_some(index))
-                    .expect("This should never fail."),
-                estimate_topic: library
-                    .iter()
-                    .enumerate()
-                    .find_map(|(index, topic)| (topic == estimate_topic).then_some(index))
-                    .expect("This should never fail."),
-                waveform_radius: *waveform_radius,
-            }),
-            MetricType::MuonLifetime { topic, histogram } => {
-                FlatMetricType::MuonLifetime(FlatMetricMuonLifetime {
-                    topic: library
-                        .iter()
-                        .enumerate()
-                        .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
-                        .expect("This should never fail."),
-                    histogram: histogram.clone(),
-                })
-            }
-            MetricType::PulseHeightSpectra { topic, histogram } => {
-                FlatMetricType::PulseHeightSpectra(FlatMetricPulseHeightSpectra {
-                    topic: library
-                        .iter()
-                        .enumerate()
-                        .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
-                        .expect("This should never fail."),
-                    histogram: histogram.clone(),
-                })
-            }
-            MetricType::PulsePairDifferences { topic, settings } => {
-                FlatMetricType::PulsePairDifferences(FlatMetricPulsePairDifferences {
-                    topic: library
-                        .iter()
-                        .enumerate()
-                        .find_map(|(index, this_topic)| (this_topic == topic).then_some(index))
-                        .expect("This should never fail."),
-                    settings: settings.clone(),
-                })
-            }
-        };
         Ok(FlatMetric {
             name: self.get_name().to_string(),
             save_to_json: self.save_to_json,
-            metric_type,
+            metric_type: self.metric_type.flatten(library)?,
         })
     }
 }
@@ -227,65 +102,11 @@ pub(crate) struct FlatMetric {
     pub(crate) name: String,
     pub(crate) save_to_json: bool,
     #[serde(flatten)]
-    pub(crate) metric_type: FlatMetricType,
+    pub(crate) metric_type: ResolvedMetricType,
 }
 
 impl HasName for FlatMetric {
     fn get_name(&self) -> &str {
         &self.name
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum FlatMetricType {
-    EventCount(FlatMetricEventCount),
-    FalseCount(FlatMetricFalseCount),
-    MuonLifetime(FlatMetricMuonLifetime),
-    PulseHeightSpectra(FlatMetricPulseHeightSpectra),
-    PulsePairDifferences(FlatMetricPulsePairDifferences),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) struct FlatMetricFalseCount {
-    pub(crate) true_topic: usize,
-    pub(crate) estimate_topic: usize,
-    pub(crate) waveform_radius: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct FlatMetricEventCount {
-    pub(crate) topic: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) struct FlatMetricMuonLifetime {
-    pub(crate) topic: usize,
-    #[serde(flatten)]
-    pub(crate) histogram: MetricTypeHistogram,
-}
-
-/// Encapsulates the flattened pulse height spectra metric,
-/// that is with all dependencies in the unflattened struct resolved.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) struct FlatMetricPulseHeightSpectra {
-    /// The topic to listen for eventlist messages.
-    pub(crate) topic: usize,
-    /// Encapsulates how the histogram is constructed.
-    #[serde(flatten)]
-    pub(crate) histogram: MetricTypeHistogram,
-}
-
-/// Encapsulates the flattened pulse height spectra metric,
-/// that is with all dependencies in the unflattened struct resolved.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) struct FlatMetricPulsePairDifferences {
-    /// The topic to listen for eventlist messages.
-    pub(crate) topic: usize,
-    /// Encapsulates how the pulse pair differences metric is constructed.
-    pub(crate) settings: MetricTypePulsePairDifferences,
 }
