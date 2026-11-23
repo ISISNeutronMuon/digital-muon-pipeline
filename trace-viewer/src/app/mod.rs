@@ -44,7 +44,7 @@ pub fn shell(leptos_options: LeptosOptions) -> impl IntoView + 'static {
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <script src="https://cdn.plot.ly/plotly-2.14.0.min.js"></script>
+                <script src="https://cdn.plot.ly/plotly-3.7.0.min.js"></script>
                 <AutoReload options=leptos_options.clone() />
                 <HydrationScripts options=leptos_options.clone() root = public_url.clone() />
                 <HashedStylesheet options=leptos_options root = public_url />
@@ -84,6 +84,7 @@ pub fn App() -> impl IntoView {
         <Router base=cfg_if! { if #[cfg(feature = "hydrate")] { public_path } else { "" } }>
             <Routes fallback = NotFound>
                 <Route path = path!("") view = Main />
+                <Route path = path!("/download-graph") view = Download />
             </Routes>
         </Router>
     }

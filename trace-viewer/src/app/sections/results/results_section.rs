@@ -6,7 +6,7 @@ use crate::{
             context::ResultsLevelContext, display_trace_graph::DisplayTrace,
             search_results::SearchResultsPanel,
         },
-        server_functions::CreateAndFetchPlotly,
+        server_functions::{CreateAndDownloadPlotly, CreateAndFetchPlotly},
     },
     structs::SearchSummary,
 };
@@ -21,8 +21,10 @@ pub(crate) fn ResultsSection() -> impl IntoView {
     let fetch_search_summaries = main_context.fetch_search_search;
 
     let create_and_fetch_plotly = ServerAction::<CreateAndFetchPlotly>::new();
+    let create_and_download_plotly = ServerAction::<CreateAndDownloadPlotly>::new();
     provide_context(ResultsLevelContext {
         create_and_fetch_plotly,
+        create_and_download_plotly,
         selected_channels_only: RwSignal::new(false),
     });
 

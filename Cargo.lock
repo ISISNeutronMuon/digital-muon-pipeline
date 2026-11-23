@@ -5935,6 +5935,7 @@ version = "0.1.0"
 dependencies = [
  "actix-files 0.7.2",
  "actix-web",
+ "build_html",
  "cfg-if",
  "chrono",
  "clap",

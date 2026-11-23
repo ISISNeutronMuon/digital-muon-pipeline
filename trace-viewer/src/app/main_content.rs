@@ -2,11 +2,13 @@ use crate::{
     Uuid,
     app::{
         sections::{BrokerSection, ResultsSection, SearchSection},
-        server_functions::{AwaitSearch, CreateNewSearch, FetchSearchSummaries, RefreshSession},
-    },
+        server_functions::{AwaitSearch, CreateAndDownloadPlotly, CreateNewSearch, FetchSearchSummaries, RefreshSession},
+    }, structs::SelectedTraceIndex,
 };
 use leptos::{logging, prelude::*};
+use leptos_router::hooks::{use_query, use_query_map};
 use leptos_use::use_interval;
+use serde::Deserialize;
 
 /// This struct enable a degree of type-checking for the [use_context]/[use_context] functions.
 /// Any component making use of the following fields should call `use_context::<MainLevelContext>()`
@@ -111,4 +113,22 @@ fn init_refresh_session_effect() {
             refresh_session.dispatch(RefreshSession { uuid });
         }
     });
+}
+
+/// Creates the body of the page below the [TopBar].
+///
+/// Creates and provides the top-level [ServerActions] and signals.
+#[component]
+pub(crate) fn Download() -> impl IntoView {
+    let create_and_download_plotly = ServerAction::<CreateAndDownloadPlotly>::new();
+    let params = use_query_map();
+    let uuid = move || params.read().get("uuid");
+    let index = move || params.read().get("index")
+    let channel = move || params.read().get("channel");
+        if let Some((uuid, (index, channel))) = uuid.zip(Option::zip(index(), channel())) {
+            let index_and_channel = SelectedTraceIndex { index, channel };
+            create_and_download_plotly.dispatch(CreateAndDownloadPlotly { uuid, index_and_channel });
+        }
+    };
+    
 }
