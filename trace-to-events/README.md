@@ -18,6 +18,7 @@ trace-to-events run --broker localhost:19092 --consumer-group trace-to-events --
 - `--trace-topic`: The Kafka topic from which trace messages are consumed.
 - `--event-topic`: The Kafka topic to which digitiser event list messages are produced.
 - `--config-topic`: The Kafka topic from which event formation configuration JSON documents are consumed.
+- `--config-schema-topic`: *(Optional)* The Kafka topic to which the event formation configuration JSON Schema is published on startup (keyed by `HOSTNAME`, falling back to `trace-to-events`).
 
 For instructions run:
 
