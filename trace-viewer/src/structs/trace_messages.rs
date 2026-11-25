@@ -55,9 +55,7 @@ pub struct TracePlotly {
     /// Json string of the trace data plotly graph.
     pub json: String,
     /// Index and channel of the graph.
-    pub index_and_channel: SelectedTraceIndex,
-    // /// If present, Json string of the event list data plotly graph.
-    // pub eventlist_data: Vec<String>,
-    // /// Json string of the plotly layout to use.
-    //pub layout: String,
+    pub file: String,
+    /// If present, Json string of the event list data plotly graph.
+    pub csv: String,
 }

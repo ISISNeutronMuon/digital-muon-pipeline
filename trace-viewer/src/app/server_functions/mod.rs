@@ -8,7 +8,7 @@ use cfg_if::cfg_if;
 use leptos::prelude::*;
 use tracing::instrument;
 
-pub use plotly::{CreateAndDownloadPlotly, CreateAndFetchPlotly};
+pub use plotly::CreateAndFetchPlotly;
 pub use search::{AwaitSearch, CancelSearch, CreateNewSearch, FetchSearchSummaries};
 
 cfg_if! {

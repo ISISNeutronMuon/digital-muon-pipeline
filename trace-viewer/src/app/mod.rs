@@ -84,7 +84,6 @@ pub fn App() -> impl IntoView {
         <Router base=cfg_if! { if #[cfg(feature = "hydrate")] { public_path } else { "" } }>
             <Routes fallback = NotFound>
                 <Route path = path!("") view = Main />
-                <Route path = path!("/download-graph") view = Download />
             </Routes>
         </Router>
     }
