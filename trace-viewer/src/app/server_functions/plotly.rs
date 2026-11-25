@@ -16,7 +16,6 @@ pub async fn create_and_fetch_plotly(
     uuid: String,
     index_and_channel: SelectedTraceIndex,
 ) -> Result<TracePlotly, ServerFnError> {
-
     let session_engine_arc_mutex = use_context::<ServerSideData>()
         .expect("ServerSideData should be provided, this should never fail.")
         .session_engine;
@@ -125,7 +124,7 @@ cfg_if! {
                 .name(format!{"Events: {event_topic}"})
             );
 
-            
+
             let mut plot = Plot::new();
             plot.add_trace(trace.clone());
             for eventlist in eventlists.clone() {
@@ -133,7 +132,7 @@ cfg_if! {
             }
             plot.set_layout(layout);
 
-            
+
             Ok(TracePlotly {
                 title: format!("Channel {} from Digitiser {}", channel, metadata.id),
                 json: plot.to_json(),

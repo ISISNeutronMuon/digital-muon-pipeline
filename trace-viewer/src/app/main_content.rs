@@ -3,7 +3,7 @@ use crate::{
     app::{
         sections::{BrokerSection, ResultsSection, SearchSection},
         server_functions::{AwaitSearch, CreateNewSearch, FetchSearchSummaries, RefreshSession},
-    }
+    },
 };
 use leptos::{logging, prelude::*};
 use leptos_use::use_interval;

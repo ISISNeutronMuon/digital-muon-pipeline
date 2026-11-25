@@ -34,7 +34,7 @@ pub(crate) fn DisplayGraph(trace_plotly: TracePlotly) -> impl IntoView {
         title,
         json,
         file,
-        csv
+        csv,
     } = trace_plotly;
 
     view! {
