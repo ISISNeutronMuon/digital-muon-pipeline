@@ -57,7 +57,7 @@ pub struct TracePlotly {
     /// Content of the downloadable html file of the plotly graph.
     pub file: String,
     /// Raw trace and eventlist data.
-    /// 
+    ///
     /// Top line is the trace waveform, subsequent pairs of lines occupy the eventlist times and intensities respectively.
     pub csv: String,
 }
