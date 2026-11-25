@@ -100,15 +100,12 @@ impl PartialMetric for PartialClusterCount {
                 .try_into()
                 .expect("Vector should have length 2, this should never fail.");
 
-            let is_in_filter =
-                source
-                    .independent
-                    .intensity_filter
-                    .as_ref()
-                    .is_none_or(|intensity_filter: &Interval<u16>| {
-                        let range = intensity_filter.range_inclusive();
-                        range.contains(first_intensity) || range.contains(last_intensity)
-                    });
+            let is_in_filter = source.independent.intensity_filter.as_ref().is_none_or(
+                |intensity_filter: &Interval<u16>| {
+                    let range = intensity_filter.range_inclusive();
+                    range.contains(first_intensity) || range.contains(last_intensity)
+                },
+            );
 
             let time_diff = Time::abs_diff(*first_time, *last_time);
             is_in_filter && time_diff <= source.independent.cluster_radius as Time
