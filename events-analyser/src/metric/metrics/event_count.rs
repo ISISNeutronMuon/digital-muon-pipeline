@@ -10,6 +10,7 @@ use crate::{
     },
 };
 use digital_muon_common::Channel;
+use digital_muon_streaming_types::FrameMetadata;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -62,6 +63,7 @@ impl PartialMetric for PartialEventCount {
         &mut self,
         source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
+        _metadata: &FrameMetadata,
         collection_by_topic: &ChannelDataByTopic,
     ) {
         let data = collection_by_topic

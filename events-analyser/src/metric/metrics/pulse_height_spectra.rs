@@ -10,6 +10,7 @@ use crate::{
     },
 };
 use digital_muon_common::Channel;
+use digital_muon_streaming_types::FrameMetadata;
 use itertools::Itertools;
 use num::Float;
 use serde::{Deserialize, Serialize};
@@ -66,6 +67,7 @@ impl PartialMetric for PartialPulseHeightSpectra {
         &mut self,
         source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
+        _metadata: &FrameMetadata,
         collection_by_topic: &ChannelDataByTopic,
     ) {
         for (_, intensity) in collection_by_topic

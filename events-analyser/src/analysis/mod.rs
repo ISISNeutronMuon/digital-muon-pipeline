@@ -152,10 +152,11 @@ impl AnalysisEngine {
                 "Pushing to bucket {}, {}. Count: {}",
                 index.block_index, index.bucket_index, bucket.count
             );
+            let metadata = collection.metadata.clone();
             let collection = collection.into_channel_collection();
             self.metrics
                 .iter_mut()
-                .for_each(|metric| metric.push(index, &collection));
+                .for_each(|metric| metric.push(index, &metadata, &collection));
         } else {
             info!("Bucket {}, {} full", index.block_index, index.bucket_index);
         }

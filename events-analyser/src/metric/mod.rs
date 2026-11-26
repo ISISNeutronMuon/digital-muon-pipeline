@@ -8,6 +8,7 @@ use crate::{
     eventlists::ChannelDataByTopic,
 };
 use digital_muon_common::Channel;
+use digital_muon_streaming_types::FrameMetadata;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     fmt::Debug,
@@ -99,6 +100,7 @@ pub(crate) trait PartialMetric: Default + Clone {
         &mut self,
         source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
+        metadata: &FrameMetadata,
         collection_by_topic: &ChannelDataByTopic,
     );
     fn load_data(&mut self, data_source: &Self) {
@@ -142,8 +144,14 @@ impl<P: PartialMetric> PartialMetricShell<P> {
         self.inner.load_data(&source.inner);
     }
 
-    pub(crate) fn push(&mut self, channel: Channel, collection_by_topic: &ChannelDataByTopic) {
-        self.inner.push(&self.source, channel, collection_by_topic)
+    pub(crate) fn push(
+        &mut self,
+        channel: Channel,
+        metadata: &FrameMetadata,
+        collection_by_topic: &ChannelDataByTopic,
+    ) {
+        self.inner
+            .push(&self.source, channel, metadata, collection_by_topic)
     }
 }
 

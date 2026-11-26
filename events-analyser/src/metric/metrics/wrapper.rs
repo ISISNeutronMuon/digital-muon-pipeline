@@ -22,6 +22,7 @@ use std::marker::PhantomData;
 ///    struct MuonLifetimeType;
 ///    struct PulseHeightSpectraType;
 ///    struct PulsePairTimeDiffType;
+///    struct ClusterCountType;
 ///
 ///    // This allows all the above types to be grouped together.
 ///    struct MetricsList;
@@ -32,6 +33,7 @@ use std::marker::PhantomData;
 ///        type MuonLifetime = MuonLifetimeType;
 ///        type PulseHeightSpectra = PulseHeightSpectraType;
 ///        type PulsePairTimeDiff = PulsePairTimeDiffType;
+///        type ClusterCount = ClusterCountType;
 ///    }
 /// ```
 ///
@@ -42,6 +44,7 @@ pub(crate) trait ListOfMetrics {
     type MuonLifetime;
     type PulseHeightSpectra;
     type PulsePairTimeDiff;
+    type ClusterCount;
 }
 
 /// Creates an impl block implementing trait [ListOfMetrics] for an empty type.
@@ -56,6 +59,7 @@ pub(crate) trait ListOfMetrics {
 ///         struct MuonLifetime;
 ///         struct PulseHeightSpectra;
 ///         struct PulsePairTimeDiff;
+///         struct ClusterCount;
 ///     }
 ///     struct MetricsList;
 ///     impl_list_of_metrics!(MetricsList => my_module)
@@ -68,6 +72,7 @@ pub(crate) trait ListOfMetrics {
 ///         type MuonLifetime = my_module::MuonLifetime;
 ///         type PulseHeightSpectra = my_module::PulseHeightSpectra;
 ///         type PulsePairTimeDiff = my_module::PulsePairTimeDiff;
+///         type ClusterCount = my_module::ClusterCount;
 ///     }
 /// ```
 ///
@@ -84,6 +89,7 @@ pub(crate) trait ListOfMetrics {
 ///         type MuonLifetime = MyType<my_module::MuonLifetime>;
 ///         type PulseHeightSpectra = MyType<my_module::PulseHeightSpectra>;
 ///         type PulsePairTimeDiff = MyType<my_module::PulsePairTimeDiff>;
+///         type ClusterCount = MyType<my_module::ClusterCount>;
 ///     }
 /// ```
 #[macro_export]
@@ -95,6 +101,7 @@ macro_rules! impl_list_of_metrics {
             type MuonLifetime = $module::MuonLifetime;
             type PulseHeightSpectra = $module::PulseHeightSpectra;
             type PulsePairTimeDiff = $module::PulsePairTimeDiff;
+            type ClusterCount = $module::ClusterCount;
         }
     };
     ($type:ty => $prefix:ident<$module:ident>) => {
@@ -104,6 +111,7 @@ macro_rules! impl_list_of_metrics {
             type MuonLifetime = $prefix<$module::MuonLifetime>;
             type PulseHeightSpectra = $prefix<$module::PulseHeightSpectra>;
             type PulsePairTimeDiff = $prefix<$module::PulsePairTimeDiff>;
+            type ClusterCount = $prefix<$module::ClusterCount>;
         }
     };
 }
@@ -120,6 +128,7 @@ macro_rules! impl_list_of_metrics {
 ///    struct MuonLifetimeType;
 ///    struct PulseHeightSpectraType;
 ///    struct PulsePairTimeDiffType;
+///    struct ClusterCountType;
 ///
 ///    struct MetricsList;
 ///
@@ -129,6 +138,7 @@ macro_rules! impl_list_of_metrics {
 ///        type MuonLifetime = MuonLifetimeType;
 ///        type PulseHeightSpectra = PulseHeightSpectraType;
 ///        type PulsePairTimeDiff = PulsePairTimeDiffType;
+///        type ClusterCount = ClusterCountType;
 ///    }
 ///
 ///     // This does something different depening on the type of metric.
@@ -149,6 +159,8 @@ pub(crate) enum MetricWrapper<Types: ListOfMetrics> {
     PulseHeightSpectra(Types::PulseHeightSpectra),
     #[serde(rename_all = "kebab-case")]
     PulsePairTimeDiff(Types::PulsePairTimeDiff),
+    #[serde(rename_all = "kebab-case")]
+    ClusterCount(Types::ClusterCount),
 }
 
 /// Encapsulates an instance of references derived from `Types`.
@@ -162,6 +174,7 @@ impl<'a, Types: ListOfMetrics> ListOfMetrics for RefMetricTypes<'a, Types> {
     type MuonLifetime = &'a Types::MuonLifetime;
     type PulseHeightSpectra = &'a Types::PulseHeightSpectra;
     type PulsePairTimeDiff = &'a Types::PulsePairTimeDiff;
+    type ClusterCount = &'a Types::ClusterCount;
 }
 
 /// Encapsulates an instance of mutable references derived from `Types`.
@@ -175,6 +188,7 @@ impl<'a, Types: ListOfMetrics> ListOfMetrics for MutMetricTypes<'a, Types> {
     type MuonLifetime = &'a mut Types::MuonLifetime;
     type PulseHeightSpectra = &'a mut Types::PulseHeightSpectra;
     type PulsePairTimeDiff = &'a mut Types::PulsePairTimeDiff;
+    type ClusterCount = &'a mut Types::ClusterCount;
 }
 
 /// Encapsulates an instance of tuples derived from `Types1` and `Types2`.
@@ -192,6 +206,7 @@ impl<Types1: ListOfMetrics, Types2: ListOfMetrics> ListOfMetrics
     type MuonLifetime = (Types1::MuonLifetime, Types2::MuonLifetime);
     type PulseHeightSpectra = (Types1::PulseHeightSpectra, Types2::PulseHeightSpectra);
     type PulsePairTimeDiff = (Types1::PulsePairTimeDiff, Types2::PulsePairTimeDiff);
+    type ClusterCount = (Types1::ClusterCount, Types2::ClusterCount);
 }
 
 impl<Types: ListOfMetrics> MetricWrapper<Types> {
@@ -203,6 +218,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
             MetricWrapper::MuonLifetime(this) => MetricWrapper::MuonLifetime(this),
             MetricWrapper::PulseHeightSpectra(this) => MetricWrapper::PulseHeightSpectra(this),
             MetricWrapper::PulsePairTimeDiff(this) => MetricWrapper::PulsePairTimeDiff(this),
+            MetricWrapper::ClusterCount(this) => MetricWrapper::ClusterCount(this),
         }
     }
 
@@ -214,6 +230,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
             MetricWrapper::MuonLifetime(this) => MetricWrapper::MuonLifetime(this),
             MetricWrapper::PulseHeightSpectra(this) => MetricWrapper::PulseHeightSpectra(this),
             MetricWrapper::PulsePairTimeDiff(this) => MetricWrapper::PulsePairTimeDiff(this),
+            MetricWrapper::ClusterCount(this) => MetricWrapper::ClusterCount(this),
         }
     }
 
@@ -240,6 +257,9 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
             (Self::PulsePairTimeDiff(this), MetricWrapper::PulsePairTimeDiff(that)) => {
                 MetricWrapper::PulsePairTimeDiff((this, that))
             }
+            (Self::ClusterCount(this), MetricWrapper::ClusterCount(that)) => {
+                MetricWrapper::ClusterCount((this, that))
+            }
             _ => return None,
         })
     }
@@ -252,6 +272,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
     /// - muon_lifetime_map: function applied to the `MuonLifetime` variant.
     /// - pulse_height_spectra_map: function applied to the `PulseHeightSpectra` variant.
     /// - pulse_pair_time_diff_map: function applied to the `PulsePairTimeDiff` variant.
+    /// - cluster_count_map: function applied to the `ClusterCount` variant.
     pub(crate) fn fold<
         T,
         FE: Fn(Types::EventCount) -> T,
@@ -259,6 +280,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         FM: Fn(Types::MuonLifetime) -> T,
         FP: Fn(Types::PulseHeightSpectra) -> T,
         FD: Fn(Types::PulsePairTimeDiff) -> T,
+        FC: Fn(Types::ClusterCount) -> T,
     >(
         self,
         event_count_map: FE,
@@ -266,6 +288,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         muon_lifetime_map: FM,
         pulse_height_spectra_map: FP,
         pulse_pair_time_diff_map: FD,
+        cluster_count_map: FC,
     ) -> T {
         match self {
             Self::EventCount(this) => event_count_map(this),
@@ -273,6 +296,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
             Self::MuonLifetime(this) => muon_lifetime_map(this),
             Self::PulseHeightSpectra(this) => pulse_height_spectra_map(this),
             Self::PulsePairTimeDiff(this) => pulse_pair_time_diff_map(this),
+            Self::ClusterCount(this) => cluster_count_map(this),
         }
     }
 
@@ -284,6 +308,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
     /// - muon_lifetime_map: function applied to the `MuonLifetime` variant.
     /// - pulse_height_spectra_map: function applied to the `PulseHeightSpectra` variant.
     /// - pulse_pair_time_diff_map: function applied to the `PulsePairTimeDiff` variant.
+    /// - cluster_count_map: function applied to the `ClusterCount` variant.
     pub(crate) fn map<
         OtherTypes: ListOfMetrics,
         FE: Fn(Types::EventCount) -> OtherTypes::EventCount,
@@ -291,6 +316,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         FM: Fn(Types::MuonLifetime) -> OtherTypes::MuonLifetime,
         FP: Fn(Types::PulseHeightSpectra) -> OtherTypes::PulseHeightSpectra,
         FD: Fn(Types::PulsePairTimeDiff) -> OtherTypes::PulsePairTimeDiff,
+        FC: Fn(Types::ClusterCount) -> OtherTypes::ClusterCount,
     >(
         self,
         event_count_map: FE,
@@ -298,6 +324,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         muon_lifetime_map: FM,
         pulse_height_spectra_map: FP,
         pulse_pair_time_diff_map: FD,
+        cluster_count_map: FC,
     ) -> MetricWrapper<OtherTypes> {
         self.fold(
             |this| MetricWrapper::EventCount(event_count_map(this)),
@@ -305,6 +332,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
             |this| MetricWrapper::MuonLifetime(muon_lifetime_map(this)),
             |this| MetricWrapper::PulseHeightSpectra(pulse_height_spectra_map(this)),
             |this| MetricWrapper::PulsePairTimeDiff(pulse_pair_time_diff_map(this)),
+            |this| MetricWrapper::ClusterCount(cluster_count_map(this)),
         )
     }
 
@@ -316,6 +344,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
     /// - muon_lifetime_map: function applied to the `MuonLifetime` variant.
     /// - pulse_height_spectra_map: function applied to the `PulseHeightSpectra` variant.
     /// - pulse_pair_time_diff_map: function applied to the `PulsePairTimeDiff` variant.
+    /// - cluster_count_map: function applied to the `ClusterCount` variant.
     pub(crate) fn try_map<
         OtherTypes: ListOfMetrics,
         FE: Fn(Types::EventCount) -> Result<OtherTypes::EventCount, EE>,
@@ -323,12 +352,14 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         FM: Fn(Types::MuonLifetime) -> Result<OtherTypes::MuonLifetime, EM>,
         FP: Fn(Types::PulseHeightSpectra) -> Result<OtherTypes::PulseHeightSpectra, EP>,
         FD: Fn(Types::PulsePairTimeDiff) -> Result<OtherTypes::PulsePairTimeDiff, ED>,
+        FC: Fn(Types::ClusterCount) -> Result<OtherTypes::ClusterCount, EC>,
         Error,
         EE: Into<Error>,
         EF: Into<Error>,
         EM: Into<Error>,
         EP: Into<Error>,
         ED: Into<Error>,
+        EC: Into<Error>,
     >(
         self,
         event_count_map: FE,
@@ -336,6 +367,7 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
         muon_lifetime_map: FM,
         pulse_height_spectra_map: FP,
         pulse_pair_time_diff_map: FD,
+        cluster_count_map: FC,
     ) -> Result<MetricWrapper<OtherTypes>, Error> {
         self.fold(
             |this| {
@@ -363,6 +395,11 @@ impl<Types: ListOfMetrics> MetricWrapper<Types> {
                     .map(MetricWrapper::PulsePairTimeDiff)
                     .map_err(Into::into)
             },
+            |this| {
+                cluster_count_map(this)
+                    .map(MetricWrapper::ClusterCount)
+                    .map_err(Into::into)
+            },
         )
     }
 }
@@ -386,6 +423,8 @@ pub(crate) enum MetricWrapperWithTag<Types: ListOfMetrics> {
     PulseHeightSpectra(Types::PulseHeightSpectra),
     #[serde(rename_all = "kebab-case")]
     PulsePairTimeDiff(Types::PulsePairTimeDiff),
+    #[serde(rename_all = "kebab-case")]
+    ClusterCount(Types::ClusterCount),
 }
 
 impl<T: ListOfMetrics> MetricWrapperWithTag<T> {
@@ -399,6 +438,7 @@ impl<T: ListOfMetrics> MetricWrapperWithTag<T> {
                 MetricWrapper::PulseHeightSpectra(this)
             }
             MetricWrapperWithTag::PulsePairTimeDiff(this) => MetricWrapper::PulsePairTimeDiff(this),
+            MetricWrapperWithTag::ClusterCount(this) => MetricWrapper::ClusterCount(this),
         }
     }
 }

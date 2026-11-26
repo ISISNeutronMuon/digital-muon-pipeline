@@ -13,6 +13,7 @@ use crate::{
     },
 };
 use digital_muon_common::Channel;
+use digital_muon_streaming_types::FrameMetadata;
 use nalgebra::DVector;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -75,6 +76,7 @@ impl PartialMetric for PartialMuonLifetime {
         &mut self,
         source: &ResolvedMetricShell<Self::Source>,
         channel: Channel,
+        _metadata: &FrameMetadata,
         collection_by_topic: &ChannelDataByTopic,
     ) {
         for (time, _) in collection_by_topic
