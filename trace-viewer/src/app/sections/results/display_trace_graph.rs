@@ -32,30 +32,35 @@ pub(crate) fn DisplayTrace() -> impl IntoView {
 pub(crate) fn DisplayGraph(trace_plotly: TracePlotly) -> impl IntoView {
     let TracePlotly {
         title,
-        trace_data,
-        eventlist_data,
-        layout,
+        json,
+        file,
+        csv,
     } = trace_plotly;
-
-    let data = if eventlist_data.is_empty() {
-        trace_data
-    } else {
-        format!("{trace_data}, {}", eventlist_data.join(","))
-    };
 
     view! {
         <div class = "content trace-graph" id = "trace-graph">
             <div class = "trace-graph-title">
-                {title}
+                {title.clone()}
             </div>
-            <div id="trace-graph" class="plotly-graph-div"></div>
-            <script type="text/javascript" inner_html = {format!("
-                var data = [{data}];
-                var layout = {layout};
-                var config = {{ 'scrollZoom': true}};
-                Plotly.newPlot('trace-graph', data, layout, config);
-            ")}>
-            </script>
+            <div class = "trace-graph-button">
+                <div class = "trace-graph-buttons">
+                    <a href = {format!("data:text/html;charset=utf-8,{}", csv)} download=format!("Trace of {title}.csv")>
+                        Download CSV
+                    </a>
+                </div>
+                <div class = "trace-graph-button">
+                    <a href = {format!("data:text/html;charset=utf-8,{}", file)} download=format!("Trace of {title}.html")>
+                        Download HTML
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div id="trace-graph" class="plotly-graph-div"></div>
+                <script type="text/javascript" inner_html = {
+                    format!("Plotly.newPlot('trace-graph', {});", json)
+                }>
+                </script>
+            </div>
         </div>
     }
 }

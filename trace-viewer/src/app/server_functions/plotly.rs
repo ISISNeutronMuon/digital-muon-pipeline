@@ -61,7 +61,7 @@ cfg_if! {
             Channel
         };
         use plotly::{
-            Layout, Scatter, Trace,
+            Layout, Scatter, Plot,
             color::NamedColor,
             common::{Line, Marker, MarkerSymbol, Mode},
             layout::{Axis, ModeBar},
@@ -90,6 +90,17 @@ cfg_if! {
                 .x_axis(Axis::new().title("Time (ns)"))
                 .y_axis(Axis::new().title("Intensity"));
 
+            let trace_data = trace.iter().map(ToString::to_string).collect::<Vec<_>>().join(",");
+            let eventlists_data = eventlists
+                .iter()
+                .map(|(_,eventlist)|
+                    format!("{}\n{}",
+                        eventlist.iter().map(|e|e.time.to_string()).collect::<Vec<_>>().join(","),
+                        eventlist.iter().map(|e|e.intensity.to_string()).collect::<Vec<_>>().join(",")
+                    )
+                ).collect::<Vec<_>>();
+            let csv = format!("{trace_data}\n{}", eventlists_data.join("\n"));
+
             let trace = Scatter::new(
                 (0..trace.len()).collect::<Vec<_>>(),
                 trace.clone(),
@@ -113,11 +124,20 @@ cfg_if! {
                 .name(format!{"Events: {event_topic}"})
             );
 
+
+            let mut plot = Plot::new();
+            plot.add_trace(trace.clone());
+            for eventlist in eventlists.clone() {
+                plot.add_trace(eventlist);
+            }
+            plot.set_layout(layout);
+
+
             Ok(TracePlotly {
                 title: format!("Channel {} from Digitiser {}", channel, metadata.id),
-                trace_data: trace.to_json(),
-                eventlist_data: eventlists.map(|eventlist|eventlist.to_json()).collect(),
-                layout: layout.to_json(),
+                json: plot.to_json(),
+                file: plot.to_html(),
+                csv,
             })
         }
     }

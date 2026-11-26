@@ -52,10 +52,12 @@ pub struct SelectedTraceIndex {
 pub struct TracePlotly {
     /// Text to be displayed as a graph heading.
     pub title: String,
-    /// Json string of the trace data plotly graph.
-    pub trace_data: String,
-    /// If present, Json string of the event list data plotly graph.
-    pub eventlist_data: Vec<String>,
-    /// Json string of the plotly layout to use.
-    pub layout: String,
+    /// Json string of the plotly graph.
+    pub json: String,
+    /// Content of the downloadable html file of the plotly graph.
+    pub file: String,
+    /// Raw trace and eventlist data.
+    ///
+    /// Top line is the trace waveform, subsequent pairs of lines occupy the eventlist times and intensities respectively.
+    pub csv: String,
 }

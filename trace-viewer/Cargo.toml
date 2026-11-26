@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 actix-files = { workspace = true, optional = true }
 actix-web = { workspace = true, optional = true }
+build_html = { workspace = true, optional = false }
 cfg-if.workspace = true
 chrono = { workspace = true, optional = false }
 clap = { workspace = true, optional = true }
