@@ -22,7 +22,7 @@ mod error;
 mod file_writer;
 mod trace_data;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use clap::Parser;
 use digital_muon_common::{
     CommonKafkaOpts, init_tracer,
@@ -107,6 +107,16 @@ struct Cli {
     /// parallel pipeline instances.
     #[clap(long, default_value = "")]
     otel_namespace: String,
+
+    /// Terminates when the difference between the next message's frame number
+    /// and the first message's frame number equals this value.
+    #[clap(long)]
+    terminate_on_frame_count: Option<usize>,
+
+    /// Terminates when the difference between the next message's timestamp
+    /// and the first message's timestamp equals this number of milliseconds.
+    #[clap(long)]
+    terminate_on_duration_ms: Option<usize>,
 }
 
 #[tokio::main]
@@ -196,6 +206,9 @@ async fn main() -> miette::Result<()> {
                         if let Some(payload) = msg.payload() {
                             if msg.topic() == args.trace_topic {
                                 handle_trace_message(payload, writer.as_mut());
+                                if handle_termination_conditions(args, writer.as_ref()) {
+                                    return Ok(())
+                                }
                             } else if args.control_topic.as_deref() == Some(msg.topic()) {
                                 handle_control_message(
                                     payload,
@@ -452,4 +465,10 @@ fn handle_control_message(
         )
         .increment(1);
     }
+}
+
+fn handle_termination_conditions(args: &Cli, writer: &TraceFileWriter) {
+    
+    args.terminate_on_duration_ms.is_some_and(|ms|writer.get_duration_ms() > ms)
+     || args.terminate_on_frame_count.is_some_and(|fc|writer.get_frame_count() > fc)
 }

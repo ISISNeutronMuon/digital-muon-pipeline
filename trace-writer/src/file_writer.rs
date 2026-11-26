@@ -14,6 +14,7 @@
 //! ```
 
 use crate::{digitiser_data::DigitizerData, error::TraceWriterError};
+use chrono::{DateTime, Utc};
 use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::DigitizerAnalogTraceMessage;
 use hdf5::{Extents, File};
 use std::{collections::HashMap, path::Path};
@@ -29,6 +30,8 @@ pub(crate) struct TraceFileWriter {
     chunk_size: usize,
     /// Map of digitisers that have previously been encountered.
     digitizers: HashMap<u8, DigitizerData>,
+    /// Timestamp of first message received.
+    initial_timestamp: Option<DateTime<Utc>>,
 }
 
 impl TraceFileWriter {
@@ -51,6 +54,7 @@ impl TraceFileWriter {
             file,
             chunk_size,
             digitizers: HashMap::new(),
+            initial_timestamp: None
         })
     }
 
@@ -66,6 +70,7 @@ impl TraceFileWriter {
             file,
             chunk_size: 1,
             digitizers: HashMap::new(),
+            initial_timestamp: None
         })
     }
 
@@ -91,7 +96,14 @@ impl TraceFileWriter {
             .expect("digitizer was just inserted");
         dig_data.write_trace(msg, self.chunk_size)?;
 
+        if self.initial_timestamp.is_none() {
+            self.initial_timestamp = msg.metadata().timestamp().cloned().map(Into::into);
+        }
         Ok(())
+    }
+
+    pub(crate) fn get_duration_ms(&self) -> usize {
+
     }
 
     /// Flushes all pending writes to disk.
