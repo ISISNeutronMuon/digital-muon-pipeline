@@ -13,8 +13,13 @@
 //!     channel_{n}   : [VarLenArray<u16>] – voltage trace per message (variable length)
 //! ```
 
-use crate::{digitiser_data::DigitizerData, error::TraceWriterError};
-use digital_muon_streaming_types::dat2_digitizer_analog_trace_v2_generated::DigitizerAnalogTraceMessage;
+use crate::{digitiser_data::DigitizerData, error::TraceWriterError, termination::FirstAndLatest};
+use chrono::{DateTime, Utc};
+use digital_muon_common::FrameNumber;
+use digital_muon_streaming_types::{
+    dat2_digitizer_analog_trace_v2_generated::DigitizerAnalogTraceMessage,
+    frame_metadata_v2_generated::FrameMetadataV2,
+};
 use hdf5::{Extents, File};
 use std::{collections::HashMap, path::Path};
 
@@ -29,6 +34,10 @@ pub(crate) struct TraceFileWriter {
     chunk_size: usize,
     /// Map of digitisers that have previously been encountered.
     digitizers: HashMap<u8, DigitizerData>,
+    /// Timestamp of first and latest message received.
+    timestamp: Option<FirstAndLatest<DateTime<Utc>>>,
+    /// Frame number of first and latest message received.
+    frame_number: Option<FirstAndLatest<FrameNumber>>,
 }
 
 impl TraceFileWriter {
@@ -51,6 +60,8 @@ impl TraceFileWriter {
             file,
             chunk_size,
             digitizers: HashMap::new(),
+            timestamp: None,
+            frame_number: None,
         })
     }
 
@@ -66,6 +77,8 @@ impl TraceFileWriter {
             file,
             chunk_size: 1,
             digitizers: HashMap::new(),
+            timestamp: None,
+            frame_number: None,
         })
     }
 
@@ -91,7 +104,56 @@ impl TraceFileWriter {
             .expect("digitizer was just inserted");
         dig_data.write_trace(msg, self.chunk_size)?;
 
+        self.set_termination_data(&msg.metadata());
         Ok(())
+    }
+
+    /// Extracts and sets the termination criteria data from the metadata of a message.
+    /// That is, sets the latest timestamp and frame number (and initials if necessary)
+    /// from the given metadata.
+    ///
+    /// # Parameters
+    /// - metadata: metadata of the latest message received.
+    ///
+    /// # Assumptions
+    /// As this method should be called after the initial trace write,
+    /// this method assumes the timestamp is valid and present.
+    fn set_termination_data(&mut self, metadata: &FrameMetadataV2) {
+        // Optain timestamp if possible.
+        let new_latest_timestamp: DateTime<_> = metadata
+            .timestamp()
+            .cloned()
+            .expect("Timestamp should exist, this should never fail.")
+            .try_into()
+            .expect("Timestamp should be valid, this should never fail.");
+
+        if let Some(first_and_latest) = &mut self.timestamp {
+            // Set latest timestamp only.
+            first_and_latest.update(new_latest_timestamp);
+        } else {
+            // Set initial and latest timestamps.
+            self.timestamp = FirstAndLatest::new(new_latest_timestamp);
+        }
+
+        if let Some(first_and_latest) = &mut self.frame_number {
+            // Set latest frame number only.
+            first_and_latest.update(metadata.frame_number());
+        } else {
+            // Set initial and latest frame numbers.
+            self.frame_number = FirstAndLatest::new(metadata.frame_number());
+        }
+    }
+
+    pub(crate) fn get_duration_ms(&self) -> Option<i64> {
+        self.timestamp
+            .as_ref()
+            .map(FirstAndLatest::get_difference_ms)
+    }
+
+    pub(crate) fn get_frame_count(&self) -> Option<i32> {
+        self.frame_number
+            .as_ref()
+            .map(FirstAndLatest::get_frames_difference)
     }
 
     /// Flushes all pending writes to disk.
