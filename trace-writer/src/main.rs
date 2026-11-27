@@ -22,7 +22,7 @@ mod error;
 mod file_writer;
 mod trace_data;
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use clap::Parser;
 use digital_muon_common::{
     CommonKafkaOpts, init_tracer,
@@ -111,12 +111,12 @@ struct Cli {
     /// Terminates when the difference between the next message's frame number
     /// and the first message's frame number equals this value.
     #[clap(long)]
-    terminate_on_frame_count: Option<usize>,
+    terminate_on_frame_count: Option<i32>,
 
     /// Terminates when the difference between the next message's timestamp
     /// and the first message's timestamp equals this number of milliseconds.
     #[clap(long)]
-    terminate_on_duration_ms: Option<usize>,
+    terminate_on_duration_ms: Option<i64>,
 }
 
 #[tokio::main]
@@ -206,7 +206,7 @@ async fn main() -> miette::Result<()> {
                         if let Some(payload) = msg.payload() {
                             if msg.topic() == args.trace_topic {
                                 handle_trace_message(payload, writer.as_mut());
-                                if handle_termination_conditions(args, writer.as_ref()) {
+                                if handle_termination_conditions(args.terminate_on_duration_ms, args.terminate_on_frame_count, writer.as_ref()) {
                                     return Ok(())
                                 }
                             } else if args.control_topic.as_deref() == Some(msg.topic()) {
@@ -467,8 +467,140 @@ fn handle_control_message(
     }
 }
 
-fn handle_termination_conditions(args: &Cli, writer: &TraceFileWriter) {
-    
-    args.terminate_on_duration_ms.is_some_and(|ms|writer.get_duration_ms() > ms)
-     || args.terminate_on_frame_count.is_some_and(|fc|writer.get_frame_count() > fc)
+fn handle_termination_conditions(
+    terminate_on_duration_ms: Option<i64>,
+    terminate_on_frame_count: Option<i32>,
+    writer: Option<&TraceFileWriter>,
+) -> bool {
+    Option::zip(
+        writer.map(TraceFileWriter::get_duration_ms),
+        writer.map(TraceFileWriter::get_frame_count),
+    )
+    .is_some_and(|(duration_ms, frame_count)| {
+        let terminate_for_timestamp = terminate_on_duration_ms.is_some_and(|terminate_at_ms| {
+            duration_ms.is_some_and(|current_ms| current_ms > terminate_at_ms)
+        });
+
+        let terminate_for_frame_count = terminate_on_frame_count.is_some_and(|terminate_at_fc| {
+            frame_count.is_some_and(|current_fc| current_fc > terminate_at_fc)
+        });
+
+        terminate_for_timestamp || terminate_for_frame_count
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{DateTime, TimeDelta, Utc};
+    use digital_muon_common::FrameNumber;
+    use digital_muon_streaming_types::{
+        dat2_digitizer_analog_trace_v2_generated::{
+            DigitizerAnalogTraceMessage, DigitizerAnalogTraceMessageArgs,
+            finish_digitizer_analog_trace_message_buffer, root_as_digitizer_analog_trace_message,
+        },
+        flatbuffers::FlatBufferBuilder,
+        frame_metadata_v2_generated::{FrameMetadataV2, FrameMetadataV2Args},
+    };
+
+    use crate::{file_writer::TraceFileWriter, handle_termination_conditions};
+
+    fn create_message<'a>(
+        fbb: &'a mut FlatBufferBuilder,
+        time: DateTime<Utc>,
+        frame_number: FrameNumber,
+    ) -> DigitizerAnalogTraceMessage<'a> {
+        fbb.reset();
+        let time = time.into();
+        let metadata = FrameMetadataV2Args {
+            frame_number,
+            timestamp: Some(&time),
+            period_number: 0,
+            protons_per_pulse: 0,
+            running: true,
+            veto_flags: 0,
+        };
+        let message = DigitizerAnalogTraceMessageArgs {
+            digitizer_id: 0,
+            metadata: Some(FrameMetadataV2::create(fbb, &metadata)),
+            sample_rate: 1_000_000_000,
+            channels: None,
+        };
+        let message = DigitizerAnalogTraceMessage::create(fbb, &message);
+        finish_digitizer_analog_trace_message_buffer(fbb, message);
+        root_as_digitizer_analog_trace_message(fbb.finished_data()).unwrap()
+    }
+
+    #[test]
+    fn test_handle_termination_conditions() {
+        let mut fbb = FlatBufferBuilder::new();
+        let mut writer = TraceFileWriter::new_temp("Null").unwrap();
+
+        assert!(!handle_termination_conditions(Some(5), None, Some(&writer)));
+
+        let time = Utc::now();
+        let message = create_message(&mut fbb, time, 0);
+        writer.write_trace_message(&message).unwrap();
+        // Should not terminate.
+        assert!(!handle_termination_conditions(None, None, None));
+        assert!(!handle_termination_conditions(Some(0), Some(1), None));
+        assert!(!handle_termination_conditions(None, None, Some(&writer)));
+        assert!(!handle_termination_conditions(Some(0), None, Some(&writer)));
+        assert!(!handle_termination_conditions(
+            Some(0),
+            Some(0),
+            Some(&writer)
+        ));
+        assert!(!handle_termination_conditions(
+            Some(0),
+            Some(1),
+            Some(&writer)
+        ));
+        assert!(!handle_termination_conditions(Some(5), None, Some(&writer)));
+
+        let time = time.checked_add_signed(TimeDelta::milliseconds(5)).unwrap();
+        let message = create_message(&mut fbb, time, 0);
+        writer.write_trace_message(&message).unwrap();
+        // Should not terminate.
+        assert!(!handle_termination_conditions(Some(5), None, Some(&writer)));
+        assert!(!handle_termination_conditions(
+            Some(5),
+            Some(0),
+            Some(&writer)
+        ));
+        assert!(!handle_termination_conditions(
+            Some(5),
+            Some(1),
+            Some(&writer)
+        ));
+        // Should terminate.
+        assert!(handle_termination_conditions(Some(4), None, Some(&writer)));
+
+        let time = time.checked_add_signed(TimeDelta::milliseconds(1)).unwrap();
+        let message = create_message(&mut fbb, time, 0);
+        writer.write_trace_message(&message).unwrap();
+        // Should terminate.
+        assert!(handle_termination_conditions(Some(5), None, Some(&writer)));
+
+        let message = create_message(&mut fbb, time, 1);
+        writer.write_trace_message(&message).unwrap();
+        // Should not terminate.
+        assert!(!handle_termination_conditions(Some(6), None, Some(&writer)));
+        assert!(!handle_termination_conditions(
+            Some(6),
+            Some(1),
+            Some(&writer)
+        ));
+        assert!(!handle_termination_conditions(None, Some(1), Some(&writer)));
+        assert!(!handle_termination_conditions(None, None, Some(&writer)));
+        // Should terminate.
+        assert!(handle_termination_conditions(None, Some(0), Some(&writer)));
+
+        let message = create_message(&mut fbb, time, 2);
+        writer.write_trace_message(&message).unwrap();
+        // Should not terminate.
+        assert!(!handle_termination_conditions(None, Some(2), Some(&writer)));
+        // Should terminate.
+        assert!(handle_termination_conditions(None, Some(0), Some(&writer)));
+        assert!(handle_termination_conditions(None, Some(1), Some(&writer)));
+    }
 }
