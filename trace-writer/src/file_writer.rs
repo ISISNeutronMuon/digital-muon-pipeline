@@ -13,7 +13,7 @@
 //!     channel_{n}   : [VarLenArray<u16>] – voltage trace per message (variable length)
 //! ```
 
-use crate::{digitiser_data::DigitizerData, error::TraceWriterError};
+use crate::{digitiser_data::DigitizerData, error::TraceWriterError, termination::FirstAndLatest};
 use chrono::{DateTime, Utc};
 use digital_muon_common::FrameNumber;
 use digital_muon_streaming_types::{
@@ -22,42 +22,6 @@ use digital_muon_streaming_types::{
 };
 use hdf5::{Extents, File};
 use std::{collections::HashMap, path::Path};
-
-/// Contains two metadata values of the same type, to represent
-/// the first and latest value of the messages received.
-/// 
-/// In usage, `T` is intended to be either the timestamp or frame number.
-struct FirstAndLatest<T> {
-    /// First metadata value received by the trace writer.
-    first: T,
-    /// Last metadata value received by the trace writer.
-    latest: T,
-}
-
-impl<T: Copy> FirstAndLatest<T> {
-    /// Create new struct from initial metadata value.
-    fn new(data: T) -> Option<Self> {
-        Some( FirstAndLatest { first: data, latest: data })
-    }
-}
-
-impl FirstAndLatest<DateTime<Utc>> {
-    /// Get the difference in duration between the first and latest timestamp.
-    /// 
-    /// Note there is currently no error checking for non-monotonic timestamps.
-    pub(crate) fn get_difference_ms(&self) -> i64 {
-        (self.latest - self.first).num_milliseconds()
-    }
-}
-
-impl FirstAndLatest<FrameNumber> {
-    /// Get the difference in frame count between the first and latest message.
-    /// 
-    /// Note there is currently no error checking for non-monotonic frame numbers.
-    pub(crate) fn get_frames_difference(&self) -> i32 {
-        (self.latest - self.first) as i32
-    }
-}
 
 /// Manages one open HDF5 file for writing digitiser trace data.
 ///
@@ -165,7 +129,7 @@ impl TraceFileWriter {
 
         if let Some(first_and_latest) = &mut self.timestamp {
             // Set latest timestamp only.
-            first_and_latest.latest = new_latest_timestamp;
+            first_and_latest.update(new_latest_timestamp);
         } else {
             // Set initial and latest timestamps.
             self.timestamp = FirstAndLatest::new(new_latest_timestamp);
@@ -173,7 +137,7 @@ impl TraceFileWriter {
 
         if let Some(first_and_latest) = &mut self.frame_number {
             // Set latest frame number only.
-            first_and_latest.latest = metadata.frame_number();
+            first_and_latest.update(metadata.frame_number());
         } else {
             // Set initial and latest frame numbers.
             self.frame_number = FirstAndLatest::new(metadata.frame_number());
