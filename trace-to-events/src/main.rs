@@ -15,7 +15,7 @@ mod test_data;
 
 use crate::processing::DigitiserMessageProcessor;
 use chrono::{DateTime, Utc};
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use const_format::concatcp;
 use digital_muon_common::{
     CommonKafkaOpts, init_tracer,
@@ -42,7 +42,7 @@ use digital_muon_streaming_types::{
 use metrics::{counter, describe_counter, describe_gauge, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use miette::IntoDiagnostic;
-use parameters::DetectorSettings;
+use parameters::{DetectorSettings, validate_config_schema};
 use rdkafka::{
     Message, Offset, TopicPartitionList,
     consumer::{CommitMode, Consumer, StreamConsumer},
@@ -50,7 +50,7 @@ use rdkafka::{
     producer::{DeliveryFuture, FutureProducer, FutureRecord},
     util::Timeout,
 };
-use std::{net::SocketAddr, time::Duration};
+use std::{fs::File, io::BufReader, net::SocketAddr, path::PathBuf, time::Duration};
 use tokio::{
     select,
     signal::unix::{Signal, SignalKind, signal},
@@ -80,6 +80,26 @@ struct SenderParameters<'a> {
 #[derive(Debug, Parser)]
 #[clap(author, version = digital_muon_common::version!(), about)]
 struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Debug, Subcommand)]
+#[allow(clippy::large_enum_variant)]
+enum Commands {
+    /// Run the trace-to-events service
+    Run(RunArgs),
+    /// Print the JSON Schema for the event formation configuration and exit
+    ConfigSchema,
+    /// Validate a configuration JSON file against the event formation JSON Schema and exit
+    ConfigVerify {
+        /// Path to the configuration JSON file to validate
+        file: PathBuf,
+    },
+}
+
+#[derive(Debug, Args)]
+struct RunArgs {
     #[clap(flatten)]
     common_kafka_options: CommonKafkaOpts,
 
@@ -99,6 +119,10 @@ struct Cli {
     #[clap(long)]
     config_topic: String,
 
+    /// Optional Kafka topic to which the event formation configuration JSON Schema is published on startup
+    #[clap(long)]
+    config_schema_topic: Option<String>,
+
     /// Size of the send eventlist buffer.
     /// If this limit is exceeded, the component will exit.
     #[clap(long, default_value = "1024")]
@@ -115,6 +139,53 @@ struct Cli {
     /// All OpenTelemetry spans are emitted with this as the "service.namespace" property. Can be used to track different instances of the pipeline running in parallel.
     #[clap(long, default_value = "")]
     otel_namespace: String,
+}
+
+fn resolve_config_schema_key(hostname: Option<String>) -> String {
+    hostname
+        .filter(|h| !h.is_empty())
+        .unwrap_or_else(|| "trace-to-events".to_string())
+}
+
+/// Publishes the event formation configuration JSON Schema (compact JSON) to the given topic on boot.
+#[instrument(skip_all)]
+async fn publish_config_schema(
+    producer: &FutureProducer,
+    config_schema_topic: &str,
+    use_otel: bool,
+) {
+    let schema = schemars::schema_for!(DetectorSettings);
+    let payload = match serde_json::to_vec(&schema) {
+        Ok(payload) => payload,
+        Err(e) => {
+            warn!("Failed to serialize configuration JSON Schema: {e}");
+            return;
+        }
+    };
+
+    let key = resolve_config_schema_key(std::env::var("HOSTNAME").ok());
+
+    let future_record = FutureRecord::to(config_schema_topic)
+        .payload(payload.as_slice())
+        .key(key.as_str())
+        .conditional_inject_current_span_into_headers(use_otel);
+
+    match producer
+        .send(future_record, Timeout::After(Duration::from_secs(5)))
+        .await
+    {
+        Ok(delivery) => {
+            info!(
+                "Published configuration JSON Schema to topic \"{config_schema_topic}\" (key=\"{key}\", partition={}, offset={})",
+                delivery.partition, delivery.offset
+            );
+        }
+        Err((e, _)) => {
+            warn!(
+                "Failed to publish configuration JSON Schema to topic \"{config_schema_topic}\": {e}"
+            );
+        }
+    }
 }
 
 /// Queries the config topic on boot, seeking the last/most recent message across all partitions,
@@ -230,7 +301,25 @@ async fn fetch_latest_config(
 
 #[tokio::main]
 async fn main() -> miette::Result<()> {
-    let args = Cli::parse();
+    let cli = Cli::parse();
+
+    let args = match cli.command {
+        Commands::Run(args) => args,
+        Commands::ConfigSchema => {
+            let schema = schemars::schema_for!(DetectorSettings);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&schema).into_diagnostic()?
+            );
+            return Ok(());
+        }
+        Commands::ConfigVerify { file } => {
+            let reader = BufReader::new(File::open(&file).into_diagnostic()?);
+            let instance: serde_json::Value = serde_json::from_reader(reader).into_diagnostic()?;
+            validate_config_schema(&instance)?;
+            return Ok(());
+        }
+    };
 
     let tracer = init_tracer!(TracerOptions::new(
         args.otel_endpoint.as_deref(),
@@ -246,6 +335,10 @@ async fn main() -> miette::Result<()> {
     );
 
     let producer: FutureProducer = client_config.create().into_diagnostic()?;
+
+    if let Some(ref config_schema_topic) = args.config_schema_topic {
+        publish_config_schema(&producer, config_schema_topic, tracer.use_otel()).await;
+    }
 
     let trace_consumer = digital_muon_common::create_default_consumer(
         &kafka_opts.broker,
@@ -675,4 +768,71 @@ async fn close_and_flush_producer_channel(
 async fn flush_eventlist(future: InstrumentedDeliveryFuture) -> Option<()> {
     produce_eventlist_to_kafka(future).await;
     Some(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_run_args_config_schema_topic_optional() {
+        let cli = Cli::try_parse_from([
+            "trace-to-events",
+            "run",
+            "--broker",
+            "localhost:9092",
+            "--consumer-group",
+            "cg",
+            "--trace-topic",
+            "traces",
+            "--event-topic",
+            "events",
+            "--config-topic",
+            "config",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Run(args) => assert_eq!(args.config_schema_topic, None),
+            _ => panic!("Expected Run subcommand"),
+        }
+
+        let cli_with_schema_topic = Cli::try_parse_from([
+            "trace-to-events",
+            "run",
+            "--broker",
+            "localhost:9092",
+            "--consumer-group",
+            "cg",
+            "--trace-topic",
+            "traces",
+            "--event-topic",
+            "events",
+            "--config-topic",
+            "config",
+            "--config-schema-topic",
+            "config-schema",
+        ])
+        .unwrap();
+
+        match cli_with_schema_topic.command {
+            Commands::Run(args) => {
+                assert_eq!(args.config_schema_topic.as_deref(), Some("config-schema"))
+            }
+            _ => panic!("Expected Run subcommand"),
+        }
+    }
+
+    #[test]
+    fn test_resolve_config_schema_key() {
+        assert_eq!(
+            resolve_config_schema_key(Some("trace-to-events-pod-abc".to_string())),
+            "trace-to-events-pod-abc"
+        );
+        assert_eq!(
+            resolve_config_schema_key(Some(String::new())),
+            "trace-to-events"
+        );
+        assert_eq!(resolve_config_schema_key(None), "trace-to-events");
+    }
 }
